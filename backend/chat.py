@@ -678,10 +678,15 @@ async def get_data_for_story(
     arguments = {**arguments, **extracted_params}
     
     # Determine which tool will be used based on question keywords
-    if any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
-        tool_name = "get_demographic_breakdown"
-    elif any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
+    # Note: Be careful with keyword matching to avoid false positives
+    # e.g., "last 10 years" contains "year" but should use get_population_data, not get_population_trends
+    
+    # Check for explicit trend/over-time indicators first
+    trend_keywords = ["trend", "over time", "evolution", "change over time"]
+    if any(keyword in question_lower for keyword in trend_keywords):
         tool_name = "get_population_trends"
+    elif any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
+        tool_name = "get_demographic_breakdown"
     elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement"]):
         tool_name = "get_solutions"
     elif any(keyword in question_lower for keyword in ["rsd", "application", "submitted", "lodged"]):
