@@ -1,0 +1,76 @@
+# Docker ignore file for UNHCR Statistics Copilot
+
+# Ignore virtual environments
+**/.venv
+**/venv
+**/env
+**/.env
+
+# Ignore node modules
+**/node_modules
+
+# Ignore build directories
+**/dist
+**/build
+**/__pycache__
+
+# Ignore IDE files
+**/.vscode
+**/.idea
+**/.history
+
+# Ignore git files
+except .gitkeep
+.git
+.gitignore
+
+# Ignore logs and data
+**/logs
+**/*.log
+**/data
+
+# Ignore test files
+**/test
+**/*test*.py
+
+# Ignore Python bytecode
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Ignore DS_Store files
+**/.DS_Store
+
+# Ignore coverage files
+**/coverage
+**/.coverage
+
+# Ignore local development files
+**/local_settings.py
+**/settings_local.py
+
+# Ignore documentation build
+**/docs/_build
+
+# Ignore uploads and generated files
+except data/vector_store/unhcr_reports.duckdb
+**/uploads
+**/generated
+**/static
+
+# Ignore SSH keys and sensitive files
+**/id_rsa
+**/id_dsa
+**/id_ecdsa
+**/id_ed25519
+**/*.pem
+
+# Ignore Docker-related files (but keep Dockerfile itself)
+.dockerignore
+docker-compose*.yml
+
+# Ignore frontend development files
+except frontend/dist
+frontend/src
+frontend/public
+frontend/node_modules

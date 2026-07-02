@@ -1,0 +1,39 @@
+# Environment files
+.env
+.env.example
+.env.local
+backend/.env
+
+# Virtual environments
+backend/.venv/*
+
+# Build outputs
+frontend/dist/*
+frontend/node_modules/*
+
+# Python cache
+backend/__pycache__/*
+.arc/*
+.pytest_cache/* 
+backend/test/__pycache__/*
+backend/test/.pytest_cache/*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+data/analysis_history/*
+data/markdown_reports/*
+data/reports/*
+data/quarto_analyses/*
+data/vector_store/*

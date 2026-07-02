@@ -1,0 +1,23 @@
+{
+    "name": "unhcr-stat-copilot",
+    "private": true,
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@mui/material": "^9.1.2",
+        "plotly.js": "^3.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "react-plotly.js": "^2.6.0"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^5.0.0",
+        "vite": "^7.0.0"
+    }
+}

@@ -1,0 +1,92 @@
+{# Technical Report Template #}
+{% extends "base_quarto.j2" %}
+
+{% block content %}
+
+## Executive Summary
+
+{{ executive_summary | default("Comprehensive analysis of refugee trends and patterns.", true) }}
+
+## Objective
+
+{{ objective | default("To provide a rigorous, data-driven analysis of forcibly displaced populations.", true) }}
+
+## Methodology
+
+### Data Sources
+- UNHCR Population Statistics Database
+- {{ data_sources | join("\n- ") | default("Official UNHCR reports", true) }}
+
+### Analysis Period
+- {{ timespan | default("Last 10 years", true) }}
+
+### Methodological Approach
+{{ methodology | default("Quantitative analysis using official UNHCR statistics with qualitative context.", true) }}
+
+## Data Analysis
+
+### Key Findings
+{% if key_findings %}
+{% for finding in key_findings %}
+- {{ finding }}
+{% endfor %}
+{% else %}
+- Comprehensive analysis of refugee movements and trends
+- Identification of major displacement patterns
+- Assessment of host community impacts
+{% endif %}
+
+### Statistical Overview
+{% if statistics %}
+| Metric | Value |
+|--------|-------|
+{% for stat in statistics %}
+| {{ stat.metric }} | {{ stat.value }} |
+{% endfor %}
+{% else %}
+| Total Refugees | {{ total_refugees | default("N/A", true) }} |
+| Displacement Rate | {{ displacement_rate | default("N/A", true) }} |
+| Host Countries | {{ host_countries | default("Multiple", true) }} |
+{% endif %}
+
+## Results
+
+### Trend Analysis
+{{ trend_analysis | default("Detailed trend analysis showing patterns over time.", true) }}
+
+### Demographic Breakdown
+{% if demographics %}
+- **Age Groups**: {{ demographics.age_groups | join(", ") | default("Children, Adults, Elderly", true) }}
+- **Gender Distribution**: {{ demographics.gender_distribution | default("Balanced", true) }}
+- **Nationalities**: {{ demographics.nationalities | join(", ") | default("Multiple", true) }}
+{% else %}
+Comprehensive demographic analysis including age, gender, and nationality distributions.
+{% endif %}
+
+## Limitations
+
+{{ limitations | default("Analysis limited to available UNHCR data and reported figures.", true) }}
+
+## Recommendations
+
+{% if recommendations %}
+{% for recommendation in recommendations %}
+- {{ recommendation }}
+{% endfor %}
+{% else %}
+- Enhance data collection for more granular analysis
+- Expand monitoring of emerging displacement situations
+- Strengthen coordination with host governments
+{% endif %}
+
+## Annex
+
+### Technical Appendix
+{{ technical_appendix | default("Detailed technical methodology and data sources.", true) }}
+
+### Glossary
+- **Refugee**: Person fleeing conflict or persecution
+- **IDP**: Internally Displaced Person
+- **Asylum Seeker**: Person seeking international protection
+
+{% endblock %}

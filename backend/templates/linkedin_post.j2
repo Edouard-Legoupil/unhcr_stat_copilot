@@ -1,0 +1,105 @@
+{# LinkedIn Post Template #}
+{% extends "base_quarto.j2" %}
+
+{% block content %}
+
+## {{ headline | default("The Global Refugee Crisis: Key Insights and Trends", true) }}
+
+{{ introduction | default("As a data analyst working with refugee statistics, I want to share some important insights about the current global displacement situation.", true) }}
+
+## 📊 By the Numbers
+
+{% if statistics %}
+{% for stat in statistics %}
+- **{{ stat.label }}**: {{ stat.value }} {{ stat.notes | default("", true) }}
+{% endfor %}
+{% else %}
+- **Global Refugees**: {{ global_refugees | default("25+ million", true) }} people forcibly displaced
+- **New Displacements**: {{ new_displacements | default("10+ million annually", true) }} in recent years
+- **Children**: {{ children_percentage | default("40%", true) }} of refugees are under 18
+- **Host Countries**: {{ host_countries | default("85%", true) }} in developing nations
+{% endif %}
+
+## 🔍 Key Insights
+
+{% if insights %}
+{% for insight in insights %}
+### {{ insight.title }}
+{{ insight.description }}
+
+**Why it matters**: {{ insight.why_matters }}
+
+**Data source**: {{ insight.source | default("UNHCR Global Trends Report", true) }}
+
+{% endfor %}
+{% else %}
+### The Scale of Displacement
+The global refugee population has {{ trend | default("doubled", true) }} in the past decade, with {{ current_situation | default("complex, protracted crises", true) }} driving displacement.
+
+**Why it matters**: This represents {{ impact | default("one of the largest humanitarian challenges", true) }} of our time.
+
+**Data source**: UNHCR Global Trends Report 2023
+
+### Host Community Pressure
+{{ host_pressure | default("Developing countries host the vast majority", true) }} of refugees, often straining local resources and infrastructure.
+
+**Why it matters**: {{ host_impact | default("Balanced international support is crucial", true) }} for sustainable solutions.
+
+**Data source**: UNHCR Host Country Statistics
+
+### Protection Challenges
+Many refugees face {{ protection_challenges | default("legal and physical protection gaps", true) }}, particularly in {{ vulnerable_regions | default("conflict-affected areas", true) }}.
+
+**Why it matters**: {{ protection_importance | default("International protection frameworks must be strengthened", true) }}.
+
+**Data source**: UNHCR Protection Monitoring
+{% endif %}
+
+## 🎯 Professional Perspective
+
+{{ perspective | default("Working with refugee data has given me a deep appreciation for both the challenges and resilience of displaced populations.", true) }}
+
+**Key takeaways from the data**:
+{% if takeaways %}
+{% for takeaway in takeaways %}
+- {{ takeaway }}
+{% endfor %}
+{% else %}
+- Data-driven decision making is essential for effective refugee response
+- Long-term solutions require international cooperation and political will
+- Host communities need sustained support to maintain stability
+- Protection must be at the center of all refugee programs
+- Innovation in data collection can improve response effectiveness
+{% endif %}
+
+## 🤝 Call to Action
+
+{{ call_to_action | default("As professionals in data, technology, and humanitarian fields, we have a role to play in addressing this global challenge.", true) }}
+
+**Ways to get involved**:
+{% if involvement %}
+{% for item in involvement %}
+- **{{ item.title }}**: {{ item.description }}
+
+{% endfor %}
+{% else %}
+- **Advocate**: Use your professional network to raise awareness
+- **Donate**: Support organizations working with refugees
+- **Volunteer**: Offer your skills and expertise
+- **Innovate**: Develop data-driven solutions for refugee challenges
+- **Mentor**: Share knowledge with refugee professionals
+{% endif %}
+
+## 🌐 Let's Connect
+
+{{ closing | default("I'd love to hear your thoughts on how we can leverage data and technology to better support refugee populations.", true) }}
+
+**Share your insights** in the comments or connect with me to discuss:
+- Data-driven humanitarian solutions
+- Refugee protection challenges
+- Innovation in displacement response
+- The role of technology in refugee support
+
+#Refugees #DataForGood #HumanitarianTech #UNHCR #GlobalChallenges
+
+{% endblock %}

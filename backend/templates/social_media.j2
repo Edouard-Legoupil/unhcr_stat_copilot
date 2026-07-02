@@ -1,0 +1,65 @@
+{# Social Media Post Template #}
+{% extends "base_quarto.j2" %}
+
+{% block content %}
+
+## 🚨 {{ hook | default("URGENT: Refugee Crisis Update", true) }}
+
+{{ main_message | default("The latest data shows alarming trends in global displacement.", true) }}
+
+## 📊 Key Statistics
+
+{% if stats %}
+{% for stat in stats %}
+**{{ stat.label }}**: {{ stat.value }} {{ stat.unit | default("", true) }}
+{% endfor %}
+{% else %}
+**Total Refugees**: {{ total_refugees | default("25+ million", true) }}
+**New Displacements**: {{ new_displacements | default("10+ million/year", true) }}
+**Children Affected**: {{ children_affected | default("40%", true) }}
+{% endif %}
+
+## 💡 Why This Matters
+
+{{ why_matters | default("Every refugee represents a human story of survival and hope. Your support can make a difference.", true) }}
+
+## 🌍 Impact Areas
+
+{% if impact_areas %}
+{% for area in impact_areas %}
+- {{ area }}
+{% endfor %}
+{% else %}
+- Syria: {{ syria_impact | default("Ongoing crisis", true) }}
+- Yemen: {{ yemen_impact | default("Humanitarian emergency", true) }}
+- South Sudan: {{ south_sudan_impact | default("Food insecurity", true) }}
+- Myanmar: {{ myanmar_impact | default("Protection concerns", true) }}
+- Venezuela: {{ venezuela_impact | default("Regional displacement", true) }}
+{% endif %}
+
+## 🤝 How You Can Help
+
+{% if call_to_action %}
+{% for action in call_to_action %}
+**{{ action.title }}**: {{ action.description }}
+{{ action.link | default("", true) }}
+
+{% endfor %}
+{% else %}
+**Donate Now**: Support UNHCR's life-saving work
+👉 [Donate Link](#)
+
+**Share This Post**: Raise awareness about the refugee crisis
+👉 Share on your networks
+
+**Advocate**: Call for stronger protection policies
+👉 Contact your representatives
+{% endif %}
+
+## 📢 Spread the Word
+
+{{ share_message | default("Help us amplify the voices of refugees. Share this post to raise awareness about the global displacement crisis.", true) }}
+
+#Refugees #HumanRights #UNHCR #GlobalCrisis #TakeAction
+
+{% endblock %}

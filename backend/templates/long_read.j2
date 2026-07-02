@@ -1,0 +1,163 @@
+{# Long Read Report Template #}
+{% extends "base_quarto.j2" %}
+
+{% block content %}
+
+## Introduction
+
+{{ introduction | default("This report provides a comprehensive analysis of refugee situations and trends.", true) }}
+
+## Context
+
+{{ context | default("The global refugee crisis continues to evolve with complex challenges and humanitarian needs.", true) }}
+
+## Key Findings
+
+{% if key_findings %}
+{% for finding in key_findings %}
+### {{ finding.title | default("Finding", true) }}
+{{ finding.description }}
+
+**Data Points**:
+- {{ finding.data_points | join("\n- ") | default("Multiple indicators", true) }}
+
+**Implications**:
+- {{ finding.implications | join("\n- ") | default("Significant impact", true) }}
+
+{% endfor %}
+{% else %}
+### Refugee Population Trends
+The global refugee population has shown {{ trend | default("significant changes", true) }} over the past {{ timespan | default("5 years", true) }}.
+
+**Data Points**:
+- Total refugees: {{ total_refugees | default("Millions", true) }}
+- New displacements: {{ new_displacements | default("Hundreds of thousands", true) }}
+- Return rates: {{ return_rates | default("Varies by region", true) }}
+
+**Implications**:
+- Increased pressure on host communities
+- Need for enhanced international support
+- Long-term solutions required
+
+### Demographic Patterns
+Refugee populations show {{ demographic_trends | default("diverse patterns", true) }} across different regions.
+
+**Data Points**:
+- Age distribution: {{ age_distribution | default("Children dominant", true) }}
+- Gender balance: {{ gender_balance | default("Varies by conflict", true) }}
+- Nationalities: {{ nationalities | default("Multiple countries", true) }}
+
+**Implications**:
+- Targeted support programs needed
+- Cultural sensitivity requirements
+- Specific protection needs
+{% endif %}
+
+## Deep Dive Analysis
+
+### {{ analysis_title | default("Regional Analysis", true) }}
+
+{{ analysis_content | default("Detailed examination of refugee situations across different regions.", true) }}
+
+**Regional Breakdown**:
+{% if regions %}
+{% for region in regions %}
+- **{{ region.name }}**: {{ region.description }} ({{ region.population | default("N/A", true) }} refugees)
+  - Trends: {{ region.trends | default("Stable", true) }}
+  - Challenges: {{ region.challenges | default("Ongoing", true) }}
+
+{% endfor %}
+{% else %}
+- **Middle East**: Major refugee hosting region with {{ me_population | default("millions", true) }} refugees
+  - Trends: {{ me_trends | default("Ongoing conflicts", true) }}
+  - Challenges: {{ me_challenges | default("Resource constraints", true) }}
+
+- **Africa**: Complex displacement situations with {{ africa_population | default("millions", true) }} refugees
+  - Trends: {{ africa_trends | default("Mixed patterns", true) }}
+  - Challenges: {{ africa_challenges | default("Climate factors", true) }}
+
+- **Asia**: Diverse refugee populations with {{ asia_population | default("millions", true) }} refugees
+  - Trends: {{ asia_trends | default("Protracted situations", true) }}
+  - Challenges: {{ asia_challenges | default("Access issues", true) }}
+{% endif %}
+
+### {{ secondary_analysis | default("Temporal Trends", true) }}
+
+{{ temporal_analysis | default("Analysis of how refugee situations have evolved over time.", true) }}
+
+**Timeline**:
+{% if timeline %}
+{% for period in timeline %}
+- **{{ period.year }}**: {{ period.description }} ({{ period.change | default("N/A", true) }}% change)
+
+{% endfor %}
+{% else %}
+- **2020**: Major displacement events with {{ year2020_change | default("significant", true) }}% increase
+- **2021**: Continued growth with {{ year2021_change | default("moderate", true) }}% change
+- **2022**: Stabilization in some regions, {{ year2022_change | default("mixed", true) }}% overall
+- **2023**: Emerging new crises with {{ year2023_change | default("concerning", true) }}% trends
+{% endif %}
+
+## Implications
+
+### Humanitarian Impact
+
+{{ humanitarian_impact | default("Significant humanitarian consequences requiring international attention.", true) }}
+
+**Affected Groups**:
+- {{ affected_groups | join("\n- ") | default("Women, children, elderly", true) }}
+
+**Key Needs**:
+- {{ key_needs | join("\n- ") | default("Protection, shelter, food, healthcare", true) }}
+
+### Policy Implications
+
+{{ policy_implications | default("Important considerations for policy makers and decision makers.", true) }}
+
+**Recommendations**:
+{% if policy_recommendations %}
+{% for recommendation in policy_recommendations %}
+- {{ recommendation }}
+{% endfor %}
+{% else %}
+- Strengthen international cooperation
+- Increase funding for refugee programs
+- Enhance protection mechanisms
+- Support host communities
+- Invest in durable solutions
+{% endif %}
+
+### Future Outlook
+
+{{ future_outlook | default("Projections and scenarios for refugee situations in the coming years.", true) }}
+
+**Potential Scenarios**:
+{% if scenarios %}
+{% for scenario in scenarios %}
+- **{{ scenario.name }}**: {{ scenario.description }} (Probability: {{ scenario.probability | default("Medium", true) }})
+
+{% endfor %}
+{% else %}
+- **Optimistic**: Improved stability with {{ optimistic_change | default("20-30", true) }}% reduction in new displacements
+- **Baseline**: Current trends continue with {{ baseline_change | default("5-10", true) }}% annual growth
+- **Pessimistic**: New crises emerge with {{ pessimistic_change | default("30-50", true) }}% increase
+{% endif %}
+
+## Conclusion
+
+{{ conclusion | default("This analysis highlights the complex and evolving nature of global refugee situations.", true) }}
+
+**Key Takeaways**:
+{% if takeaways %}
+{% for takeaway in takeaways %}
+- {{ takeaway }}
+{% endfor %}
+{% else %}
+- Refugee situations remain a global challenge requiring sustained attention
+- Host communities need increased support and resources
+- Long-term solutions must be prioritized alongside emergency response
+- Data-driven decision making is essential for effective interventions
+- International cooperation remains crucial for addressing displacement crises
+{% endif %}
+
+{% endblock %}

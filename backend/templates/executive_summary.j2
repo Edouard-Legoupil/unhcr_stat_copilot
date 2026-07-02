@@ -1,0 +1,116 @@
+{# Executive Summary Template #}
+{% extends "base_quarto.j2" %}
+
+{% block content %}
+
+## {{ headline | default("Key Insights", true) }}
+
+{{ insight | default("This executive summary provides actionable insights from the latest refugee data.", true) }}
+
+## Key Statistics
+
+{% if statistics %}
+| Metric | Value | Trend |
+|--------|-------|-------|
+{% for stat in statistics %}
+| {{ stat.metric }} | {{ stat.value }} | {{ stat.trend | default("Stable", true) }} |
+{% endfor %}
+{% else %}
+| Total Refugees | {{ total_refugees | default("N/A", true) }} | {{ trend | default("Stable", true) }} |
+| New Displacements | {{ new_displacements | default("N/A", true) }} | {{ new_trend | default("Stable", true) }} |
+| Returns | {{ returns | default("N/A", true) }} | {{ return_trend | default("Stable", true) }} |
+{% endif %}
+
+## Impact Highlights
+
+{% if impacts %}
+{% for impact in impacts %}
+### {{ impact.title }}
+{{ impact.description }}
+
+- **Affected**: {{ impact.affected | default("N/A", true) }}
+- **Severity**: {{ impact.severity | default("Moderate", true) }}
+- **Response**: {{ impact.response | default("Ongoing", true) }}
+
+{% endfor %}
+{% else %}
+### Humanitarian Impact
+Significant humanitarian needs identified in {{ region | default("multiple regions", true) }}.
+
+- **Affected**: {{ affected_population | default("Thousands", true) }}
+- **Severity**: {{ severity | default("High", true) }}
+- **Response**: {{ response_status | default("Active", true) }}
+
+### Host Community Impact
+Host communities facing increased pressure from refugee inflows.
+
+- **Affected**: {{ host_communities | default("Multiple", true) }}
+- **Severity**: {{ host_severity | default("Moderate", true) }}
+- **Response**: {{ host_response | default("Support needed", true) }}
+{% endif %}
+
+## Call to Action
+
+{% if call_to_action %}
+{% for action in call_to_action %}
+- **{{ action.priority }}**: {{ action.description }}
+  - **Target**: {{ action.target | default("Immediate", true) }}
+  - **Resources**: {{ action.resources | default("Required", true) }}
+
+{% endfor %}
+{% else %}
+- **Urgent**: Increase funding for emergency response
+  - **Target**: Immediate
+  - **Resources**: ${{ funding_needed | default("5M", true) }}
+
+- **High**: Strengthen host community support
+  - **Target**: 3 months
+  - **Resources**: Partnerships required
+
+- **Medium**: Enhance data collection
+  - **Target**: 6 months
+  - **Resources**: Technical support needed
+{% endif %}
+
+## Strategic Recommendations
+
+{% if recommendations %}
+{% for recommendation in recommendations %}
+### {{ recommendation.title }}
+{{ recommendation.description }}
+
+**Benefits**:
+- {{ recommendation.benefits | join("\n- ") | default("Improved outcomes", true) }}
+
+**Implementation**:
+- **Timeline**: {{ recommendation.timeline | default("3-6 months", true) }}
+- **Resources**: {{ recommendation.resources | default("To be determined", true) }}
+
+{% endfor %}
+{% else %}
+### Enhance Response Capacity
+Strengthen UNHCR's ability to respond to emerging crises.
+
+**Benefits**:
+- Faster deployment
+- Better coordination
+- Improved outcomes
+
+**Implementation**:
+- **Timeline**: 3-6 months
+- **Resources**: Additional staff and funding
+
+### Improve Data Quality
+Enhance data collection and analysis capabilities.
+
+**Benefits**:
+- More accurate reporting
+- Better trend analysis
+- Improved decision making
+
+**Implementation**:
+- **Timeline**: 6-12 months
+- **Resources**: Technical expertise and tools
+{% endif %}
+
+{% endblock %}
