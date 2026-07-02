@@ -1,21 +1,29 @@
 # {{ title }}
 
 **Generated**: {{ generated_at }}
+{% if audience %}
 **Audience**: {{ audience }}
+{% endif %}
+{% if document_type %}
 **Document Type**: {{ document_type }}
+{% endif %}
 
-{{ content | safe }}
+{{ story_content | safe }}
 
 ## About This Analysis
 
 This analysis was automatically generated using the UNHCR Statistics Copilot.
 
-- **Tone**: {{ analysis_config.tone }}
-- **Length**: {{ analysis_config.length.wordRange }} words
-- **Reading Time**: {{ analysis_config.length.readingTime }}
-- **Structure**: {{ analysis_config.structure | join(' → ') }}
+{% if analysis_config %}
+- **Tone**: {{ analysis_config.tone | default("formal, precise, objective") }}
+{% if analysis_config.length %}
+- **Length**: {{ analysis_config.length.wordRange | default("1200-3000") }} words
+- **Reading Time**: {{ analysis_config.length.readingTime | default("6-15 min") }}
+{% endif %}
+- **Structure**: {{ analysis_config.structure | join(' → ') | default("N/A") }}
+{% endif %}
 
-{% if metadata.tools_used %}
+{% if metadata and metadata.tools_used %}
 ## Tools Used
 
 This analysis used {{ metadata.tools_used | length }} AI tools:

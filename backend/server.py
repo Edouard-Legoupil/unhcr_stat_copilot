@@ -2982,7 +2982,8 @@ def create_server() -> FastMCP:
             )
             
             # Select template based on document type if available in metadata
-            template_name = "base_quarto.j2"  # Default template
+            # Use quarto_notebook.j2 as default as it has the complete structure with YAML header
+            template_name = "quarto_notebook.j2"  # Default template
             if metadata and "document_type" in metadata:
                 doc_type = metadata["document_type"]
                 template_path = f"{doc_type}.j2"
@@ -2991,8 +2992,8 @@ def create_server() -> FastMCP:
                     env.get_template(template_path)
                     template_name = template_path
                 except TemplateNotFound:
-                    # Fall back to base template
-                    template_name = "base_quarto.j2"
+                    # Fall back to quarto_notebook template which has complete structure
+                    template_name = "quarto_notebook.j2"
             
             template = env.get_template(template_name)
             
@@ -3049,6 +3050,8 @@ def create_server() -> FastMCP:
                 "metadata": clean_metadata,
                 "analysis_config": analysis_config,
                 "generated_at": datetime.now().isoformat(),
+                "audience": metadata.get("audience") if metadata else None,
+                "document_type": metadata.get("document_type") if metadata else None,
                 # Default content for templates
                 "executive_summary": "Comprehensive analysis based on latest UNHCR data",
                 "objective": "Provide data-driven insights into refugee situations",
@@ -3510,7 +3513,58 @@ def create_server() -> FastMCP:
             question_lower = question.lower()
             
             # Route to appropriate data based on question keywords
-            if any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
+            # Note: Be careful with keyword matching to avoid false positives
+            # e.g., "last 10 years" contains "year" but should use get_population, not trends
+            
+            # Check for explicit trend/over-time indicators first
+            trend_keywords = ["trend", "over time", "evolution", "change over time"]
+            if any(keyword in question_lower for keyword in trend_keywords):
+                # Trend data question - use get_population with multiple years
+                # Ensure required parameters are present
+                if not coa:
+                    coa = "TUR"  # Default to Turkey
+                if not year:
+                    # Default to last 5 years
+                    current_year = datetime.now().year
+                    years_list = list(range(current_year - 4, current_year + 1))
+                    year = ",".join(str(y) for y in years_list)
+                
+                # Filter population_types if provided
+                if population_types is None:
+                    population_types = ["refugees"]
+                
+                # Get population data for trends analysis
+                result = api_client.get_population(
+                    coo=coo, coa=coa, year=year,
+                    coo_all=coo_all,
+                    coa_all=coa_all
+                )
+                
+                # Process into time series format for trends
+                if result.get('data'):
+                    time_series = {}
+                    for item in result['data']:
+                        year_val = item.get('year', 'unknown')
+                        pop_type = item.get('population_type', 'unknown')
+                        value = item.get('value', 0)
+                        
+                        if population_types and pop_type not in population_types:
+                            continue
+                        
+                        if year_val not in time_series:
+                            time_series[year_val] = {}
+                        time_series[year_val][pop_type] = value
+                    
+                    result = {
+                        'time_series': time_series,
+                        'country': result['data'][0].get('coa_name', 'Unknown'),
+                        'data_type': 'trends'
+                    }
+                else:
+                    result["data_type"] = "trends"
+                
+                return result
+            elif any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
                 # Demographic data question
                 # Ensure required parameters are present
                 if not coa:
@@ -3526,11 +3580,6 @@ def create_server() -> FastMCP:
                 )
                 result["data_type"] = "demographics"
                 return result
-            elif any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
-                # Trend data question - use get_population with multiple years
-                # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
                 if not year:
                     # Default to last 5 years
                     current_year = datetime.now().year

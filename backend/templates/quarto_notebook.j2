@@ -34,7 +34,31 @@ engine: jupyter
 {% else %}
 # {{ title }}
 
+{% if audience or document_type %}
+**Generated**: {{ timestamp }}
+{% if audience %}
+**Audience**: {{ audience }}
+{% endif %}
+{% if document_type %}
+**Document Type**: {{ document_type }}
+{% endif %}
+
+{% endif %}
 {{ story_content.strip() | escape_jinja }}
+{% endif %}
+
+{% if analysis_config %}
+## About This Analysis
+
+This analysis was automatically generated using the UNHCR Statistics Copilot.
+
+- **Tone**: {{ analysis_config.tone | default("formal, precise, objective") }}
+{% if analysis_config.length %}
+- **Length**: {{ analysis_config.length.wordRange | default("1200-3000") }} words
+- **Reading Time**: {{ analysis_config.length.readingTime | default("6-15 min") }}
+{% endif %}
+- **Structure**: {{ analysis_config.structure | join(' -> ') | default("N/A") }}
+
 {% endif %}
 
 {# Code cells section (optional) #}
@@ -43,34 +67,32 @@ engine: jupyter
 ## Code
 
 ```{python}
-#| label: setup
-#| echo: false
+ #| label: setup
+ #| echo: false
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 {% if use_unhcr_style %}
-# Apply UNHCR matplotlib style
-# pip install git+https://github.com/Edouard-Legoupil/unhcrpyplotstyle
 import unhcrpyplotstyle  # noqa: F401
 plt.style.use("unhcr")
 {% endif %}
-# Load your data here
-# df = pd.read_csv("data.csv")
+
+ # Load your data here
+ # df = pd.read_csv("data.csv")
 ```
 
 ```{python}
-#| label: fig-example
-#| fig-cap: "{{ title|replace("'", "\") }}"
+ #| label: fig-example
+ #| fig-cap: "{{ title|replace("'", "\\\\'") }}"
 
-# Example — uncomment and adapt:
-# fig, ax = plt.subplots(figsize=(10, 6))
-# ax.bar(df["year"], df["refugees"])
-# ax.set_title("{{ title|replace("'", "\") }}")
-# plt.tight_layout()
-# plt.show()
+ # Example - uncomment and adapt:
+ # fig, ax = plt.subplots(figsize=(10, 6))
+ # ax.bar(df["year"], df["refugees"])
+ # ax.set_title("{{ title|replace("'", "\\\\'") }}")
+ # plt.tight_layout()
+ # plt.show()
 ```
 {% endif %}
 
@@ -96,18 +118,17 @@ forcibly displaced populations.
 
 ### Original Query
 {{ original_query|replace("`", "'") }}
-*Generated: {{ timestamp }}
+*Generated: {{ timestamp }}*
 
 ### Analysis Methodology
 
 This analysis was generated using the following tool sequence:
 
-{% for tool in metadata.get('tool_sequence', []) %}
-- **{{ tool.tool }}**: {{ '✅ Success' if tool.success else '❌ Failed' }} ({{ tool.duration_ms }}ms)
+{% for tool in metadata.get('tool_sequence', []) %}- **{{ tool.tool }}**: {{ 'SUCCESS' if tool.success else 'FAILED' }} ({{ tool.duration_ms }}ms)
   - Purpose: {{ tool.result_summary if tool.success else tool.error }}
 {% endfor %}
 
 **Data Sources**: UNHCR Population Statistics API
-**Processing Steps**: Question classification → Data retrieval → Story generation → Quarto compilation
+**Processing Steps**: Question classification -> Data retrieval -> Story generation -> Quarto compilation
 **Quality Assurance**: Each tool call is validated and errors are handled gracefully
 {% endif %}
