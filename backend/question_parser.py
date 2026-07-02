@@ -350,6 +350,32 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
                 countries['origin'] = iso3_code
                 return countries
     
+    # Handle the ambiguous case: "refugees from [Country]" with no other country
+    # In common usage, this usually means "refugees in [Country]" (Country as host)
+    if not countries['destination'] and not countries['origin']:
+        # Try to find "from <country>" where country is a valid country name
+        # Try multi-word country names first (2-3 words)
+        from_multiword = r'from\s+(\w+(?:\s+\w+){1,2})'
+        matches = re.finditer(from_multiword, question)
+        
+        for match in matches:
+            country_name = match.group(1).strip()
+            iso3_code = lookup_country_iso3(country_name)
+            if iso3_code:
+                countries['destination'] = iso3_code
+                return countries
+        else:
+            # If no multi-word country found, try single word
+            from_singleword = r'from\s+(\w+)'
+            matches = re.findall(from_singleword, question)
+            
+            for match in matches:
+                country_name = match.strip()
+                iso3_code = lookup_country_iso3(country_name)
+                if iso3_code:
+                    countries['destination'] = iso3_code
+                    return countries
+    
     return countries
 
 
