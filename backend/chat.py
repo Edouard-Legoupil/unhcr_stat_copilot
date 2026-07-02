@@ -673,6 +673,10 @@ async def get_data_for_story(
     # Extract parameters from question to auto-complete missing arguments
     extracted_params = await extract_question_parameters(question)
     
+    # Merge extracted parameters into arguments
+    # This ensures country, timespan, etc. are properly extracted from the question
+    arguments = {**arguments, **extracted_params}
+    
     # Determine which tool will be used based on question keywords
     if any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
         tool_name = "get_demographic_breakdown"
@@ -695,6 +699,7 @@ async def get_data_for_story(
         tool_name = "get_population_data"
     
     logger.info(f"Selected tool for story data: {tool_name}")
+    logger.info(f"Final arguments: {arguments}")
     
     # Call the tool directly - will raise if it fails
     return await call_tool_strict(tool_name, arguments, question)
