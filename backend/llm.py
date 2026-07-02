@@ -36,21 +36,21 @@ OPENAI_API_VERSION = os.getenv(
     "2024-10-21"
 )
 
-# Azure OpenAI client is optional - only initialize if configured
-client = None
-if AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY:
-    try:
-        client = AsyncAzureOpenAI(
-            api_key=AZURE_OPENAI_API_KEY,
-            azure_endpoint=AZURE_OPENAI_ENDPOINT,
-            api_version=OPENAI_API_VERSION,
-        )
-        logger.info("Azure OpenAI client initialized successfully")
-    except Exception as e:
-        logger.warning(f"Failed to initialize Azure OpenAI client: {e}")
-        client = None
-else:
-    logger.info("Azure OpenAI not configured - AI features will be limited")
+# Azure OpenAI client is REQUIRED - fail if not configured
+if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_API_KEY:
+    raise RuntimeError(
+        "Azure OpenAI is required. Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in your environment."
+    )
+
+try:
+    client = AsyncAzureOpenAI(
+        api_key=AZURE_OPENAI_API_KEY,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        api_version=OPENAI_API_VERSION,
+    )
+    logger.info("Azure OpenAI client initialized successfully")
+except Exception as e:
+    raise RuntimeError(f"Failed to initialize Azure OpenAI client: {e}") from e
 
 # =====================================================
 # Cache
@@ -98,8 +98,7 @@ async def get_mcp_guidance() -> dict:
     except Exception as e:
 
         logger.exception(e)
-
-        return {}
+        raise RuntimeError(f"Failed to get MCP guidance: {e}") from e
 
 
 async def get_mcp_examples() -> dict:
@@ -131,32 +130,14 @@ async def get_mcp_examples() -> dict:
     except Exception as e:
 
         logger.exception(e)
-
-        return {}
+        raise RuntimeError(f"Failed to get MCP examples: {e}") from e
 
 
 # =====================================================
 # Tool Discovery
 # =====================================================
 
-DEFAULT_TOOLS = {
-    "get_population_data",
-    "get_demographics_data",
-    "get_rsd_applications",
-    "get_rsd_decisions",
-    "get_solutions",
-    "get_country_key_figures",
-    "get_population_trends",
-    "get_demographic_breakdown",
-    "extract_visualization_structure",
-    "analyze_data_statistics",
-    "generate_visualization_description",
-    "generate_ai_data_story",
-    "get_usage_guidance",
-    "get_suggested_questions",
-    "apply_analysis_guardrails",
-    "create_quarto_notebook",
-}
+
 
 
 async def get_valid_tools() -> set:
@@ -187,7 +168,7 @@ async def get_valid_tools() -> set:
                 tools.add(tool)
 
     if not tools:
-        tools = DEFAULT_TOOLS
+        raise RuntimeError("No valid MCP tools available - MCP server may be down or misconfigured")
 
     return tools
 
@@ -350,16 +331,11 @@ async def validate_tool_selection(
 
     if tool not in valid_tools:
 
-        logger.warning(
+        logger.error(
             "Invalid tool selected: %s",
             tool
         )
-
-        return {
-            "tool":
-                "get_usage_guidance",
-            "arguments": {}
-        }
+        raise ValueError(f"Invalid tool: {tool}. Valid tools: {valid_tools}")
 
     return selection
 
@@ -469,7 +445,7 @@ async def safe_tool_selection(
 
         # Extract parameters from the question to include in the response
         from backend.question_parser import extract_question_parameters
-        extracted_params = extract_question_parameters(question)
+        extracted_params = await extract_question_parameters(question)
         
         # Add extracted parameters to the selection
         selection["parameters"] = extracted_params
@@ -484,13 +460,7 @@ async def safe_tool_selection(
     except Exception as e:
 
         logger.exception(e)
-
-        return {
-            "tool":
-                "get_usage_guidance",
-            "arguments": {},
-            "parameters": {}
-        }
+        raise RuntimeError(f"Tool selection failed: {e}") from e
 
 
 # =====================================================
@@ -529,25 +499,58 @@ async def explain_tool_choice(
 
 async def generate_story_from_data(
     question: str,
-    data: dict
+    data: dict,
+    audience: str | None = None,
+    document_type: str | None = None,
+    tone: str | None = None,
+    length_config: dict | None = None,
+    structure: list[str] | None = None
 ) -> str:
     """
     Use the Azure OpenAI client to generate an analytical story 
     based on the user's question and the data retrieved from the API.
+    
+    Args:
+        question: The user's question
+        data: The data retrieved from the API
+        audience: Target audience for the story
+        document_type: Type of document being generated
+        tone: Writing tone for the story
+        length_config: Length configuration (wordRange, readingTime, density)
+        structure: Structure/sections for the story
     """
     try:
         data_str = json.dumps(data, indent=2)
         # Prevent context window overflow by truncating if necessary
         if len(data_str) > 20000:
             data_str = data_str[:20000] + "\n...[data truncated]..."
-            
-        system_prompt = (
-            "You are an expert UNHCR data analyst and storyteller. "
+        
+        # Build system prompt based on configuration
+        system_prompt_parts = [
+            "You are an expert UNHCR data analyst and storyteller.",
             "Your job is to analyze data returned by the UNHCR API and write a compelling, "
-            "analytical narrative responding to the user's question. "
-            "Focus on key trends, demographic breakdowns, or significant shifts in the data. "
+            "analytical narrative responding to the user's question.",
+            "Focus on key trends, demographic breakdowns, or significant shifts in the data.",
             "Format the output as clean Markdown."
-        )
+        ]
+        
+        # Add tone instructions if provided
+        if tone:
+            system_prompt_parts.append(f"Write with a {tone} tone.")
+        
+        # Add length instructions if provided
+        if length_config:
+            word_range = length_config.get("wordRange", "1200-3000")
+            reading_time = length_config.get("readingTime", "6-15 min")
+            density = length_config.get("density", "medium")
+            system_prompt_parts.append(f"Target length: {word_range} words ({reading_time}). Density: {density}.")
+        
+        # Add structure instructions if provided
+        if structure:
+            structure_str = " → ".join(structure)
+            system_prompt_parts.append(f"Follow this structure: {structure_str}.")
+        
+        system_prompt = " ".join(system_prompt_parts)
         
         user_prompt = f"User Question: {question}\n\nUNHCR API Data:\n{data_str}\n\nPlease write a detailed analytical story based on this data."
 
@@ -564,18 +567,4 @@ async def generate_story_from_data(
         
     except Exception as e:
         logger.exception("Failed to generate story from data: %s", e)
-        error_type = type(e).__name__
-        
-        # Provide more specific error messages based on error type
-        if "AuthenticationError" in error_type or "Authentication" in str(e):
-            return "Could not generate story due to authentication error. Please check your API credentials."
-        elif "RateLimitError" in error_type or "rate limit" in str(e).lower():
-            return "Could not generate story due to API rate limit. Please try again later."
-        elif "ConnectionError" in error_type or "connection" in str(e).lower():
-            return "Could not generate story due to network connection error. Please check your internet connection."
-        elif "Timeout" in error_type or "timeout" in str(e).lower():
-            return "Could not generate story due to request timeout. The AI service is taking too long to respond."
-        elif "APIError" in error_type or "api_error" in str(e).lower():
-            return "Could not generate story due to AI service error. Please try again later."
-        else:
-            return f"Could not generate story due to an error: {error_type}. Please try again or contact support."
+        raise RuntimeError(f"Failed to generate story from data: {e}") from e

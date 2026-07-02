@@ -119,7 +119,14 @@ echo "✅ Required files present"
 
 # Quick import test (no heavy validation)
 echo -n "Testing app import: "
-if python -c "from backend.main import app; print('✅ backend.main:app imported')" 2>/dev/null; then
+if python -c "
+import sys
+try:
+    from backend.main import app
+    print('✅ backend.main:app imported')
+except:
+    sys.exit(1)
+" 2>/dev/null; then
     echo ""
 else
     echo "❌ FAILED"
@@ -127,7 +134,15 @@ else
     python -c "import sys; print('Python path:', sys.path)"
     echo ""
     echo "Trying with traceback:"
-    python -c "import traceback; try: from backend.main import app; print('SUCCESS') except: traceback.print_exc()" 2>&1
+    python -c "
+import traceback
+import sys
+try:
+    from backend.main import app
+    print('SUCCESS')
+except:
+    traceback.print_exc()
+" 2>&1
     exit 1
 fi
 

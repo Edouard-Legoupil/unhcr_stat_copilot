@@ -144,9 +144,12 @@ POPULATION_TYPES = [
     'venezuelans_displaced_abroad', 'other_people_in_need'
 ]
 
-def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
+async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
     """
     Extract metadata parameters from a user question.
+    
+    Uses LLM for accurate semantic understanding of country roles (origin vs destination),
+    with regex fallback for simple cases.
     
     Args:
         question: The user's question in natural language
@@ -182,8 +185,10 @@ def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
     if not params['population_type'] and any(keyword in question_lower for keyword in ['refugee', 'asylum', 'displaced', 'migration']):
         params['population_type'] = 'refugees'
     
-    # Extract countries using predefined patterns
-    params.update(extract_countries_from_question(question_lower))
+    # Extract countries using LLM-powered extraction with regex fallback
+    # This is the key improvement: using LLM to understand semantic intent
+    countries = await _extract_countries_llm_first(question)
+    params.update(countries)
     
     # Extract timespan
     params['timespan'] = extract_timespan_from_question(question_lower)
@@ -206,9 +211,41 @@ def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
     
     return params
 
+
+async def _extract_countries_llm_first(question: str) -> Dict[str, Optional[str]]:
+    """
+    Extract countries using LLM as primary method with regex fallback.
+    
+    This function tries LLM first for accurate semantic understanding,
+    then falls back to fast regex patterns if LLM fails or is unavailable.
+    
+    Args:
+        question: Question text (original case)
+        
+    Returns:
+        Dictionary with 'origin' and 'destination' ISO3 codes
+    """
+    try:
+        # Try LLM-based extraction first
+        result = await _extract_countries_llm(question)
+        # If LLM returned something useful, use it
+        if result['origin'] or result['destination']:
+            return result
+    except Exception as e:
+        logger.debug(f"LLM country extraction failed or not available: {e}")
+    
+    # Fall back to regex-based extraction
+    # Convert to lowercase for regex matching
+    question_lower = question.lower()
+    return _extract_countries_regex(question_lower)
+
 def extract_countries_from_question(question: str) -> Dict[str, Optional[str]]:
     """
     Extract origin and destination countries from question text.
+    
+    Uses a hybrid approach:
+    1. Fast regex-based extraction for simple, unambiguous patterns
+    2. LLM-based disambiguation for complex or ambiguous cases
     
     Args:
         question: Question text in lowercase
@@ -219,26 +256,91 @@ def extract_countries_from_question(question: str) -> Dict[str, Optional[str]]:
     
     countries = {'origin': None, 'destination': None}
     
-    # Patterns that indicate origin (from, fleeing, originating)
-    origin_patterns = [
-        r'from\s+([\w\s]+)',
-        r'fleeing\s+([\w\s]+)',
-        r'originating\s+from\s+([\w\s]+)',
-        r'([\w\s]+)\s+(refugees|asylum seekers|migrants|displaced)',
-        r'(refugees|asylum seekers|migrants|displaced)\s+from\s+([\w\s]+)'
-    ]
+    # First, try fast regex-based extraction for simple patterns
+    # These handle the majority of cases without LLM calls
+    result = _extract_countries_regex(question)
+    if result['origin'] or result['destination']:
+        return result
     
-    # Patterns that indicate destination (to, in, arriving, hosted)
+    # If regex didn't find anything, use LLM for disambiguation
+    # This handles complex cases like "refugees from France" where
+    # France could be origin or destination
+    try:
+        return _extract_countries_llm(question)
+    except Exception as e:
+        logger.warning(f"LLM-based country extraction failed: {e}, falling back to regex")
+        return result
+
+
+def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
+    """
+    Fast regex-based country extraction for simple, unambiguous patterns.
+    
+    Args:
+        question: Question text in lowercase
+        
+    Returns:
+        Dictionary with 'origin' and 'destination' ISO3 codes
+    """
+    
+    countries = {'origin': None, 'destination': None}
+    
+    # Explicit movement patterns: "from X to Y" - unambiguous
+    from_to_pattern = r'from\s+([\w\s]+?)\s+to\s+([\w\s]+)'
+    match = re.search(from_to_pattern, question)
+    if match:
+        origin_name = match.group(1).strip()
+        dest_name = match.group(2).strip()
+        origin_iso3 = lookup_country_iso3(origin_name)
+        dest_iso3 = lookup_country_iso3(dest_name)
+        if origin_iso3:
+            countries['origin'] = origin_iso3
+        if dest_iso3:
+            countries['destination'] = dest_iso3
+        return countries
+    
+    # Explicit location patterns: "X in Y" with population type - unambiguous
+    # e.g., "refugees from Syria in Germany"
+    from_in_pattern = r'(refugees|asylum seekers|migrants|displaced)\s+from\s+([\w\s]+?)\s+in\s+([\w\s]+)'
+    match = re.search(from_in_pattern, question)
+    if match:
+        origin_name = match.group(2).strip()
+        dest_name = match.group(3).strip()
+        origin_iso3 = lookup_country_iso3(origin_name)
+        dest_iso3 = lookup_country_iso3(dest_name)
+        # Only use if both are valid countries
+        if origin_iso3 and dest_iso3:
+            countries['origin'] = origin_iso3
+            countries['destination'] = dest_iso3
+            return countries
+    
+    # Destination patterns (to, in, arriving, hosted)
     destination_patterns = [
         r'to\s+([\w\s]+)',
         r'in\s+([\w\s]+)',
         r'arriving\s+in\s+([\w\s]+)',
         r'hosted\s+by\s+([\w\s]+)',
-        r'in\s+([\w\s]+)\s+(refugees|asylum seekers|migrants)',
+        r'in\s+([\w\s]+)\s+(refugees|asylum seekers|migrants|displaced)',
         r'(refugees|asylum seekers|migrants|displaced)\s+in\s+([\w\s]+)'
     ]
     
-    # Try to extract origin
+    for pattern in destination_patterns:
+        match = re.search(pattern, question)
+        if match:
+            country_name = match.group(1).strip()
+            iso3_code = lookup_country_iso3(country_name)
+            # Skip common non-country words
+            if iso3_code and country_name not in ['the', 'last', 'past', 'next']:
+                countries['destination'] = iso3_code
+                return countries
+    
+    # Origin patterns (only if no destination found)
+    origin_patterns = [
+        r'fleeing\s+([\w\s]+)',
+        r'originating\s+from\s+([\w\s]+)',
+        r'([\w\s]+)\s+(refugees|asylum seekers|migrants|displaced)',
+    ]
+    
     for pattern in origin_patterns:
         match = re.search(pattern, question)
         if match:
@@ -246,34 +348,86 @@ def extract_countries_from_question(question: str) -> Dict[str, Optional[str]]:
             iso3_code = lookup_country_iso3(country_name)
             if iso3_code:
                 countries['origin'] = iso3_code
-                break
-    
-    # Try to extract destination
-    for pattern in destination_patterns:
-        match = re.search(pattern, question)
-        if match:
-            country_name = match.group(1).strip()
-            iso3_code = lookup_country_iso3(country_name)
-            if iso3_code:
-                countries['destination'] = iso3_code
-                break
-    
-    # Special case: "Refugees from X in Y" pattern
-    from_in_pattern = r'from\s+([\w\s]+?)\s+in\s+([\w\s]+)'
-    match = re.search(from_in_pattern, question)
-    if match:
-        origin_name = match.group(1).strip()
-        dest_name = match.group(2).strip()
-        
-        origin_iso3 = lookup_country_iso3(origin_name)
-        dest_iso3 = lookup_country_iso3(dest_name)
-        
-        if origin_iso3:
-            countries['origin'] = origin_iso3
-        if dest_iso3:
-            countries['destination'] = dest_iso3
+                return countries
     
     return countries
+
+
+async def _extract_countries_llm(question: str) -> Dict[str, Optional[str]]:
+    """
+    LLM-based country extraction for ambiguous cases.
+    
+    Uses the LLM to understand the semantic intent of the question,
+    particularly for ambiguous patterns like "refugees from France" where
+    France could be either the origin or destination country.
+    
+    Args:
+        question: Question text (can be in any case)
+        
+    Returns:
+        Dictionary with 'origin' and 'destination' ISO3 codes
+    """
+    from backend.llm import client, AZURE_OPENAI_DEPLOYMENT
+    import json
+    
+    prompt = """
+You are an expert at parsing questions about refugee and migration data.
+Your task is to identify the country of origin (COO) and country of asylum (COA) 
+from the user's question.
+
+Guidelines:
+- Country of Origin (COO): Where refugees/migrants come FROM
+- Country of Asylum (COA): Where refugees/migrants are located/hosted IN
+- Return ISO3 country codes (e.g., FRA for France, SYR for Syria, DEU for Germany)
+- If a country is not mentioned or cannot be determined, return null
+- Be careful with ambiguous phrases like "refugees from France" - 
+  in common usage, this usually means refugees IN France (COA), not FROM France (COO)
+- When only one country is mentioned with "refugees from X", treat X as COA (destination)
+- When two countries are mentioned with "from X in/to Y", X is COO and Y is COA
+
+Examples:
+- "refugees from Syria in Germany" -> COO: SYR, COA: DEU
+- "refugees from France in the last 10 years" -> COO: null, COA: FRA
+- "asylum seekers in Turkey" -> COO: null, COA: TUR
+- "refugees from Afghanistan to Pakistan" -> COO: AFG, COA: PAK
+- "displaced people fleeing Ukraine" -> COO: UKR, COA: null
+- "migrants arriving in Lebanon from Syria" -> COO: SYR, COA: LBN
+
+Return ONLY a JSON object with this exact format:
+{
+    "coo": "SYR" or null,
+    "coa": "TUR" or null
+}
+
+Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
+"""
+    
+    response = await client.chat.completions.create(
+        model=AZURE_OPENAI_DEPLOYMENT,
+        temperature=0.0,  # Deterministic for same inputs
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": prompt
+            },
+            {
+                "role": "user",
+                "content": question
+            }
+        ]
+    )
+    
+    try:
+        result = json.loads(response.choices[0].message.content)
+        # Convert to our format
+        return {
+            'origin': result.get('coo'),
+            'destination': result.get('coa')
+        }
+    except (json.JSONDecodeError, AttributeError, IndexError) as e:
+        logger.error(f"Failed to parse LLM response for country extraction: {e}")
+        return {'origin': None, 'destination': None}
 
 def lookup_country_iso3(country_name: str) -> Optional[str]:
     """
@@ -454,11 +608,16 @@ def auto_complete_parameters(
                     countries = extract_countries_from_question(question_lower)
                     if countries.get('origin'):
                         completed_params['coo'] = countries['origin']
+                    elif countries.get('destination'):
+                        # If France is mentioned as destination, don't set COO to FRA
+                        # Let COO remain None to get all origins for this destination
+                        pass
                     elif 'fra' in question_lower or 'france' in question_lower:
-                        completed_params['coo'] = 'FRA'
-                    else:
-                        # Default to common refugee origin country
-                        completed_params['coo'] = 'SYR'  # Syria as default
+                        # Only set COO to FRA if it's not already set as destination
+                        if not countries.get('destination'):
+                            completed_params['coo'] = 'FRA'
+                    # If still not set and we have a destination, leave COO as None
+                    # to get all origins for that destination country
                 
         elif param == 'coa':
             # Try to get from destination first, then extract from question
@@ -522,7 +681,7 @@ def get_required_params_for_tool(tool_name: str) -> List[str]:
     return tool_requirements.get(tool_name, [])
 
 # Test the parser
-if __name__ == "__main__":
+async def _test_parser():
     # Test cases
     test_questions = [
         "Refugees from France in the past 10 years",
@@ -536,7 +695,11 @@ if __name__ == "__main__":
     print("=" * 60)
     
     for question in test_questions:
-        params = extract_question_parameters(question)
+        params = await extract_question_parameters(question)
         print(f"Question: {question}")
         print(f"Parameters: {params}")
         print()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(_test_parser())

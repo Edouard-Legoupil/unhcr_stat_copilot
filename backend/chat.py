@@ -357,7 +357,7 @@ async def process_chat_message(
         
         if not origin or not destination or not topic or not timespan:
             # Extract parameters from the question
-            extracted_params = extract_question_parameters(message)
+            extracted_params = await extract_question_parameters(message)
             logger.info(f"Extracted parameters: {extracted_params}")
             
             # Use extracted parameters if not provided in request
@@ -582,46 +582,28 @@ async def generate_executive_summary(
     result: dict,
     question: str
 ):
-
-    try:
-        # Create a more complete visualization_data structure
-        visualization_data = {
-            "data": result,
-            "metadata": {
-                "question": question,
-                "analysis_type": "executive_summary",
-                "data_source": "UNHCR official statistics"
-            }
+    # Create a more complete visualization_data structure
+    visualization_data = {
+        "data": result,
+        "metadata": {
+            "question": question,
+            "analysis_type": "executive_summary",
+            "data_source": "UNHCR official statistics"
         }
+    }
 
-        return await call_tool(
-            "generate_ai_data_story",
-            {
-                "visualization_data": visualization_data,
+    return await call_tool(
+        "generate_ai_data_story",
+        {
+            "visualization_data": visualization_data,
 
-                "context": f"Provide an executive summary for: {question}. Include key findings, trends, and recommendations.",
+            "context": f"Provide an executive summary for: {question}. Include key findings, trends, and recommendations.",
 
-                "story_type": "executive",
-
-                "apply_guardrails": False  # We handle guardrails separately
-            }
-        )
-
-    except Exception as e:
-
-        logger.exception(e)
-        
-        # Fallback: generate a basic executive summary if the tool fails
-        return {
-            "title": "Executive Summary",
-            "story": f"This analysis provides insights into: {question}\n\nKey findings from the data include important trends and patterns.",
             "story_type": "executive",
-            "metadata": {
-                "source": "UNHCR AI Analysis System",
-                "focus": "data_narrative",
-                "fallback": True
-            }
+
+            "apply_guardrails": False  # We handle guardrails separately
         }
+    )
 
 
 # --------------------------------------------------
@@ -630,13 +612,32 @@ async def generate_executive_summary(
 
 async def generate_analytical_story(
     result: dict,
-    question: str
+    question: str,
+    audience: str | None = None,
+    document_type: str | None = None,
+    analysis_config: dict | None = None
 ):
 
     try:
         from backend.llm import generate_story_from_data
         
-        story_content = await generate_story_from_data(question, result)
+        # Extract configuration if provided
+        tone = None
+        length_config = None
+        structure = None
+        if analysis_config:
+            tone = analysis_config.get("tone")
+            length_config = analysis_config.get("length")
+            structure = analysis_config.get("structure")
+        
+        story_content = await generate_story_from_data(
+            question, result,
+            audience=audience,
+            document_type=document_type,
+            tone=tone,
+            length_config=length_config,
+            structure=structure
+        )
 
         return {
             "title": f"Analytical Story: {question[:50]}",
@@ -651,36 +652,7 @@ async def generate_analytical_story(
 
     except Exception as e:
         logger.exception("Failed to generate analytical story: %s", e)
-        
-        # Fallback: generate a basic analytical story if the AI fails
-        return {
-            "title": f"Analytical Story: {question[:50]}",
-            "story": f"This analysis examines the question: {question}\n\nBased on the available data, key insights include important trends and patterns in the dataset. Further analysis would provide more detailed findings.",
-            "story_type": "analytical",
-            "metadata": {
-                "question": question,
-                "analysis_type": "analytical_story",
-                "data_source": "UNHCR official statistics",
-                "fallback": True,
-                "error": str(e)
-            }
-        }
-
-    except Exception as e:
-
-        logger.exception(e)
-        
-        # Fallback: generate a basic analytical story if the tool fails
-        return {
-            "title": "Analytical Story",
-            "story": f"Detailed analysis of: {question}\n\nThis data reveals significant patterns and insights about the subject matter.",
-            "story_type": "analytical",
-            "metadata": {
-                "source": "UNHCR AI Analysis System",
-                "focus": "data_interpretation",
-                "fallback": True
-            }
-        }
+        raise RuntimeError(f"Failed to generate analytical story: {e}") from e
 
 # --------------------------------------------------
 # Data Retrieval for Story Generation
@@ -693,368 +665,79 @@ async def get_data_for_story(
     """
     Get appropriate data for story generation based on the question type.
     This function routes to the correct data tool based on the question content.
+    Raises exception if no appropriate tool can be determined or if tool call fails.
     """
-    try:
-        # Analyze the question to determine what type of data is needed
-        question_lower = question.lower()
-        
-        # Extract parameters from question to auto-complete missing arguments
-        extracted_params = extract_question_parameters(question)
-        
-        # Determine which tool will be used based on question keywords
-        tool_name = None
-        if any(keyword in question_lower for keyword in ["refugee", "asylum", "displaced", "migration"]):
-            if any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
-                tool_name = "get_demographic_breakdown"
-            elif any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
-                tool_name = "get_population_trends"
-            elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement"]):
-                tool_name = "get_solutions"
-            else:
-                tool_name = "get_population_data"
-        elif any(keyword in question_lower for keyword in ["rsd", "application", "decision", "status"]):
-            if any(keyword in question_lower for keyword in ["application", "submitted", "lodged"]):
-                tool_name = "get_rsd_applications"
-            else:
-                tool_name = "get_rsd_decisions"
-        elif any(keyword in question_lower for keyword in ["operation", "budget", "funding", "expenditure"]):
-            tool_name = "get_operational_data"
-        elif any(keyword in question_lower for keyword in ["resettlement", "admission", "quota"]):
-            tool_name = "get_resettlement_data"
-        
-        # If we identified a tool, validate and complete its parameters
-        if tool_name:
-            required_params = get_required_params_for_tool(tool_name)
-            missing_params = [param for param in required_params if param not in arguments]
-            
-            if missing_params:
-                logger.info(f"Missing parameters for {tool_name}: {missing_params}")
-                # Auto-complete missing parameters
-                completed_args = auto_complete_parameters(arguments, missing_params, question)
-                arguments.update(completed_args)
-                logger.info(f"Completed arguments: {arguments}")
-            
-            # Call the appropriate tool with validated arguments
-            result = await call_tool_with_fallback(
-                tool_name,
-                arguments,
-                question
-            )
-            if result:
-                return result
-        else:
-            # Fallback: if no tool identified, try to complete common parameters
-            logger.warning(f"No specific tool identified for question: {question}")
-            # Try to complete parameters for get_population_trends as default
-            required_params = get_required_params_for_tool('get_population_trends')
-            missing_params = [param for param in required_params if param not in arguments]
-            
-            if missing_params:
-                logger.info(f"Completing common parameters: {missing_params}")
-                completed_args = auto_complete_parameters(arguments, missing_params, question)
-                arguments.update(completed_args)
-                logger.info(f"Completed arguments: {arguments}")
-            
-            # Try get_population_trends as default
-            result = await call_tool_with_fallback(
-                'get_population_trends',
-                arguments,
-                question
-            )
-            if result:
-                return result
-        
-        # Fallback to general population data if no specific tool matched
-        if not tool_name:
-            tool_name = "get_population_data"
-            required_params = get_required_params_for_tool(tool_name)
-            missing_params = [param for param in required_params if param not in arguments]
-            
-            if missing_params:
-                completed_args = auto_complete_parameters(arguments, missing_params, question)
-                arguments.update(completed_args)
-                logger.info(f"Fallback: Completed arguments for {tool_name}: {arguments}")
-            
-            result = await call_tool_with_fallback(
-                tool_name,
-                arguments,
-                question
-            )
-            if result:
-                return result
-        elif any(keyword in question_lower for keyword in ["rsd", "application", "decision", "status"]):
-            # RSD (Refugee Status Determination) data
-            if any(keyword in question_lower for keyword in ["application", "submitted", "lodged"]):
-                result = await call_tool_with_fallback(
-                    "get_rsd_applications",
-                    arguments,
-                    question
-                )
-                if result:
-                    return result
-            else:
-                result = await call_tool_with_fallback(
-                    "get_rsd_decisions",
-                    arguments,
-                    question
-                )
-                if result:
-                    return result
-        elif any(keyword in question_lower for keyword in ["key figure", "statistic", "overview"]):
-            # Key figures data
-            result = await call_tool_with_fallback(
-                "get_country_key_figures",
-                arguments,
-                question
-            )
-            if result:
-                return result
-        else:
-            # Default: try population data with parameter validation
-            required_params = get_required_params_for_tool('get_population_data')
-            missing_params = [param for param in required_params if param not in arguments]
-            
-            if missing_params:
-                completed_args = auto_complete_parameters(arguments, missing_params, question)
-                arguments.update(completed_args)
-                logger.info(f"Final fallback: Completed arguments for get_population_data: {arguments}")
-            
-            result = await call_tool_with_fallback(
-                "get_population_data",
-                arguments,
-                question
-            )
-            if result:
-                return result
-                
-        # If we reach here, all tool calls failed or returned empty
-        logger.warning("All data tool attempts failed or returned empty. Using fallback data.")
-        return generate_fallback_data_for_story(question, arguments)
-            
-    except Exception as e:
-        logger.exception("Exception in get_data_for_story: %s", e)
-        # Return a meaningful fallback data structure with sample data
-        return generate_fallback_data_for_story(question, arguments)
+    # Analyze the question to determine what type of data is needed
+    question_lower = question.lower()
+    
+    # Extract parameters from question to auto-complete missing arguments
+    extracted_params = await extract_question_parameters(question)
+    
+    # Determine which tool will be used based on question keywords
+    if any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
+        tool_name = "get_demographic_breakdown"
+    elif any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
+        tool_name = "get_population_trends"
+    elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement"]):
+        tool_name = "get_solutions"
+    elif any(keyword in question_lower for keyword in ["rsd", "application", "submitted", "lodged"]):
+        tool_name = "get_rsd_applications"
+    elif any(keyword in question_lower for keyword in ["rsd", "decision", "status"]):
+        tool_name = "get_rsd_decisions"
+    elif any(keyword in question_lower for keyword in ["key figure", "statistic", "overview"]):
+        tool_name = "get_country_key_figures"
+    elif any(keyword in question_lower for keyword in ["operation", "budget", "funding", "expenditure"]):
+        tool_name = "get_operational_data"
+    elif any(keyword in question_lower for keyword in ["resettlement", "admission", "quota"]):
+        tool_name = "get_resettlement_data"
+    else:
+        # Default tool
+        tool_name = "get_population_data"
+    
+    logger.info(f"Selected tool for story data: {tool_name}")
+    
+    # Call the tool directly - will raise if it fails
+    return await call_tool_strict(tool_name, arguments, question)
 
 
-async def call_tool_with_fallback(
+async def call_tool_strict(
     tool_name: str,
     arguments: dict,
     question: str
 ) -> dict:
     """
-    Call an MCP tool with proper error handling and fallback.
+    Call an MCP tool with parameter validation. No fallback - raises on failure.
     """
-    try:
-        # Validate parameters before calling the tool
-        required_params = get_required_params_for_tool(tool_name)
-        missing_params = [param for param in required_params if param not in arguments]
+    # Validate parameters before calling the tool
+    required_params = get_required_params_for_tool(tool_name)
+    missing_params = [param for param in required_params if param not in arguments]
+    
+    if missing_params:
+        logger.info(f"Missing required parameters for {tool_name}: {missing_params}")
+        # Auto-complete missing parameters
+        completed_args = auto_complete_parameters(arguments, missing_params, question)
+        arguments.update(completed_args)
+        logger.info(f"Auto-completed parameters for {tool_name}: {arguments}")
+    
+    result = await call_tool(tool_name, arguments)
+    
+    # Check if the result is empty or contains error information
+    if not result:
+        raise RuntimeError(f"Tool {tool_name} returned empty result")
+    
+    # Check for error patterns in the result
+    if isinstance(result, dict):
+        if "error" in result or "raw_text" in result:
+            error_text = result.get("error", result.get("raw_text", ""))
+            if error_text and ("error" in error_text.lower() or "failed" in error_text.lower()):
+                raise RuntimeError(f"Tool {tool_name} failed: {error_text}")
         
-        if missing_params:
-            logger.warning(f"Missing required parameters for {tool_name}: {missing_params}")
-            # Auto-complete missing parameters
-            completed_args = auto_complete_parameters(arguments, missing_params, question)
-            arguments.update(completed_args)
-            logger.info(f"Auto-completed parameters for {tool_name}: {arguments}")
-        
-        result = await call_tool(tool_name, arguments)
-        
-        # Check if the result is empty or contains error information
-        if not result:
-            logger.warning(f"Tool {tool_name} returned empty result")
-            return None
-            
-        # Check for error patterns in the result
-        if isinstance(result, dict):
-            if "error" in result or "raw_text" in result:
-                error_text = result.get("error", result.get("raw_text", ""))
-                if error_text and ("error" in error_text.lower() or "failed" in error_text.lower()):
-                    logger.warning(f"Tool {tool_name} failed: {error_text}")
-                    return None
-            
-            # Check if data field is empty
-            if "data" in result and not result["data"]:
-                logger.warning(f"Tool {tool_name} returned empty data field")
-                return None
-        
-        logger.info(f"Successfully retrieved data from {tool_name}")
-        return result
-        
-    except Exception as e:
-        logger.warning(f"Tool {tool_name} failed with exception: {e}")
-        return None
-
-
-def generate_fallback_data_for_story(
-    question: str,
-    arguments: dict
-) -> dict:
-    """
-    Generate meaningful fallback data for story generation when data tools fail.
-    This provides sample data that can be used for visualization and analysis.
-    """
-    try:
-        question_lower = question.lower()
-        
-        # Extract parameters from arguments if available
-        country = arguments.get("coo", arguments.get("coa", "Unknown"))
-        years = arguments.get("years", "2020,2021,2022,2023")
-        population_type = arguments.get("population_type", "refugees")
-        
-        # Generate sample data based on question type
-        if any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
-            # Generate trend data
-            year_list = [int(y.strip()) for y in years.split(",") if y.strip()]
-            if not year_list:
-                year_list = list(range(2020, 2024))
-            
-            # Generate realistic-looking sample data
-            sample_data = []
-            base_value = 1000 + (hash(country) % 5000) if country != "Unknown" else 2500
-            
-            for year in year_list:
-                # Generate a realistic trend with some variation
-                variation = (year - year_list[0]) * (50 + (hash(year) % 100))
-                value = max(0, base_value + variation + (hash(f"{country}{year}") % 200 - 100))
-                
-                sample_data.append({
-                    "year": year,
-                    "country": country,
-                    "population_type": population_type,
-                    "value": value,
-                    "trend": "increasing" if value > base_value else "decreasing"
-                })
-            
-            return {
-                "context": question,
-                "metadata": {
-                    "source": "UNHCR Statistics (Sample Data)",
-                    "coverage": f"{population_type.capitalize()} trends for {country}",
-                    "period": f"{min(year_list)}-{max(year_list)}",
-                    "note": "Generated sample data - actual figures may vary"
-                },
-                "data": sample_data,
-                "trends": {
-                    "overall": "mixed" if len([d for d in sample_data if d["trend"] == "increasing"]) > len(year_list)/2 else "decreasing",
-                    "recent": sample_data[-1]["trend"] if sample_data else "stable",
-                    "peak_year": max(sample_data, key=lambda x: x["value"])["year"] if sample_data else "N/A"
-                },
-                "summary_statistics": {
-                    "total": sum(d["value"] for d in sample_data),
-                    "average": sum(d["value"] for d in sample_data) / len(sample_data) if sample_data else 0,
-                    "min": min(d["value"] for d in sample_data) if sample_data else 0,
-                    "max": max(d["value"] for d in sample_data) if sample_data else 0
-                }
-            }
-        
-        elif any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
-            # Generate demographic breakdown data
-            age_groups = ["0-17", "18-59", "60+"]
-            gender_groups = ["male", "female"]
-            
-            demographic_data = []
-            
-            # Generate age distribution
-            for age_group in age_groups:
-                if age_group == "0-17":
-                    percentage = 30 + (hash(country) % 10 - 5)
-                elif age_group == "18-59":
-                    percentage = 60 + (hash(country) % 10 - 5)
-                else:
-                    percentage = 10 + (hash(country) % 5 - 2)
-                
-                demographic_data.append({
-                    "category": "age",
-                    "group": age_group,
-                    "percentage": max(5, min(95, percentage)),
-                    "count": int((hash(country) % 10000) * (percentage / 100))
-                })
-            
-            # Generate gender distribution
-            for gender in gender_groups:
-                if gender == "male":
-                    percentage = 55 + (hash(country) % 10 - 5)
-                else:
-                    percentage = 45 + (hash(country) % 10 - 5)
-                
-                demographic_data.append({
-                    "category": "gender",
-                    "group": gender,
-                    "percentage": max(20, min(80, percentage)),
-                    "count": int((hash(country + "gender") % 10000) * (percentage / 100))
-                })
-            
-            return {
-                "context": question,
-                "metadata": {
-                    "source": "UNHCR Demographics (Sample Data)",
-                    "coverage": f"{population_type.capitalize()} demographic breakdown for {country}",
-                    "period": "Most recent available data",
-                    "note": "Generated sample demographic data - actual distribution may vary"
-                },
-                "data": demographic_data,
-                "demographic_insights": {
-                    "age_distribution": {
-                        "children": demographic_data[0]["percentage"],
-                        "working_age": demographic_data[1]["percentage"],
-                        "elderly": demographic_data[2]["percentage"]
-                    },
-                    "gender_balance": {
-                        "male": demographic_data[3]["percentage"],
-                        "female": demographic_data[4]["percentage"]
-                    }
-                }
-            }
-        
-        else:
-            # General refugee statistics
-            return {
-                "context": question,
-                "metadata": {
-                    "source": "UNHCR Global Statistics (Sample Data)",
-                    "coverage": f"{population_type.capitalize()} overview for {country}",
-                    "period": "Most recent available data",
-                    "note": "Generated sample statistics - actual figures may vary"
-                },
-                "data": {
-                    "total_population": 12500 + (hash(country) % 25000),
-                    "by_status": {
-                        "refugees": 8000 + (hash(f"{country}_ref") % 5000),
-                        "asylum_seekers": 3000 + (hash(f"{country}_asy") % 2000),
-                        "stateless": 500 + (hash(f"{country}_stat") % 1000),
-                        "others": 1000 + (hash(f"{country}_other") % 1500)
-                    },
-                    "by_origin": {
-                        "top_countries": ["Syria", "Afghanistan", "South Sudan", "Myanmar", "Venezuela"]
-                    }
-                },
-                "key_findings": {
-                    "total": {
-                        "value": 12500 + (hash(country) % 25000),
-                        "description": "Total population of concern"
-                    },
-                    "largest_group": {
-                        "type": "refugees",
-                        "percentage": 60 + (hash(country) % 15)
-                    }
-                }
-            }
-            
-    except Exception as fallback_error:
-        logger.error("Failed to generate fallback data: %s", fallback_error)
-        # Absolute minimal fallback
-        return {
-            "context": question,
-            "metadata": {
-                "source": "UNHCR Statistics",
-                "coverage": "Global refugee data",
-                "note": "Data unavailable - using minimal fallback"
-            },
-            "data": {
-                "summary": "Comprehensive refugee statistics and trends",
-                "period": "Most recent available data"
-            }
-        }
+        # Check if data field is empty
+        if "data" in result and not result["data"]:
+            raise RuntimeError(f"Tool {tool_name} returned empty data field")
+    
+    logger.info(f"Successfully retrieved data from {tool_name}")
+    return result
 
 
 # --------------------------------------------------
@@ -1150,7 +833,7 @@ async def generate_comprehensive_quarto_analysis(
             logger.info(f"Enhanced arguments with extracted parameters: {arguments}")
         
         # 2. Get data
-        data_result = await track_tool_call("get_data_for_story", {"question": question, **arguments})
+        data_result = await track_tool_call("get_data_for_story", {"question": question, "audience": audience, "document_type": document_type, **arguments})
         
         # 3. Generate analytical story based on data
         # Check if data_result contains error information
@@ -1161,7 +844,7 @@ async def generate_comprehensive_quarto_analysis(
                 story_content = f"Data retrieval error: {data_result.get('raw_text', 'Unknown error')}"
             else:
                 # Valid data, proceed with story generation
-                story_response = await track_tool_call("generate_analytical_story", {"data": data_result, "question": question})
+                story_response = await track_tool_call("generate_analytical_story", {"data": data_result, "question": question, "audience": audience, "document_type": document_type, "analysis_config": config})
                 
                 # Check if story generation succeeded
                 if story_response and isinstance(story_response, dict):
