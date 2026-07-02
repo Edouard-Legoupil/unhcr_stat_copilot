@@ -39,8 +39,29 @@ else:
     logger.warning(f"Frontend static files not found at {frontend_dist_path}")
 
 # Add health check endpoint
-@app.get("/health", include_in_schema=False)
+@app.get("/health",
+         include_in_schema=False,
+         summary="Health Check",
+         description="Check the health status of the UNHCR Statistics Copilot service including frontend and API availability.")
 async def health():
+    """
+    Health check endpoint for the UNHCR Statistics Copilot service.
+    
+    This endpoint is excluded from the OpenAPI schema (include_in_schema=False)
+    but provides a comprehensive health check that verifies:
+    - Overall service health
+    - Frontend static files availability
+    - API availability
+    
+    This endpoint does not require authentication and is available to all users.
+    
+    Returns:
+        dict: A dictionary containing:
+            - status (str): "healthy" if service is running properly
+            - service (str): The service name ("unhcr-statistics-copilot")
+            - frontend (bool): True if frontend static files are mounted
+            - api (str): API status ("available")
+    """
     return {
         "status": "healthy",
         "service": "unhcr-statistics-copilot",
@@ -50,8 +71,30 @@ async def health():
 
 # Update root endpoint to mention frontend
 original_root = app.routes[-1]  # Get the original root endpoint
-@app.get("/")
+
+@app.get("/",
+         summary="API Root with Frontend Info",
+         description="Root endpoint providing an overview of the UNHCR Copilot API with frontend availability information.")
 async def read_root():
+    """
+    API root endpoint with frontend information.
+    
+    This endpoint extends the original root endpoint from backend.app to include
+    information about frontend static files availability. It provides a comprehensive
+    overview of the application including API endpoints and frontend serving status.
+    
+    This endpoint does not require authentication and is available to all users.
+    
+    Returns:
+        dict: A dictionary containing:
+            - application (str): The application name ("UNHCR Copilot")
+            - version (str): The current API version
+            - mcp (str): Path to the MCP endpoint
+            - chat (str): Path to the chat endpoint
+            - docs (str): Path to the API documentation
+            - frontend (str): Path to frontend or "Not mounted"
+            - health (str): Path to health check endpoint
+    """
     original_response = await original_root.endpoint()
     original_response["frontend"] = "/" if os.path.exists(frontend_dist_path) else "Not mounted"
     original_response["health"] = "/health"
@@ -63,7 +106,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "backend.main:app",
         host="0.0.0.0",
-        port=8080,
+        port=8000,
         reload=True,
         log_level="info"
     )

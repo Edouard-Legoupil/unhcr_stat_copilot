@@ -543,6 +543,25 @@ debug-panel {
     margin-top: 16px;
 }
 
+/* Pre-rendered Badge Styles */
+.quarto-rendered-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--success);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.quarto-rendered-badge:hover {
+    opacity: 0.9;
+    cursor: default;
+}
+
 .quarto-header {
 
     display: flex;

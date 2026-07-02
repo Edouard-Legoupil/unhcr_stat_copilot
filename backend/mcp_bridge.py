@@ -232,7 +232,43 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "original_query": str,
             "metadata": dict
         }
-    }
+    },
+    "safe_tool_selection": {
+        "required": ["question"],
+        "optional": [],
+        "types": {
+            "question": str
+        }
+    },
+    "get_data_for_story": {
+        "required": ["question"],
+        "optional": ["coo", "coa", "year", "years", "population_types", "coo_all", "coa_all", "pop_type", "audience", "document_type"],
+        "types": {
+            "question": str,
+            "coo": str,
+            "coa": str,
+            "year": (str, int),
+            "years": str,
+            "population_types": list,
+            "coo_all": bool,
+            "coa_all": bool,
+            "pop_type": bool,
+            "audience": str,
+            "document_type": str
+        }
+    },
+    "generate_analytical_story": {
+        "required": [],
+        "optional": ["result", "data", "question", "audience", "document_type", "analysis_config"],
+        "types": {
+            "result": dict,
+            "data": dict,
+            "question": str,
+            "audience": str,
+            "document_type": str,
+            "analysis_config": dict
+        }
+    },
 }
 
 
@@ -248,9 +284,8 @@ def validate_tool_arguments(tool_name: str, arguments: Dict[str, Any]) -> None:
         MCPValidationError: If validation fails
     """
     if tool_name not in MCP_TOOL_SCHEMAS:
-        # Unknown tool, skip validation (for forward compatibility)
-        logger.warning(f"Unknown MCP tool '{tool_name}', skipping argument validation")
-        return
+        # Unknown tool - fail strictly
+        raise MCPValidationError(f"Unknown MCP tool: '{tool_name}'. Available tools: {list(MCP_TOOL_SCHEMAS.keys())}")
     
     schema = MCP_TOOL_SCHEMAS[tool_name]
     

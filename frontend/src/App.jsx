@@ -100,12 +100,30 @@ export default function App() {
             // Check if this is a Quarto analysis
             const quarto_types = ["quarto", "quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"];
             if (quarto_types.includes(analysisData.analysis_type)) {
-                // For Quarto analyses, we need to download the actual .qmd file
-                const quartoResult = await fetch(`/quarto/${analysisId}`);
-
-                if (quartoResult.ok) {
-                    const quartoContent = await quartoResult.text();
-                    analysisData.quarto_content = quartoContent;
+                // For Quarto analyses, fetch the pre-rendered HTML
+                // Try the rendered endpoint first, fall back to raw .qmd if needed
+                let quartoContent = null;
+                
+                // First, try to get pre-rendered HTML
+                try {
+                    const renderedResult = await fetch(`/quarto/${analysisId}/rendered`);
+                    if (renderedResult.ok) {
+                        quartoContent = await renderedResult.text();
+                        analysisData.quarto_rendered_html = quartoContent;
+                        analysisData.rendered = true;
+                    }
+                } catch (renderErr) {
+                    console.warn("Failed to fetch rendered HTML, falling back to raw .qmd:", renderErr);
+                }
+                
+                // If rendered HTML not available, fall back to raw .qmd
+                if (!quartoContent) {
+                    const rawResult = await fetch(`/quarto/${analysisId}`);
+                    if (rawResult.ok) {
+                        quartoContent = await rawResult.text();
+                        analysisData.quarto_content = quartoContent;
+                        analysisData.rendered = false;
+                    }
                 }
             }
 
@@ -365,11 +383,12 @@ export default function App() {
 
                         {/* Simplified Interface - Quarto Notebook Viewer */}
 
-                        {(["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"].includes(response.analysis_type) && response.quarto_content) && (
+                        {(["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"].includes(response.analysis_type) && (response.quarto_rendered_html || response.quarto_content)) && (
                             <IntegratedAnalysisViewer
-                                quartoContent={response.quarto_content}
+                                quartoContent={response.quarto_rendered_html || response.quarto_content}
                                 metadata={response.metadata || response.quarto_metadata}
                                 response={response}
+                                rendered={response.rendered || false}
                             />
                         )}
 

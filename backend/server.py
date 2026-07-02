@@ -3459,13 +3459,34 @@ def create_server() -> FastMCP:
             "Use this tool to retrieve the right data for creating data-driven stories and reports."
         ),
     )
-    async def get_data_for_story(question: str, **kwargs) -> dict[str, Any]:
+    async def get_data_for_story(
+        question: str,
+        coo: str | None = None,
+        coa: str | None = None,
+        year: str | int | None = None,
+        years: str | None = None,
+        population_types: list[str] | None = None,
+        coo_all: bool = False,
+        coa_all: bool = False,
+        pop_type: bool = False,
+        audience: str | None = None,
+        document_type: str | None = None,
+    ) -> dict[str, Any]:
         """
         Get data for story generation by routing to appropriate data tools.
         
         Args:
             question: The user's question
-            arguments: Additional arguments for the data retrieval
+            coo: Country of origin (ISO3 code)
+            coa: Country of asylum (ISO3 code)
+            year: Year for the data
+            years: Multiple years as comma-separated string
+            population_types: List of population types to filter by
+            coo_all: Flag to include all countries of origin
+            coa_all: Flag to include all countries of asylum
+            pop_type: Flag for population type breakdown
+            audience: Target audience for the analysis
+            document_type: Type of document being generated
             
         Returns:
             Dictionary containing the retrieved data and metadata
@@ -3476,11 +3497,14 @@ def create_server() -> FastMCP:
         try:
             api_client = UNHCRAPIClient()
             
-            # Extract parameters from kwargs
-            arguments = kwargs
-            coo = arguments.get("coo") or arguments.get("country_of_origin")
-            coa = arguments.get("coa") or arguments.get("country_of_asylum")
-            year = arguments.get("year") or arguments.get("years")
+            # Handle parameter aliases - for backward compatibility
+            # If coo/coa/year are None, check if country_of_origin/country_of_asylum are provided in metadata
+            # For now, we use the explicit parameters as-is
+            # The calling code should handle the alias mapping
+            
+            # If years is provided but year is not, use years
+            if year is None and years is not None:
+                year = years
             
             # Analyze the question to determine what type of data is needed
             question_lower = question.lower()
@@ -3496,25 +3520,57 @@ def create_server() -> FastMCP:
                 
                 result = api_client.get_demographics(
                     coo=coo, coa=coa, year=year,
-                    coo_all=arguments.get("coo_all", False),
-                    coa_all=arguments.get("coa_all", False),
-                    pop_type=arguments.get("pop_type", False)
+                    coo_all=coo_all,
+                    coa_all=coa_all,
+                    pop_type=pop_type
                 )
                 result["data_type"] = "demographics"
                 return result
             elif any(keyword in question_lower for keyword in ["trend", "over time", "year", "evolution"]):
-                # Trend data question
+                # Trend data question - use get_population with multiple years
                 # Ensure required parameters are present
                 if not coa:
                     coa = "TUR"  # Default to Turkey
-                if "population_types" not in arguments:
-                    arguments["population_types"] = ["refugees"]
+                if not year:
+                    # Default to last 5 years
+                    current_year = datetime.now().year
+                    years_list = list(range(current_year - 4, current_year + 1))
+                    year = ",".join(str(y) for y in years_list)
                 
-                result = api_client.get_population_trends(
-                    coo=coo, coa=coa, years=year,
-                    population_types=arguments.get("population_types", ["refugees"])
+                # Filter population_types if provided
+                if population_types is None:
+                    population_types = ["refugees"]
+                
+                # Get population data for trends analysis
+                result = api_client.get_population(
+                    coo=coo, coa=coa, year=year,
+                    coo_all=coo_all,
+                    coa_all=coa_all
                 )
-                result["data_type"] = "trends"
+                
+                # Process into time series format for trends
+                if result.get('data'):
+                    time_series = {}
+                    for item in result['data']:
+                        year_val = item.get('year', 'unknown')
+                        pop_type = item.get('population_type', 'unknown')
+                        value = item.get('value', 0)
+                        
+                        if population_types and pop_type not in population_types:
+                            continue
+                        
+                        if year_val not in time_series:
+                            time_series[year_val] = {}
+                        time_series[year_val][pop_type] = value
+                    
+                    result = {
+                        'time_series': time_series,
+                        'country': result['data'][0].get('coa_name', 'Unknown'),
+                        'data_type': 'trends'
+                    }
+                else:
+                    result["data_type"] = "trends"
+                
                 return result
             elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement", "integration"]):
                 # Solutions data question
@@ -3526,8 +3582,8 @@ def create_server() -> FastMCP:
                 
                 result = api_client.get_solutions(
                     coo=coo, coa=coa, year=year,
-                    coo_all=arguments.get("coo_all", False),
-                    coa_all=arguments.get("coa_all", False)
+                    coo_all=coo_all,
+                    coa_all=coa_all
                 )
                 result["data_type"] = "solutions"
                 return result
@@ -3541,8 +3597,8 @@ def create_server() -> FastMCP:
                 
                 result = api_client.get_asylum_decisions(
                     coo=coo, coa=coa, year=year,
-                    coo_all=arguments.get("coo_all", False),
-                    coa_all=arguments.get("coa_all", False)
+                    coo_all=coo_all,
+                    coa_all=coa_all
                 )
                 result["data_type"] = "rsd_decisions"
                 return result
@@ -3556,8 +3612,8 @@ def create_server() -> FastMCP:
                 
                 result = api_client.get_asylum_applications(
                     coo=coo, coa=coa, year=year,
-                    coo_all=arguments.get("coo_all", False),
-                    coa_all=arguments.get("coa_all", False)
+                    coo_all=coo_all,
+                    coa_all=coa_all
                 )
                 result["data_type"] = "rsd_applications"
                 return result
@@ -3571,8 +3627,8 @@ def create_server() -> FastMCP:
                 
                 result = api_client.get_population(
                     coo=coo, coa=coa, year=year,
-                    coo_all=arguments.get("coo_all", False),
-                    coa_all=arguments.get("coa_all", False)
+                    coo_all=coo_all,
+                    coa_all=coa_all
                 )
                 result["data_type"] = "population"
                 return result
@@ -3582,7 +3638,6 @@ def create_server() -> FastMCP:
                 "error": f"Failed to get data for story: {str(e)}",
                 "status": "error",
                 "question": question,
-                "arguments": arguments,
                 "data_type": "error"
             }
 
@@ -3593,13 +3648,24 @@ def create_server() -> FastMCP:
             "Use this tool when asked to create reports, stories, or narratives based on data analysis."
         ),
     )
-    async def generate_analytical_story(**kwargs) -> dict[str, Any]:
+    async def generate_analytical_story(
+        result: dict | None = None,
+        data: dict | None = None,
+        question: str = "",
+        audience: str | None = None,
+        document_type: str | None = None,
+        analysis_config: dict | None = None,
+    ) -> dict[str, Any]:
         """
         Generate analytical stories from data results.
         
         Args:
             result: Data result from previous analysis
+            data: Alternative name for result
             question: Original user question
+            audience: Target audience for the analysis
+            document_type: Type of document being generated
+            analysis_config: Analysis configuration (tone, length, structure)
             
         Returns:
             Dictionary containing the generated story and metadata
@@ -3608,11 +3674,27 @@ def create_server() -> FastMCP:
         from backend.llm import generate_story_from_data
         
         try:
-            # Extract parameters from kwargs
-            result = kwargs.get("result") or kwargs.get("data")
-            question = kwargs.get("question", "")
+            # Extract parameters - use result if provided, otherwise data
+            if result is None:
+                result = data
             
-            story_content = await generate_story_from_data(question, result)
+            # Extract analysis configuration if available
+            tone = None
+            length_config = None
+            structure = None
+            if analysis_config and isinstance(analysis_config, dict):
+                tone = analysis_config.get("tone")
+                length_config = analysis_config.get("length")
+                structure = analysis_config.get("structure")
+            
+            story_content = await generate_story_from_data(
+                question, result, 
+                audience=audience, 
+                document_type=document_type,
+                tone=tone,
+                length_config=length_config,
+                structure=structure
+            )
             
             return {
                 "title": f"Analytical Story: {question[:50]}...",

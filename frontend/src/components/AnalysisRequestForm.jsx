@@ -32,22 +32,33 @@ export default function AnalysisRequestForm({
     // Check if backend is available
     const checkBackendAvailability = async () => {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            
             const response = await fetch('/health', {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json'
-                }
+                },
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 console.warn('Backend health check failed, using fallback document types');
                 return false;
             }
             
-            const data = await response.json();
-            return data.status === 'ok';
+            try {
+                const data = await response.json();
+                return data.status === 'ok';
+            } catch (e) {
+                console.warn('Backend response is not valid JSON, using fallback document types');
+                return false;
+            }
         } catch (error) {
-            console.warn('Backend not available, using fallback document types:', error);
+            console.warn('Backend not available, using fallback document types:', error.message);
             return false;
         }
     };
@@ -81,8 +92,16 @@ export default function AnalysisRequestForm({
             try {
                 console.log(`Fetching document types for audience: ${formData.audience}`);
                 
+                // Add timeout for the request
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
                 // Fetch the configuration for the selected audience
-                const response = await fetch(`/analysis-config/${formData.audience}`);
+                const response = await fetch(`/analysis-config/${formData.audience}`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -90,11 +109,19 @@ export default function AnalysisRequestForm({
                 
                 // Check if response is valid JSON
                 const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    throw new Error('Response is not JSON');
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Response is not valid JSON
+                    console.error('Failed to parse response as JSON:', e);
+                    throw new Error('Response is not valid JSON');
                 }
                 
-                const data = await response.json();
+                // Verify expected structure
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid response structure');
+                }
                 
                 if (!data.available_document_types || !Array.isArray(data.available_document_types)) {
                     throw new Error('Invalid document types data');

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 
-export default function QuartoViewer({ quartoContent, metadata }) {
+export default function QuartoViewer({ quartoContent, metadata, rendered = false }) {
     const [showRaw, setShowRaw] = useState(false);
-    const [renderedHtml, setRenderedHtml] = useState('');
+    const [displayContent, setDisplayContent] = useState('');
+    const [isRendered, setIsRendered] = useState(rendered);
     const [showTools, setShowTools] = useState(false);
     const htmlRef = useRef(null);
 
@@ -15,26 +16,51 @@ export default function QuartoViewer({ quartoContent, metadata }) {
         );
     }
 
-    // Extract and render HTML content from Quarto markdown
+    // Handle content display based on whether it's already rendered
     useEffect(() => {
         try {
-            // Simple markdown to HTML conversion for basic rendering
-            const htmlContent = quartoContent
-                .replace(/^#\s+(.*)$/gm, '<h2>$1</h2>')
-                .replace(/^##\s+(.*)$/gm, '<h3>$1</h3>')
-                .replace(/^###\s+(.*)$/gm, '<h4>$1</h4>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/\n/g, '<br>');
-
-            setRenderedHtml(`<div className="quarto-rendered">${htmlContent}</div>`);
+            // If the content is already pre-rendered HTML from the server
+            if (rendered) {
+                // Check if it looks like HTML (starts with < or contains <html>)
+                const isHtml = quartoContent.trim().startsWith('<') || 
+                              quartoContent.includes('<html>') ||
+                              quartoContent.includes('<!DOCTYPE');
+                
+                if (isHtml) {
+                    setDisplayContent(quartoContent);
+                    setIsRendered(true);
+                } else {
+                    // Fall back to client-side rendering if it's actually raw markdown
+                    const htmlContent = simpleMarkdownToHtml(quartoContent);
+                    setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
+                    setIsRendered(false);
+                }
+            } else {
+                // Client-side rendering for raw markdown (fallback)
+                const htmlContent = simpleMarkdownToHtml(quartoContent);
+                setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
+                setIsRendered(false);
+            }
         } catch (error) {
             console.error("Error rendering Quarto content:", error);
-            setRenderedHtml('<p>Error rendering content. Showing raw format.</p>');
+            setDisplayContent('<p>Error rendering content. Showing raw format.</p>');
+            setIsRendered(false);
         }
-    }, [quartoContent]);
+    }, [quartoContent, rendered]);
+
+    // Simple markdown to HTML conversion for fallback rendering
+    // Only used when server-side rendering is not available
+    const simpleMarkdownToHtml = (markdown) => {
+        return markdown
+            .replace(/^#\s+(.*)$/gm, '<h2>$1</h2>')
+            .replace(/^##\s+(.*)$/gm, '<h3>$1</h3>')
+            .replace(/^###\s+(.*)$/gm, '<h4>$1</h4>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/`(.*?)`/g, '<code>$1</code>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+    };
 
     // Extract tools used from metadata
     const toolsUsed = metadata?.tools_used || metadata?.mcp_tools || [];
@@ -53,6 +79,11 @@ export default function QuartoViewer({ quartoContent, metadata }) {
                         >
                             {showRaw ? '📄 Rendered' : 'Source'}
                         </button>
+                        {isRendered && (
+                            <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
+                                ✅ Pre-rendered
+                            </span>
+                        )}
                         {hasTools && (
                             <button
                                 className="quarto-tools-toggle"
@@ -84,7 +115,7 @@ export default function QuartoViewer({ quartoContent, metadata }) {
                     <div
                         className="quarto-rendered"
                         ref={htmlRef}
-                        dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                        dangerouslySetInnerHTML={{ __html: displayContent }}
                     />
                 )}
             </div>

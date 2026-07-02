@@ -6,11 +6,13 @@
 **/env
 **/.env
 
-# Ignore node modules
+# Ignore node modules (except frontend/node_modules)
 **/node_modules
+!frontend/node_modules
 
-# Ignore build directories
+# Ignore build directories (except frontend/dist)
 **/dist
+!frontend/dist
 **/build
 **/__pycache__
 
@@ -20,9 +22,9 @@
 **/.history
 
 # Ignore git files
-except .gitkeep
-.git
-.gitignore
+**/.git
+**/.gitignore
+!.gitkeep
 
 # Ignore logs and data
 **/logs
@@ -53,10 +55,10 @@ except .gitkeep
 **/docs/_build
 
 # Ignore uploads and generated files
-except data/vector_store/unhcr_reports.duckdb
 **/uploads
 **/generated
 **/static
+!data/vector_store/unhcr_reports.duckdb
 
 # Ignore SSH keys and sensitive files
 **/id_rsa
@@ -69,8 +71,6 @@ except data/vector_store/unhcr_reports.duckdb
 .dockerignore
 docker-compose*.yml
 
-# Ignore frontend development files
-except frontend/dist
-frontend/src
-frontend/public
-frontend/node_modules
+# Allow frontend source files (needed for build)
+!frontend/src
+!frontend/public

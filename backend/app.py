@@ -47,8 +47,6 @@ limiter = Limiter(
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 
-app.add_exception_handler(429, _rate_limit_exceeded_handler)
-
 # ---------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------
@@ -118,6 +116,7 @@ app.add_middleware(
 # Add rate limiter middleware
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 try:
     # FastMCP HTTP transport
@@ -155,8 +154,32 @@ class ToolRequest(BaseModel):
 # Health
 # ---------------------------------------------------------------------
 
-@app.get("/health")
+@app.get("/health", 
+         summary="Health Check",
+         description="Check the health status of the UNHCR Copilot service.",
+         response_description="Service health status",
+         responses={
+             200: {
+                 "description": "Service is healthy",
+                 "content": {
+                     "application/json": {
+                         "example": {"status": "ok", "service": "unhcr-copilot"}
+                     }
+                 }
+             }
+         })
 async def health():
+    """
+    Health check endpoint for the UNHCR Copilot service.
+    
+    Returns a simple status response to verify the service is running.
+    This endpoint does not require authentication and is available to all users.
+    
+    Returns:
+        dict: A dictionary containing:
+            - status (str): "ok" if service is healthy
+            - service (str): The service name ("unhcr-copilot")
+    """
     return {
         "status": "ok",
         "service": "unhcr-copilot"
@@ -167,9 +190,58 @@ async def health():
 # MCP Tool Discovery
 # ---------------------------------------------------------------------
 
-@app.get("/tools")
+@app.get("/tools",
+         summary="List Available Tools",
+         description="Retrieve a list of all available MCP tools that can be executed.",
+         response_description="List of available MCP tools",
+         responses={
+             200: {
+                 "description": "Successful response with tool list",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "tools": [
+                                 "get_population_data",
+                                 "get_demographics_data",
+                                 "create_quarto_notebook"
+                             ]
+                         }
+                     }
+                 }
+             }
+         })
 async def tools():
-
+    """
+    List all available MCP tools.
+    
+    This endpoint returns an array of tool names that are available for execution
+    through the MCP server. These tools can be called directly via the /tool endpoint
+    or used through the chat interface.
+    
+    This endpoint does not require authentication.
+    
+    Returns:
+        dict: A dictionary containing:
+            - tools (list[str]): Array of available tool names
+    
+    Available Tools:
+        - get_population_data: Retrieve UNHCR population statistics
+        - get_demographics_data: Get demographic breakdown data
+        - get_rsd_applications: Fetch Refugee Status Determination applications
+        - get_rsd_decisions: Fetch RSD decision data
+        - get_solutions: Retrieve information on durable solutions
+        - get_country_key_figures: Get key figures for specific countries
+        - get_population_trends: Analyze population trends over time
+        - get_demographic_breakdown: Detailed demographic analysis
+        - extract_visualization_structure: Extract structure from visualizations
+        - analyze_data_statistics: Perform statistical analysis on data
+        - generate_visualization_description: Generate descriptions for visualizations
+        - generate_ai_data_story: Create AI-generated data stories
+        - get_usage_guidance: Get usage instructions and guidance
+        - get_suggested_questions: Generate suggested analysis questions
+        - apply_analysis_guardrails: Apply validation rules to analysis requests
+        - create_quarto_notebook: Create Quarto notebooks from data stories
+    """
     return {
         "tools": [
             "get_population_data",
@@ -196,14 +268,68 @@ async def tools():
 # Direct Tool Execution
 # ---------------------------------------------------------------------
 
-@app.post("/tool")
+@app.post("/tool",
+          summary="Execute MCP Tool",
+          description="Execute a specific MCP tool with provided arguments.",
+          response_description="Tool execution result",
+          responses={
+              200: {
+                  "description": "Tool executed successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "tool": "get_population_data",
+                              "result": {"data": [...], "metadata": {}},
+                              "user": {"name": "user@example.com"}
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid tool request or validation error"},
+              401: {"description": "Authentication required"},
+              503: {"description": "MCP server unavailable"}
+          })
 @limiter.limit("10/minute")
 async def execute_tool(
     request: Request,
     tool_request: ToolRequest,
     user: UserInfo = Depends(verify_azure_auth)
 ):
-
+    """
+    Execute a specific MCP tool directly.
+    
+    This endpoint allows direct execution of any available MCP tool with custom arguments.
+    It requires Azure AD authentication. Rate limited to 10 requests per minute per IP.
+    
+    Args:
+        tool_request (ToolRequest): The tool execution request containing:
+            - tool (str): Name of the tool to execute (must be in /tools list)
+            - arguments (dict): Dictionary of arguments to pass to the tool
+        user (UserInfo): Authenticated user information (injected by dependency)
+    
+    Returns:
+        dict: A dictionary containing:
+            - tool (str): The name of the tool that was executed
+            - result (Any): The result returned by the tool
+            - user (dict): Information about the authenticated user
+    
+    Raises:
+        HTTPException 401: If user is not authenticated
+        HTTPException 400: If tool arguments are invalid
+        HTTPException 503: If MCP server is unavailable
+        HTTPException 500: For any other unexpected errors
+    
+    Example:
+        Request body:
+        {
+            "tool": "get_population_data",
+            "arguments": {
+                "country": "France",
+                "year": 2023,
+                "data_type": "refugees"
+            }
+        }
+    """
     try:
 
         result = await call_tool(
@@ -243,14 +369,82 @@ async def execute_tool(
 # Chat Endpoint
 # ---------------------------------------------------------------------
 
-@app.post("/chat")
+@app.post("/chat",
+          summary="Process Chat Message",
+          description="Send a chat message to the UNHCR Copilot for analysis and response generation.",
+          response_description="Chat response with analysis results",
+          responses={
+              200: {
+                  "description": "Chat message processed successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "response": "Analysis complete...",
+                              "analysis_type": "comprehensive_quarto",
+                              "data": {...},
+                              "visualization": {...},
+                              "user": {"name": "user@example.com"}
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid request parameters"},
+              401: {"description": "Authentication required"},
+              500: {"description": "Internal server error during processing"}
+          })
 @limiter.limit("5/minute")
 async def chat(
     request: Request,
     chat_request: ChatRequest,
     user: UserInfo = Depends(verify_azure_auth)
 ):
-
+    """
+    Process a chat message and generate an analysis response.
+    
+    This is the main endpoint for interacting with the UNHCR Copilot. It accepts
+    natural language queries and returns comprehensive analyses using UNHCR data
+    through MCP tools. The response may include data, visualizations, and Quarto notebooks.
+    
+    Requires Azure AD authentication. Rate limited to 5 requests per minute per IP.
+    
+    Args:
+        chat_request (ChatRequest): The chat message request containing:
+            - message (str, required): The user's query or analysis request
+            - origin (str, optional): Origin context for the analysis
+            - destination (str, optional): Destination context
+            - topic (str, optional): Specific topic to focus on
+            - timespan (str, optional): Time period for the analysis
+            - audience (str, optional): Target audience for the output
+            - document_type (str, optional): Type of document to generate
+            - style (str, optional): Writing style for the response
+        user (UserInfo): Authenticated user information (injected by dependency)
+    
+    Returns:
+        dict: A dictionary containing:
+            - All fields from the analysis result (varies by analysis type)
+            - user (dict): Information about the authenticated user
+            
+        Common response fields:
+            - response (str): Natural language response
+            - analysis_type (str): Type of analysis performed
+            - data (dict): Retrieved data
+            - visualization (dict): Generated visualizations
+            - quarto_content (str): Quarto notebook content (if applicable)
+            - metadata (dict): Analysis metadata
+    
+    Raises:
+        HTTPException 401: If user is not authenticated
+        HTTPException 500: For any processing errors
+    
+    Example:
+        Request body:
+        {
+            "message": "Show me refugee population trends in France over the past 10 years",
+            "audience": "policy_makers",
+            "document_type": "executive_summary",
+            "style": "concise"
+        }
+    """
     try:
 
         result = await process_chat_message(
@@ -295,7 +489,31 @@ async def chat(
 # Analysis History Endpoints
 # ---------------------------------------------------------------------
 
-@app.get("/history")
+@app.get("/history",
+         summary="Get Analysis History",
+         description="Retrieve all previous analyses including both JSON and Quarto-based analyses.",
+         response_description="List of all analyses with metadata",
+         responses={
+             200: {
+                 "description": "Successful response with analysis history",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "status": "success",
+                             "analyses": [
+                                 {
+                                     "id": "abc123",
+                                     "timestamp": "2026-07-02T12:00:00",
+                                     "analysis_type": "quarto_notebook",
+                                     "unique_id": "quarto_abc123"
+                                 }
+                             ]
+                         }
+                     }
+                 }
+             },
+             500: {"description": "Internal server error"}
+         })
 async def get_history():
     """
     Get all previous analyses (both JSON and Quarto)
@@ -335,10 +553,49 @@ async def get_history():
         )
 
 
-@app.get("/history/{analysis_id}")
+@app.get("/history/{analysis_id}",
+          summary="Get Specific Analysis",
+          description="Retrieve a specific analysis by its unique ID.",
+          response_description="Analysis details",
+          responses={
+              200: {
+                  "description": "Analysis found and returned",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "id": "abc123",
+                              "analysis_type": "comprehensive_quarto",
+                              "response": "Full analysis content...",
+                              "timestamp": "2026-07-02T12:00:00"
+                          }
+                      }
+                  }
+              },
+              404: {"description": "Analysis not found"},
+              500: {"description": "Internal server error"}
+          })
 async def get_single_analysis(analysis_id: str):
     """
-    Get a specific analysis by ID
+    Get a specific analysis by ID.
+    
+    Retrieves the full details of a previously completed analysis. The analysis
+    can be either a JSON-based analysis or a Quarto notebook analysis.
+    
+    Args:
+        analysis_id (str): The unique identifier of the analysis to retrieve
+    
+    Returns:
+        dict: The complete analysis object with all its fields. The exact structure
+              depends on the analysis type but typically includes:
+            - id (str): Analysis identifier
+            - analysis_type (str): Type of analysis (e.g., "quarto_notebook")
+            - response (str): The analysis response/content
+            - timestamp (str): When the analysis was created
+            - Additional fields specific to the analysis type
+    
+    Raises:
+        HTTPException 404: If the analysis with the given ID is not found
+        HTTPException 500: For any other errors
     """
     try:
         # First try to get as JSON analysis
@@ -359,10 +616,53 @@ async def get_single_analysis(analysis_id: str):
         )
 
 
-@app.get("/quarto/{analysis_id}")
+@app.get("/quarto/{analysis_id}",
+          summary="Download Quarto Analysis",
+          description="Download the raw Quarto markdown file (.qmd) for a specific analysis.",
+          response_description="Quarto markdown file content",
+          responses={
+              200: {
+                  "description": "Quarto file content",
+                  "content": {
+                      "text/plain": {
+                          "example": "---\ntitle: Analysis\nauthor: UNHCR\n---\n# Analysis Content..."
+                      }
+                  },
+                  "headers": {
+                      "Content-Disposition": {
+                          "description": "Attachment with filename"
+                      }
+                  }
+              },
+              404: {"description": "Quarto analysis or file not found"},
+              500: {"description": "Internal server error"}
+          })
 async def download_quarto_analysis(analysis_id: str):
     """
-    Download a Quarto analysis file by ID
+    Download a Quarto analysis file by ID.
+    
+    Retrieves the raw Quarto markdown (.qmd) file for a specific analysis. This is the
+    source file that can be rendered using the Quarto CLI (quarto render command).
+    
+    The returned file includes YAML front matter with metadata such as title, author,
+    date, and the UNHCR theme configuration.
+    
+    Args:
+        analysis_id (str): The unique identifier of the Quarto analysis
+    
+    Returns:
+        Response: A Response object containing:
+            - content (str): The raw Quarto markdown content
+            - media_type (str): "text/plain"
+            - headers (dict): Content-Disposition header with filename
+    
+    Raises:
+        HTTPException 404: If the analysis or Quarto file is not found
+        HTTPException 500: For any other errors
+    
+    Note:
+        This endpoint returns the raw .qmd file. To get a pre-rendered HTML version,
+        the file should be processed with the Quarto CLI: `quarto render file.qmd`
     """
     try:
         # Find the metadata file for this analysis
@@ -410,17 +710,239 @@ async def download_quarto_analysis(analysis_id: str):
 
 
 # ---------------------------------------------------------------------
+# Quarto Rendering Endpoint
+# ---------------------------------------------------------------------
+
+@app.get("/quarto/{analysis_id}/rendered",
+         summary="Get Rendered Quarto Analysis",
+         description="Get the pre-rendered HTML version of a Quarto analysis using the quarto render CLI.",
+         response_description="Rendered HTML content",
+         responses={
+             200: {
+                 "description": "Successfully rendered HTML",
+                 "content": {
+                     "text/html": {
+                         "example": "<!DOCTYPE html><html>...</html>"
+                     }
+                 }
+             },
+             404: {"description": "Quarto analysis or file not found"},
+             500: {"description": "Internal server error during rendering"}
+         })
+async def get_rendered_quarto_analysis(analysis_id: str):
+    """
+    Get the pre-rendered HTML version of a Quarto analysis.
+    
+    This endpoint uses the Quarto CLI (quarto render command) to convert the .qmd
+    file into a fully rendered HTML document with proper styling, themes, and
+    all Quarto-specific features applied.
+    
+    This is the recommended way to display Quarto analyses, as it properly handles:
+    - YAML front matter (title, author, theme, etc.)
+    - All markdown features (tables, lists, blockquotes, etc.)
+    - Quarto-specific extensions
+    - Code cells and outputs (if present)
+    - LaTeX/math rendering
+    - UNHCR theme application
+    
+    This endpoint does not require authentication.
+    
+    Args:
+        analysis_id (str): The unique identifier of the Quarto analysis
+    
+    Returns:
+        Response: A Response object containing:
+            - content (str): The fully rendered HTML content
+            - media_type (str): "text/html"
+    
+    Raises:
+        HTTPException 404: If the analysis or Quarto file is not found
+        HTTPException 500: If the Quarto CLI is not available or rendering fails
+    
+    Note:
+        This endpoint requires the Quarto CLI to be installed on the server.
+        The rendering is performed on-demand, which may take a few seconds for
+        complex documents.
+    """
+    import subprocess
+    import tempfile
+    import shutil
+    
+    try:
+        # Find the metadata file for this analysis
+        metadata_file = os.path.join("./data/analysis_history", f"{analysis_id}.json")
+        
+        if not os.path.exists(metadata_file):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto analysis not found"
+            )
+        
+        # Read metadata to find the Quarto file
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        
+        quarto_filepath = metadata.get("filepath")
+        
+        if not quarto_filepath or not os.path.exists(quarto_filepath):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto file not found"
+            )
+        
+        # Create a temporary directory for rendering
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Copy the .qmd file to temp dir with a simple filename
+            temp_qmd = os.path.join(temp_dir, "analysis.qmd")
+            with open(temp_qmd, "w", encoding="utf-8") as f:
+                with open(quarto_filepath, "r", encoding="utf-8") as src:
+                    f.write(src.read())
+            
+            # Run quarto render command
+            # Quarto will create the HTML file in the same directory with the same name
+            # Note: --output flag doesn't work with paths, so we let Quarto generate it automatically
+            result = subprocess.run(
+                ["quarto", "render", temp_qmd, "--to", "html"],
+                capture_output=True,
+                text=True,
+                cwd=temp_dir
+            )
+            
+            if result.returncode != 0:
+                logger.error(f"Quarto render failed for {analysis_id}: {result.stderr}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Quarto rendering failed: {result.stderr}"
+                )
+            
+            # Find the generated HTML file
+            # Quarto creates: analysis.html (same name as qmd but with .html extension)
+            temp_html = os.path.join(temp_dir, "analysis.html")
+            
+            if not os.path.exists(temp_html):
+                # List all files in temp dir to find the HTML
+                files = os.listdir(temp_dir)
+                html_files = [f for f in files if f.endswith('.html')]
+                if html_files:
+                    temp_html = os.path.join(temp_dir, html_files[0])
+                else:
+                    logger.error(f"No HTML files found in temp dir. Files: {files}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Quarto did not produce HTML output. Files created: {files}"
+                    )
+            
+            # Read and return the rendered HTML
+            with open(temp_html, "r", encoding="utf-8") as f:
+                rendered_html = f.read()
+            
+            return Response(
+                content=rendered_html,
+                media_type="text/html"
+            )
+        
+    except subprocess.CalledProcessError as e:
+        logger.exception(f"Quarto CLI error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Quarto CLI error: {str(e)}"
+        )
+    except FileNotFoundError as e:
+        logger.exception(f"Quarto CLI not found: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Quarto CLI is not installed on the server. Please install Quarto to use this feature."
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+# ---------------------------------------------------------------------
 # AI Story Endpoint
 # ---------------------------------------------------------------------
 
-@app.post("/story")
+@app.post("/story",
+          summary="Generate AI Data Story",
+          description="Generate an AI-powered data story from visualization data.",
+          response_description="Generated data story with analysis",
+          responses={
+              200: {
+                  "description": "Data story generated successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "story": "Comprehensive analysis of refugee data...",
+                              "visualization_data": {...},
+                              "metadata": {...},
+                              "user": {"name": "user@example.com"}
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid payload or missing required fields"},
+              401: {"description": "Authentication required"},
+              503: {"description": "MCP server unavailable"}
+          })
 @limiter.limit("5/minute")
 async def create_story(
     request: Request,
     payload: dict,
     user: UserInfo = Depends(verify_azure_auth)
 ):
-
+    """
+    Generate an AI data story from visualization data.
+    
+    This endpoint creates a narrative data story based on provided visualization data.
+    It uses the generate_ai_data_story MCP tool to transform raw data into a compelling,
+    human-readable story suitable for reports and presentations.
+    
+    Requires Azure AD authentication. Rate limited to 5 requests per minute per IP.
+    
+    Args:
+        payload (dict): Request payload containing:
+            - visualization_data (dict, required): Data to visualize, must contain:
+                - data: The actual data to visualize
+                - structure: Visualization structure and labels
+            - title (str, optional): Title for the story
+            - context (str, optional): Additional context for the analysis
+            - Any other parameters accepted by generate_ai_data_story tool
+        user (UserInfo): Authenticated user information (injected by dependency)
+    
+    Returns:
+        dict: A dictionary containing:
+            - All fields from the generate_ai_data_story tool result
+            - user (dict): Information about the authenticated user
+            
+        Typical response fields:
+            - story (str): The generated narrative story
+            - visualization_data (dict): The processed visualization data
+            - metadata (dict): Analysis metadata
+            - recommendations (list): Suggested actions or insights
+    
+    Raises:
+        HTTPException 400: If visualization_data is missing or invalid
+        HTTPException 401: If user is not authenticated
+        HTTPException 503: If MCP server is unavailable
+        HTTPException 500: For any other errors
+    
+    Example:
+        Request body:
+        {
+            "visualization_data": {
+                "data": [{"year": 2020, "count": 1000}, {"year": 2021, "count": 1500}],
+                "structure": {
+                    "visualization_type": "line_chart",
+                    "labels": {"title": "Refugee Population Over Time"}
+                }
+            },
+            "title": "Refugee Population Trends",
+            "context": "Analysis of UNHCR data for policy makers"
+        }
+    """
     try:
         # Ensure visualization_data is present in the payload
         if "visualization_data" not in payload:
@@ -479,14 +1001,78 @@ async def create_story(
 # Quarto Export
 # ---------------------------------------------------------------------
 
-@app.post("/report")
+@app.post("/report",
+          summary="Create Quarto Report",
+          description="Create a Quarto notebook report from a data story.",
+          response_description="Created Quarto notebook with UNHCR theme",
+          responses={
+              200: {
+                  "description": "Quarto report created successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "quarto_content": "---\ntitle: Report\n...",
+                              "path": "/path/to/report.qmd",
+                              "title": "UNHCR Report",
+                              "format": "quarto",
+                              "metadata": {...},
+                              "user": {"name": "user@example.com"}
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid payload"},
+              401: {"description": "Authentication required"},
+              503: {"description": "MCP server unavailable"}
+          })
 @limiter.limit("3/minute")
 async def create_report(
     request: Request,
     payload: dict,
     user: UserInfo = Depends(verify_azure_auth)
 ):
-
+    """
+    Create a Quarto notebook report from a data story.
+    
+    This endpoint generates a Quarto (.qmd) notebook file from a provided story.
+    The notebook is configured with UNHCR branding and theme by default, and can
+    include optional Python code cells for reproducibility.
+    
+    Requires Azure AD authentication. Rate limited to 3 requests per minute per IP.
+    
+    Args:
+        payload (dict): Request payload containing:
+            - story (str, optional): The data story content to include in the notebook
+            - title (str, optional): Title for the report (defaults to "UNHCR Report")
+            - Any other parameters accepted by create_quarto_notebook tool
+        user (UserInfo): Authenticated user information (injected by dependency)
+    
+    Returns:
+        dict: A dictionary containing:
+            - All fields from the create_quarto_notebook tool result
+            - user (dict): Information about the authenticated user
+            
+        Typical response fields:
+            - quarto_content (str): The full Quarto markdown content
+            - path (str): File path where the notebook was saved (or None)
+            - title (str): The resolved notebook title
+            - author (str): The resolved author
+            - date (str): The resolved date
+            - format (str): Always "quarto"
+            - metadata (dict): Generation metadata and statistics
+    
+    Raises:
+        HTTPException 401: If user is not authenticated
+        HTTPException 503: If MCP server is unavailable
+        HTTPException 500: For any other errors
+    
+    Example:
+        Request body:
+        {
+            "story": "In 2023, the number of refugees from Ukraine reached 1 million...",
+            "title": "Ukraine Refugee Crisis Analysis"
+        }
+    """
     story = payload.get("story")
 
     title = payload.get(
@@ -515,11 +1101,58 @@ async def create_report(
 # Suggested Questions
 # ---------------------------------------------------------------------
 
-@app.get("/suggestions")
+@app.get("/suggestions",
+         summary="Get Suggested Questions",
+         description="Retrieve a list of suggested analysis questions for users.",
+         response_description="List of suggested questions",
+         responses={
+             200: {
+                 "description": "Suggested questions retrieved successfully",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "suggestions": [
+                                 "What are the latest refugee population trends?",
+                                 "Show me demographic breakdown by country",
+                                 "Analyze RSD decision patterns"
+                             ],
+                             "user": {"name": "user@example.com"}
+                         }
+                     }
+                 }
+             },
+             503: {"description": "MCP server unavailable"}
+         })
 async def suggestions(
     user: UserInfo = Depends(get_optional_user)
 ):
-
+    """
+    Get suggested analysis questions.
+    
+    This endpoint returns a list of suggested questions that users can ask the
+    UNHCR Copilot. These questions are designed to help users discover the types
+    of analyses that can be performed with the available data and tools.
+    
+    This endpoint supports optional authentication. If the user is authenticated,
+    their information will be included in the response.
+    
+    Returns:
+        dict: A dictionary containing:
+            - All fields from the get_suggested_questions tool result
+            - user (dict or None): Information about the authenticated user, or None if not authenticated
+            
+        Typical response fields:
+            - suggestions (list[str]): List of suggested question strings
+            - categories (list): Categorized suggestions (if available)
+            - user (dict or None): User information
+    
+    Raises:
+        HTTPException 503: If MCP server is unavailable
+    
+    Note:
+        This endpoint does not require authentication but will include user
+        information in the response if the user is authenticated.
+    """
     try:
         result = await call_tool(
             "get_suggested_questions",
@@ -541,11 +1174,59 @@ async def suggestions(
 # Guidance
 # ---------------------------------------------------------------------
 
-@app.get("/guidance")
+@app.get("/guidance",
+         summary="Get Usage Guidance",
+         description="Retrieve usage instructions and guidance for the UNHCR Copilot.",
+         response_description="Usage guidance and instructions",
+         responses={
+             200: {
+                 "description": "Guidance retrieved successfully",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "guidance": "Welcome to UNHCR Copilot...",
+                             "features": [...],
+                             "examples": [...],
+                             "user": {"name": "user@example.com"}
+                         }
+                     }
+                 }
+             },
+             503: {"description": "MCP server unavailable"}
+         })
 async def guidance(
     user: UserInfo = Depends(get_optional_user)
 ):
-
+    """
+    Get usage guidance for the UNHCR Copilot.
+    
+    This endpoint returns comprehensive usage instructions, feature descriptions,
+    and examples to help users understand how to effectively use the UNHCR Copilot
+    for data analysis and reporting.
+    
+    This endpoint supports optional authentication. If the user is authenticated,
+    their information will be included in the response.
+    
+    Returns:
+        dict: A dictionary containing:
+            - All fields from the get_usage_guidance tool result
+            - user (dict or None): Information about the authenticated user, or None if not authenticated
+            
+        Typical response fields:
+            - guidance (str): General usage instructions
+            - features (list): List of available features and their descriptions
+            - examples (list): Example queries and use cases
+            - best_practices (list): Recommended practices for optimal results
+            - limitations (list): Known limitations and workarounds
+            - user (dict or None): User information
+    
+    Raises:
+        HTTPException 503: If MCP server is unavailable
+    
+    Note:
+        This endpoint does not require authentication but will include user
+        information in the response if the user is authenticated.
+    """
     try:
         result = await call_tool(
             "get_usage_guidance",
@@ -563,19 +1244,135 @@ async def guidance(
         )
 
 
-@app.get("/analysis-config")
+@app.get("/analysis-config",
+          summary="Get Analysis Configuration",
+          description="Retrieve the complete analysis configuration including audience-specific document types.",
+          response_description="Complete analysis configuration",
+          responses={
+              200: {
+                  "description": "Analysis configuration retrieved successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "status": "success",
+                              "config": {
+                                  "audiences": {
+                                      "policy_makers": {"document_types": [...], "default": "..."}
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          })
 async def get_analysis_config():
     """
     Get the complete analysis configuration for audience-specific document types.
+    
+    This endpoint returns the full ANALYSIS_CONFIG dictionary which contains
+    configuration for all supported audiences and their corresponding document types.
+    This is useful for frontend applications to discover available options.
+    
+    This endpoint does not require authentication.
+    
+    Returns:
+        dict: A dictionary containing:
+            - status (str): "success"
+            - config (dict): The complete analysis configuration with:
+                - audiences: Dictionary mapping audience names to their configurations
+                - Each audience configuration includes document_types and default settings
+    
+    Example:
+        The config structure includes:
+        {
+            "audiences": {
+                "policy_makers": {
+                    "document_types": ["executive_summary", "briefing_note", "policy_report"],
+                    "default": "executive_summary",
+                    "style": "concise",
+                    "length": "short"
+                },
+                "technical_experts": {
+                    "document_types": ["technical_report", "data_analysis", "methodology_note"],
+                    "default": "technical_report",
+                    "style": "detailed",
+                    "length": "long"
+                },
+                ...
+            }
+        }
     """
     from backend.chat import ANALYSIS_CONFIG
     return {"status": "success", "config": ANALYSIS_CONFIG}
 
 
-@app.get("/analysis-config/{audience}")
+@app.get("/analysis-config/{audience}",
+          summary="Get Audience Configuration",
+          description="Retrieve analysis configuration for a specific audience.",
+          response_description="Audience-specific analysis configuration",
+          responses={
+              200: {
+                  "description": "Audience configuration retrieved successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "status": "success",
+                              "audience": "policy_makers",
+                              "default_document_type": "executive_summary",
+                              "available_document_types": ["executive_summary", "briefing_note", "policy_report"]
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid audience specified"},
+              404: {"description": "Audience not found"}
+          })
 async def get_audience_config(audience: str):
     """
     Get the analysis configuration for a specific audience.
+    
+    This endpoint returns the configuration for a specific audience, including
+    the available document types and the default document type for that audience.
+    This is useful for frontend applications to populate dropdown menus and
+    provide intelligent defaults based on the selected audience.
+    
+    This endpoint does not require authentication.
+    
+    Args:
+        audience (str): The audience name to get configuration for. Valid values include:
+            - policy_makers
+            - technical_experts
+            - field_offices
+            - donors
+            - general_public
+            - academic_researchers
+    
+    Returns:
+        dict: A dictionary containing:
+            - status (str): "success"
+            - audience (str): The requested audience name
+            - default_document_type (str): The default document type for this audience
+            - available_document_types (list[str]): List of all available document types
+              for this audience
+    
+    Raises:
+        HTTPException 400: If the audience name is invalid or not recognized
+    
+    Example:
+        Request: GET /analysis-config/policy_makers
+        
+        Response:
+        {
+            "status": "success",
+            "audience": "policy_makers",
+            "default_document_type": "executive_summary",
+            "available_document_types": [
+                "executive_summary",
+                "briefing_note", 
+                "policy_report",
+                "decision_brief"
+            ]
+        }
     """
     from backend.chat import get_analysis_config, get_available_document_types, get_default_document_type
     
@@ -601,9 +1398,47 @@ async def get_audience_config(audience: str):
 # Root
 # ---------------------------------------------------------------------
 
-@app.get("/")
+@app.get("/",
+         summary="API Root",
+         description="Root endpoint providing an overview of the UNHCR Copilot API.",
+         response_description="API overview and available endpoints",
+         responses={
+             200: {
+                 "description": "API root information",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "application": "UNHCR Copilot",
+                             "version": "1.0.0",
+                             "mcp": "/mcp",
+                             "chat": "/chat",
+                             "docs": "/docs"
+                         }
+                     }
+                 }
+             }
+         })
 async def root():
-
+    """
+    API root endpoint.
+    
+    This is the base endpoint for the UNHCR Copilot API. It provides a simple overview
+    of the application and links to the main endpoints and documentation.
+    
+    This endpoint does not require authentication and is available to all users.
+    
+    Returns:
+        dict: A dictionary containing:
+            - application (str): The application name ("UNHCR Copilot")
+            - version (str): The current API version
+            - mcp (str): Path to the MCP endpoint for Model Context Protocol access
+            - chat (str): Path to the chat endpoint for natural language queries
+            - docs (str): Path to the API documentation (OpenAPI/Swagger)
+    
+    Note:
+        For full API documentation, navigate to /docs (Swagger UI) or /openapi.json
+        for the OpenAPI specification.
+    """
     return {
         "application": "UNHCR Copilot",
         "version": "1.0.0",

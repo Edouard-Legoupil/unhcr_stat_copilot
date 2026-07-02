@@ -77,7 +77,7 @@ export default function LoadingSpinner() {
 
       {/* Main text */}
       <div style={{ fontSize: 18, fontWeight: 500 }}>
-        Analyzing UNHCR data
+        Working on it...
       </div>
 
       {/* Rotating sub-message */}

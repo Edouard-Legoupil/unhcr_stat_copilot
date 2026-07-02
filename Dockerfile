@@ -22,13 +22,20 @@ FROM python:3.11-slim AS final
 # Install OS dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    wget \
     dnsutils \
     procps \
     net-tools \
     util-linux \
     build-essential \
-    && apt-get clean \
+    && wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.9.38/quarto-1.9.38-linux-amd64.deb \
+    && apt-get update \
+    && apt-get install -y ./quarto-1.9.38-linux-amd64.deb \
+    && quarto check \
+    && rm quarto-1.9.38-linux-amd64.deb \
     && rm -rf /var/lib/apt/lists/*
+
+
 
 # ------------------------------------------------
 # Create app directory
@@ -73,7 +80,7 @@ RUN mkdir -p /app/log /app/data /app/uploads /app/generated \
     && chmod -R 755 /app/log /app/data /app/uploads /app/generated
 
 # Copy the knowledge files (if any) for your app
-COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
+#COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
 
 # ------------------------------------------------
 # Expose the container port

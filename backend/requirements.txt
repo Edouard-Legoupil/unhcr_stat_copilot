@@ -36,3 +36,8 @@ pytest-twisted
 # Rate limiting
 slowapi
 limits
+
+# viz for notebook
+quarto
+plotly
+matplotlib

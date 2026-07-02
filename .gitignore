@@ -37,3 +37,8 @@ data/markdown_reports/*
 data/reports/*
 data/quarto_analyses/*
 data/vector_store/*
+vibe/*
+.vibe/*
+test/__pycache__/*
+test/.pytest_cache/*
+sshd_config

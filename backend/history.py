@@ -164,7 +164,7 @@ def save_quarto_analysis(quarto_content: str, metadata: dict) -> str:
         # Add metadata as a header to the Quarto file
         metadata_header = f"""---
 title: "{metadata.get('question', 'UNHCR Analysis')}"
-author: "UNHCR Data Analysis System"
+author: "UNHCR Statistics Copilot Assistant"
 date: "{datetime.now().isoformat()}"
 format: html
 theme: unhcr

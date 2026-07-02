@@ -748,28 +748,7 @@ For issues and questions, please use the GitHub issue tracker.
 - **Performance Optimization**: Faster rendering and processing
 - **AI Improvements**: Better tool selection and content generation
 
-## Getting Help
 
-### Documentation
-
-- **This README**: Comprehensive overview
-- **Code Comments**: Detailed explanations
-- **Example Files**: Working demonstrations
-- **API Docs**: Swagger/OpenAPI documentation
-
-### Community
-
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Q&A and ideas
-- **Pull Requests**: Contributions welcome
-- **Releases**: Version history and notes
-
-### Support Channels
-
-- **Email**: support@unhcr-copilot.org
-- **Slack**: #unhcr-copilot channel
-- **Office Hours**: Weekly developer sessions
-- **Workshops**: Training and onboarding
 
 ## Conclusion
 
