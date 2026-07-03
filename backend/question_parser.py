@@ -406,14 +406,13 @@ Guidelines:
 - Country of Asylum (COA): Where refugees/migrants are located/hosted IN
 - Return ISO3 country codes (e.g., FRA for France, SYR for Syria, DEU for Germany)
 - If a country is not mentioned or cannot be determined, return null
-- Be careful with ambiguous phrases like "refugees from France" - 
-  in common usage, this usually means refugees IN France (COA), not FROM France (COO)
-- When only one country is mentioned with "refugees from X", treat X as COA (destination)
+- "refugees from X" means refugees whose origin is X (COO), not refugees located in X
+- When only one country is mentioned with "refugees from X", treat X as COO (origin)
 - When two countries are mentioned with "from X in/to Y", X is COO and Y is COA
 
 Examples:
 - "refugees from Syria in Germany" -> COO: SYR, COA: DEU
-- "refugees from France in the last 10 years" -> COO: null, COA: FRA
+- "refugees from France in the last 10 years" -> COO: FRA, COA: null
 - "asylum seekers in Turkey" -> COO: null, COA: TUR
 - "refugees from Afghanistan to Pakistan" -> COO: AFG, COA: PAK
 - "displaced people fleeing Ukraine" -> COO: UKR, COA: null
