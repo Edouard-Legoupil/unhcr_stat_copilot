@@ -71,6 +71,12 @@ async def generate_ai_data_story_tool(
                 visualization_data, context, story_type, apply_guardrails
             )
         
+        # If story is empty or None, use template fallback
+        if not story:
+            story = _generate_data_story_from_template(
+                visualization_data, context, story_type, apply_guardrails
+            )
+        
         return {
             'story': story,
             'story_type': story_type,

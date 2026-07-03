@@ -199,7 +199,20 @@ def save_quarto_analysis(quarto_content: str, metadata: dict) -> str:
         filepath = os.path.join(QUARTO_DIR, filename)
         
         # Add metadata as a header to the Quarto file
-        metadata_header = f"""---
+        html_comments = f"""<!-- Analysis ID: {analysis_id} -->
+<!-- Generated: {datetime.now().isoformat()} -->
+<!-- Question: {metadata.get('question', 'N/A')} -->
+
+"""
+        
+        # Check if quarto_content already has a YAML header (starts with ---)
+        # If it does, don't add another YAML header - just add the HTML comments before the existing header
+        if quarto_content.strip().startswith("---"):
+            # Content already has YAML header, insert HTML comments at the beginning
+            full_content = html_comments + quarto_content
+        else:
+            # Create full YAML header with metadata
+            yaml_header = f"""---
 title: "{metadata.get('question', 'UNHCR Analysis')}"
 author: "UNHCR Statistics Copilot Assistant"
 date: "{datetime.now().isoformat()}"
@@ -207,14 +220,9 @@ format: html
 theme: unhcr
 ---
 
-<!-- Analysis ID: {analysis_id} -->
-<!-- Generated: {datetime.now().isoformat()} -->
-<!-- Question: {metadata.get('question', 'N/A')} -->
-
 """
-        
-        # Combine metadata header with quarto content
-        full_content = metadata_header + quarto_content
+            # Combine metadata header with quarto content
+            full_content = yaml_header + html_comments + quarto_content
         
         # Save to file
         with open(filepath, "w", encoding="utf-8") as f:

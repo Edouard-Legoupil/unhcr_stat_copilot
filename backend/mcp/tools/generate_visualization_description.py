@@ -49,6 +49,12 @@ async def generate_visualization_description_tool(
                 structure, statistics, description_type, max_length, focus_areas
             )
         
+        # If description is empty or None, use template fallback
+        if not description:
+            description = _generate_description_from_template(
+                structure, statistics, description_type, max_length, focus_areas
+            )
+        
         return {
             'description': description,
             'description_type': description_type,

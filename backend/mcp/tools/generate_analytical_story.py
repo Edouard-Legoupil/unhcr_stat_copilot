@@ -68,7 +68,7 @@ async def generate_analytical_story_tool(
             # Fallback to template-based story generation
             story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
         
-        if story_content is None:
+        if not story_content:
             # If somehow we still don't have content, use template
             story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
         
