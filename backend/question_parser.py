@@ -351,7 +351,7 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
                 return countries
     
     # Handle the ambiguous case: "refugees from [Country]" with no other country
-    # In common usage, this usually means "refugees in [Country]" (Country as host)
+    # "refugees from X" means refugees whose origin is X (COO)
     if not countries['destination'] and not countries['origin']:
         # Try to find "from <country>" where country is a valid country name
         # Try multi-word country names first (2-3 words)
@@ -362,7 +362,7 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
             country_name = match.group(1).strip()
             iso3_code = lookup_country_iso3(country_name)
             if iso3_code:
-                countries['destination'] = iso3_code
+                countries['origin'] = iso3_code
                 return countries
         else:
             # If no multi-word country found, try single word
@@ -373,7 +373,7 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
                 country_name = match.strip()
                 iso3_code = lookup_country_iso3(country_name)
                 if iso3_code:
-                    countries['destination'] = iso3_code
+                    countries['origin'] = iso3_code
                     return countries
     
     return countries
