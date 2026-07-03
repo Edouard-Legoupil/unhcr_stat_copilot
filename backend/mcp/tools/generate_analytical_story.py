@@ -51,7 +51,9 @@ async def generate_analytical_story_tool(
     
     try:
         # Try LLM-based story generation first
+        story_content = None
         try:
+            # Import inside try block to handle import-time errors
             from backend.llm import generate_story_from_data
             story_content = await generate_story_from_data(
                 question, result, 
@@ -64,6 +66,10 @@ async def generate_analytical_story_tool(
         except Exception as e:
             logger.debug(f"LLM story generation failed: {e}, falling back to template-based approach")
             # Fallback to template-based story generation
+            story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
+        
+        if story_content is None:
+            # If somehow we still don't have content, use template
             story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
         
         return {
@@ -79,6 +85,7 @@ async def generate_analytical_story_tool(
             "status": "success"
         }
     except Exception as e:
+        logger.exception(f"Failed to generate analytical story: {e}")
         return {
             "error": f"Failed to generate analytical story: {str(e)}",
             "status": "error",

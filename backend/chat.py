@@ -811,15 +811,57 @@ async def generate_comprehensive_quarto_analysis(
         # Enhanced tool tracking with sequencing and results
         tool_sequence = []
         
-        # Helper function to track tool usage with full context
-        async def track_tool_call(tool_name, arguments):
+        # Helper function to call tools directly (not through MCP bridge)
+        # This avoids the need for MCP server to be running
+        async def call_tool_directly(tool_name, arguments):
             start_time = time.time()
             try:
-                result = await call_tool(tool_name, arguments)
+                # Import and call tools directly
+                if tool_name == "safe_tool_selection":
+                    from backend.mcp.tools.safe_tool_selection import safe_tool_selection_tool
+                    result = await safe_tool_selection_tool(arguments["question"])
+                elif tool_name == "get_data_for_story":
+                    from backend.mcp.tools.get_data_for_story import get_data_for_story_tool
+                    from backend.mcp.common import UNHCRAPIClient
+                    api_client = UNHCRAPIClient()
+                    # Extract known parameters for get_data_for_story_tool
+                    known_params = {
+                        'coo', 'coa', 'year', 'years', 'population_types',
+                        'coo_all', 'coa_all', 'audience', 'document_type', 'origin',
+                        'destination', 'population_type', 'timespan'
+                    }
+                    filtered_args = {k: v for k, v in arguments.items() if k in known_params}
+                    result = await get_data_for_story_tool(
+                        api_client,
+                        question=arguments.get('question'),
+                        **filtered_args
+                    )
+                elif tool_name == "generate_analytical_story":
+                    from backend.mcp.tools.generate_analytical_story import generate_analytical_story_tool
+                    result = await generate_analytical_story_tool(
+                        result=arguments.get("data"),
+                        question=arguments.get("question"),
+                        audience=arguments.get("audience"),
+                        document_type=arguments.get("document_type"),
+                        analysis_config=arguments.get("analysis_config")
+                    )
+                elif tool_name == "create_quarto_notebook":
+                    from backend.mcp.tools.create_quarto_notebook import create_quarto_notebook_tool
+                    result = await create_quarto_notebook_tool(
+                        story_content=arguments.get("story_content"),
+                        title=arguments.get("title"),
+                        include_code_cells=arguments.get("include_code_cells", False),
+                        use_unhcr_theme=arguments.get("use_unhcr_theme", True),
+                        use_unhcr_style=arguments.get("use_unhcr_style", True),
+                        metadata=arguments.get("metadata")
+                    )
+                else:
+                    # Fallback to MCP bridge for unknown tools
+                    result = await call_tool(tool_name, arguments)
+                
                 end_time = time.time()
                 
                 # Record tool usage with full context
-                # Store result as string to avoid circular reference issues
                 result_str = str(result)
                 tool_sequence.append({
                     "tool": tool_name,
@@ -852,7 +894,7 @@ async def generate_comprehensive_quarto_analysis(
                 raise
         
         # 1. Determine the right tool and arguments
-        selection = await track_tool_call("safe_tool_selection", {"question": question})
+        selection = await call_tool_directly("safe_tool_selection", {"question": question})
         
         # Ensure selection is a dict (MCP tools should always return dicts)
         if not isinstance(selection, dict):
@@ -867,8 +909,19 @@ async def generate_comprehensive_quarto_analysis(
             arguments.update(extracted_params)
             logger.info(f"Enhanced arguments with extracted parameters: {arguments}")
         
-        # 2. Get data
-        data_result = await track_tool_call("get_data_for_story", {"question": question, "audience": audience, "document_type": document_type, **arguments})
+        # 2. Get data - filter arguments to only include valid parameters for get_data_for_story
+        # Valid parameters: question, coo, coa, year, years, population_types, coo_all, coa_all, audience, document_type, origin, destination, population_type, timespan
+        valid_data_params = {
+            'coo', 'coa', 'year', 'years', 'population_types', 'population_type',
+            'coo_all', 'coa_all', 'audience', 'document_type', 'origin', 'destination', 'timespan'
+        }
+        filtered_arguments = {k: v for k, v in arguments.items() if k in valid_data_params}
+        # Add question, audience, document_type explicitly
+        filtered_arguments['question'] = question
+        filtered_arguments['audience'] = audience
+        filtered_arguments['document_type'] = document_type
+        
+        data_result = await call_tool_directly("get_data_for_story", filtered_arguments)
         
         # 3. Generate analytical story based on data
         # Check if data_result contains error information
@@ -879,7 +932,7 @@ async def generate_comprehensive_quarto_analysis(
                 story_content = f"Data retrieval error: {data_result.get('raw_text', 'Unknown error')}"
             else:
                 # Valid data, proceed with story generation
-                story_response = await track_tool_call("generate_analytical_story", {"data": data_result, "question": question, "audience": audience, "document_type": document_type, "analysis_config": config})
+                story_response = await call_tool_directly("generate_analytical_story", {"data": data_result, "question": question, "audience": audience, "document_type": document_type, "analysis_config": config})
                 
                 # Check if story generation succeeded
                 if story_response and isinstance(story_response, dict):
@@ -894,7 +947,8 @@ async def generate_comprehensive_quarto_analysis(
             story_content = "Could not fetch sufficient data to generate the analysis."
             
         # 4. Generate the Quarto notebook using the content
-        quarto_result = await track_tool_call(
+        metadata = {}  # Initialize metadata dict
+        quarto_result = await call_tool_directly(
             "create_quarto_notebook",
             {
                 "story_content": f"## Analysis\n\n{story_content}",
@@ -916,11 +970,13 @@ async def generate_comprehensive_quarto_analysis(
         
         # 5. Extract and return the quarto result
         if isinstance(quarto_result, dict):
-            quarto_content = quarto_result.get("quarto_content", "")
-            metadata = quarto_result.get("metadata", {})
+            # The create_quarto_notebook_tool returns 'content', not 'quarto_content'
+            quarto_content = quarto_result.get("content", "")
+            quart_metadata = quarto_result.get("metadata", {})
+            # Merge with our existing metadata
+            metadata.update(quart_metadata)
         else:
             quarto_content = str(quarto_result)
-            metadata = {}
             
         if not metadata:
             metadata = {
@@ -1000,33 +1056,6 @@ async def generate_comprehensive_quarto_analysis(
                 "fallback": True,
                 "error": str(e),
                 "note": "Generated fallback content due to processing error"
-            }
-        }
-        
-    except Exception as e:
-        logger.exception("Failed to generate comprehensive Quarto analysis: %s", e)
-        
-        # Fallback: Generate a basic Quarto notebook
-        return {
-            "quarto_content": f"""# UNHCR Analysis Report
-
-## Request
-{question}
-
-## Analysis
-
-Analysis generation failed, but this Quarto notebook structure is ready for content.
-
-## Notes
-
-The analysis will be completed when the data tools are available.
-""",
-            "metadata": {
-                "question": question,
-                "generated_at": datetime.now().isoformat(),
-                "analysis_type": "basic_quarto_fallback",
-                "format": "quarto_notebook",
-                "status": "fallback"
             }
         }
 
