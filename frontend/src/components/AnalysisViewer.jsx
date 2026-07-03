@@ -4,13 +4,16 @@ import { useState, useEffect, useRef } from "react";
  * AnalysisViewer - Integrated viewer for Quarto content with debug information
  * Combines QuartoViewer and DebugPanel functionality with a collapsible debug section
  */
-export default function AnalysisViewer({ quartoContent, metadata, response, rendered = false }) {
+export default function AnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false }) {
     const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
     const [displayContent, setDisplayContent] = useState('');
     const [isRendered, setIsRendered] = useState(rendered);
     const htmlRef = useRef(null);
+    
+    // Use quartoRawContent if provided, otherwise fall back to quartoContent
+    const rawContent = quartoRawContent || quartoContent;
 
     if (!quartoContent) {
         return (
@@ -128,16 +131,34 @@ export default function AnalysisViewer({ quartoContent, metadata, response, rend
             <div className="analysis-content">
                 {showRaw ? (
                     <div className="analysis-source">
-                        <pre className="analysis-raw">{quartoContent}</pre>
-                        <button
-                            className="copy-button"
-                            onClick={() => {
-                                navigator.clipboard.writeText(quartoContent);
-                                alert('Quarto source copied to clipboard!');
-                            }}
-                        >
-                            📋 Copy Source
-                        </button>
+                        <pre className="analysis-raw">{rawContent}</pre>
+                        <div className="source-actions">
+                            <button
+                                className="copy-button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(rawContent);
+                                    alert('Quarto source copied to clipboard!');
+                                }}
+                            >
+                                📋 Copy Source
+                            </button>
+                            <button
+                                className="download-button"
+                                onClick={() => {
+                                    const blob = new Blob([rawContent], { type: 'text/markdown' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `analysis_${new Date().toISOString().split('T')[0]}.qmd`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }}
+                            >
+                                💾 Download .qmd
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div

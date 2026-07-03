@@ -386,6 +386,7 @@ export default function App() {
                         {(["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"].includes(response.analysis_type) && (response.quarto_rendered_html || response.quarto_content)) && (
                             <IntegratedAnalysisViewer
                                 quartoContent={response.quarto_rendered_html || response.quarto_content}
+                                quartoRawContent={response.quarto_content}
                                 metadata={response.metadata || response.quarto_metadata}
                                 response={response}
                                 rendered={response.rendered || false}

@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 
-export default function QuartoViewer({ quartoContent, metadata, rendered = false }) {
+export default function QuartoViewer({ quartoContent, quartoRawContent, metadata, rendered = false }) {
     const [showRaw, setShowRaw] = useState(false);
     const [displayContent, setDisplayContent] = useState('');
     const [isRendered, setIsRendered] = useState(rendered);
     const [showTools, setShowTools] = useState(false);
     const htmlRef = useRef(null);
+    
+    // Use quartoRawContent if provided, otherwise fall back to quartoContent
+    const rawContent = quartoRawContent || quartoContent;
 
     if (!quartoContent) {
         return (
@@ -100,16 +103,34 @@ export default function QuartoViewer({ quartoContent, metadata, rendered = false
             <div className="quarto-content">
                 {showRaw ? (
                     <div className="quarto-source">
-                        <pre className="quarto-raw">{quartoContent}</pre>
-                        <button
-                            className="copy-button"
-                            onClick={() => {
-                                navigator.clipboard.writeText(quartoContent);
-                                alert('Quarto source copied to clipboard!');
-                            }}
-                        >
-                            📋 Copy Source
-                        </button>
+                        <pre className="quarto-raw">{rawContent}</pre>
+                        <div className="source-actions">
+                            <button
+                                className="copy-button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(rawContent);
+                                    alert('Quarto source copied to clipboard!');
+                                }}
+                            >
+                                📋 Copy Source
+                            </button>
+                            <button
+                                className="download-button"
+                                onClick={() => {
+                                    const blob = new Blob([rawContent], { type: 'text/markdown' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `analysis_${new Date().toISOString().split('T')[0]}.qmd`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }}
+                            >
+                                💾 Download .qmd
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div
