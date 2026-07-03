@@ -3494,10 +3494,10 @@ def create_server() -> FastMCP:
             pop_type: Flag for population type breakdown
             audience: Target audience for the analysis
             document_type: Type of document being generated
-            origin: Alias for coo (country of origin)
-            destination: Alias for coa (country of asylum)
-            population_type: Alias for population_types (singular string)
-            timespan: Time period for the data
+            origin: Alias for coo (country of origin) - used if coo is not provided
+            destination: Alias for coa (country of asylum) - used if coa is not provided
+            population_type: Alias for population_types (singular string) - used if population_types is not provided
+            timespan: Time period for the data - used if year and years are not provided
             
         Returns:
             Dictionary containing the retrieved data and metadata
@@ -3508,15 +3508,15 @@ def create_server() -> FastMCP:
         try:
             api_client = UNHCRAPIClient()
             
-            # Handle parameter aliases - map origin/destination to coo/coa
-            # Explicitly extracted parameters (origin/destination) take precedence over guessed ones (coo/coa)
-            if origin:
+            # Handle parameter aliases for backward compatibility
+            # Only apply aliases if the primary parameter is not already set
+            if origin and coo is None:
                 coo = origin
-            if destination:
+            if destination and coa is None:
                 coa = destination
-            if population_type and not population_types:
+            if population_type and population_types is None:
                 population_types = [population_type]
-            if timespan and not year and not years:
+            if timespan and year is None and years is None:
                 # Extract years from timespan if provided
                 # Handle formats like "2015-2024" or "2015,2016,...,2024"
                 years = timespan
