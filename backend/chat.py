@@ -804,6 +804,8 @@ async def generate_comprehensive_quarto_analysis(
                 end_time = time.time()
                 
                 # Record tool usage with full context
+                # Store full result for debugging and analysis
+                result_str = str(result)
                 tool_sequence.append({
                     "tool": tool_name,
                     "arguments": arguments,
@@ -811,7 +813,8 @@ async def generate_comprehensive_quarto_analysis(
                     "duration_ms": round((end_time - start_time) * 1000, 2),
                     "timestamp": datetime.now().isoformat(),
                     "result_type": type(result).__name__,
-                    "result_summary": str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
+                    "result": result if isinstance(result, (dict, list)) or len(result_str) < 10000 else result_str[:10000] + "... [TRUNCATED]",
+                    "result_summary": result_str[:100] + "..." if len(result_str) > 100 else result_str
                 })
                 
                 return result
@@ -819,13 +822,15 @@ async def generate_comprehensive_quarto_analysis(
                 end_time = time.time()
                 
                 # Record failed tool call
+                error_str = str(e)
                 tool_sequence.append({
                     "tool": tool_name,
                     "arguments": arguments,
                     "success": False,
                     "duration_ms": round((end_time - start_time) * 1000, 2),
                     "timestamp": datetime.now().isoformat(),
-                    "error": str(e)[:200]
+                    "error": error_str,
+                    "error_summary": error_str[:200] + "..." if len(error_str) > 200 else error_str
                 })
                 
                 # Re-raise the exception after tracking
