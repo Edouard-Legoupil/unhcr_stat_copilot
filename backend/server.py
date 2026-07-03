@@ -3474,6 +3474,10 @@ def create_server() -> FastMCP:
         pop_type: bool = False,
         audience: str | None = None,
         document_type: str | None = None,
+        origin: str | None = None,
+        destination: str | None = None,
+        population_type: str | None = None,
+        timespan: str | None = None,
     ) -> dict[str, Any]:
         """
         Get data for story generation by routing to appropriate data tools.
@@ -3490,6 +3494,10 @@ def create_server() -> FastMCP:
             pop_type: Flag for population type breakdown
             audience: Target audience for the analysis
             document_type: Type of document being generated
+            origin: Alias for coo (country of origin)
+            destination: Alias for coa (country of asylum)
+            population_type: Alias for population_types (singular string)
+            timespan: Time period for the data
             
         Returns:
             Dictionary containing the retrieved data and metadata
@@ -3500,25 +3508,42 @@ def create_server() -> FastMCP:
         try:
             api_client = UNHCRAPIClient()
             
-            # Handle parameter aliases - for backward compatibility
-            # If coo/coa/year are None, check if country_of_origin/country_of_asylum are provided in metadata
-            # For now, we use the explicit parameters as-is
-            # The calling code should handle the alias mapping
+            # Handle parameter aliases - map origin/destination to coo/coa
+            # Explicitly extracted parameters (origin/destination) take precedence over guessed ones (coo/coa)
+            if origin:
+                coo = origin
+            if destination:
+                coa = destination
+            if population_type and not population_types:
+                population_types = [population_type]
+            if timespan and not year and not years:
+                # Extract years from timespan if provided
+                # Handle formats like "2015-2024" or "2015,2016,...,2024"
+                years = timespan
             
             # If years is provided but year is not, use years
             if year is None and years is not None:
-                year = years
+                # Handle year range format (e.g., "2015-2024") by converting to comma-separated list
+                if "-" in str(years):
+                    try:
+                        start, end = years.split("-")
+                        years_list = list(range(int(start), int(end) + 1))
+                        year = ",".join(str(y) for y in years_list)
+                    except (ValueError, TypeError):
+                        year = years
+                else:
+                    year = years
             
             # Analyze the question to determine what type of data is needed
             question_lower = question.lower()
             
             # Route to appropriate data based on question keywords
             # Note: Be careful with keyword matching to avoid false positives
-            # e.g., "last 10 years" contains "year" but should use get_population, not trends
             
             # Check for explicit trend/over-time indicators first
-            trend_keywords = ["trend", "over time", "evolution", "change over time"]
-            if any(keyword in question_lower for keyword in trend_keywords):
+            trend_keywords = ["trend", "over time", "evolution", "change over time", "last", "past", "history", "over the"]
+            if any(keyword in question_lower for keyword in trend_keywords) or \
+               any(pattern in question_lower for pattern in ["last \d+ year", "past \d+ year", "in the last", "over the past"]):
                 # Trend data question - use get_population with multiple years
                 # Ensure required parameters are present
                 if not coa:
@@ -3579,47 +3604,6 @@ def create_server() -> FastMCP:
                     pop_type=pop_type
                 )
                 result["data_type"] = "demographics"
-                return result
-                if not year:
-                    # Default to last 5 years
-                    current_year = datetime.now().year
-                    years_list = list(range(current_year - 4, current_year + 1))
-                    year = ",".join(str(y) for y in years_list)
-                
-                # Filter population_types if provided
-                if population_types is None:
-                    population_types = ["refugees"]
-                
-                # Get population data for trends analysis
-                result = api_client.get_population(
-                    coo=coo, coa=coa, year=year,
-                    coo_all=coo_all,
-                    coa_all=coa_all
-                )
-                
-                # Process into time series format for trends
-                if result.get('data'):
-                    time_series = {}
-                    for item in result['data']:
-                        year_val = item.get('year', 'unknown')
-                        pop_type = item.get('population_type', 'unknown')
-                        value = item.get('value', 0)
-                        
-                        if population_types and pop_type not in population_types:
-                            continue
-                        
-                        if year_val not in time_series:
-                            time_series[year_val] = {}
-                        time_series[year_val][pop_type] = value
-                    
-                    result = {
-                        'time_series': time_series,
-                        'country': result['data'][0].get('coa_name', 'Unknown'),
-                        'data_type': 'trends'
-                    }
-                else:
-                    result["data_type"] = "trends"
-                
                 return result
             elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement", "integration"]):
                 # Solutions data question

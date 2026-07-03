@@ -833,17 +833,18 @@ async def generate_comprehensive_quarto_analysis(
         
         # 1. Determine the right tool and arguments
         selection = await track_tool_call("safe_tool_selection", {"question": question})
-        arguments = selection.get("arguments", {})
         
         # Extract parameters from the selection (new enhanced format)
+        # Use extracted parameters for data retrieval, not LLM tool selection arguments
         extracted_params = selection.get("parameters", {})
-        if extracted_params:
-            # Merge extracted parameters with tool arguments
-            arguments.update(extracted_params)
-            logger.info(f"Enhanced arguments with extracted parameters: {arguments}")
+        if not extracted_params:
+            # Fallback to LLM tool selection arguments if no extracted parameters
+            extracted_params = selection.get("arguments", {})
+        
+        logger.info(f"Using extracted parameters for data retrieval: {extracted_params}")
         
         # 2. Get data
-        data_result = await track_tool_call("get_data_for_story", {"question": question, "audience": audience, "document_type": document_type, **arguments})
+        data_result = await track_tool_call("get_data_for_story", {"question": question, "audience": audience, "document_type": document_type, **extracted_params})
         
         # 3. Generate analytical story based on data
         # Check if data_result contains error information
