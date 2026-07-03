@@ -421,9 +421,9 @@ async def call_tool(
 
                     # Take the first text content block
                     first = content[0]
-                    text = getattr(first, "text", None) or (
-                        first.get("text") if isinstance(first, dict) else None
-                    )
+                    text = getattr(first, "text", None)
+                    if text is None and isinstance(first, dict):
+                        text = first.get("text")
 
                     if text:
                         try:
