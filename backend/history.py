@@ -2,10 +2,45 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _make_serializable(obj: Any, visited: Optional[set] = None) -> Any:
+    """
+    Convert an object to a JSON-serializable format, handling circular references.
+    
+    Args:
+        obj: The object to convert
+        visited: Set of object ids already visited (for circular reference detection)
+    
+    Returns:
+        A JSON-serializable version of the object
+    """
+    if visited is None:
+        visited = set()
+    
+    # Handle circular references
+    obj_id = id(obj)
+    if obj_id in visited:
+        return "[CIRCULAR REFERENCE]"
+    
+    visited = visited | {obj_id}  # Create a new set to avoid mutating the parent's set
+    
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    elif isinstance(obj, (list, tuple)):
+        return [_make_serializable(item, visited) for item in obj]
+    elif isinstance(obj, dict):
+        return {str(k): _make_serializable(v, visited) for k, v in obj.items()}
+    else:
+        # Convert other types to string representation
+        try:
+            return str(obj)
+        except Exception:
+            return f"[UNKNOWN TYPE: {type(obj).__name__}]"
 
 # Ensure the history directories exist
 HISTORY_DIR = "./data/analysis_history"
@@ -36,8 +71,10 @@ def save_analysis(analysis_data: Dict) -> str:
         filepath = os.path.join(HISTORY_DIR, filename)
         
         # Save to file
+        # Use _make_serializable to handle any circular references
+        serializable_data = _make_serializable(analysis_data)
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(analysis_data, f, indent=2, ensure_ascii=False)
+            json.dump(serializable_data, f, indent=2, ensure_ascii=False)
         
         logger.info(f"Saved analysis {analysis_id}")
         return analysis_id
@@ -192,9 +229,11 @@ theme: unhcr
         metadata["filepath"] = filepath
         
         # Save metadata to history directory for indexing
+        # Use _make_serializable to handle any circular references
         history_filepath = os.path.join(HISTORY_DIR, f"{analysis_id}.json")
+        serializable_metadata = _make_serializable(metadata)
         with open(history_filepath, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
+            json.dump(serializable_metadata, f, indent=2, ensure_ascii=False)
         
         return filename
         

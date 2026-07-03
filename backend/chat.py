@@ -804,7 +804,7 @@ async def generate_comprehensive_quarto_analysis(
                 end_time = time.time()
                 
                 # Record tool usage with full context
-                # Store full result for debugging and analysis
+                # Store result as string to avoid circular reference issues
                 result_str = str(result)
                 tool_sequence.append({
                     "tool": tool_name,
@@ -813,7 +813,7 @@ async def generate_comprehensive_quarto_analysis(
                     "duration_ms": round((end_time - start_time) * 1000, 2),
                     "timestamp": datetime.now().isoformat(),
                     "result_type": type(result).__name__,
-                    "result": result if isinstance(result, (dict, list)) or len(result_str) < 10000 else result_str[:10000] + "... [TRUNCATED]",
+                    "result": result_str[:10000] + "... [TRUNCATED]" if len(result_str) > 10000 else result_str,
                     "result_summary": result_str[:100] + "..." if len(result_str) > 100 else result_str
                 })
                 
