@@ -838,6 +838,11 @@ async def generate_comprehensive_quarto_analysis(
         
         # 1. Determine the right tool and arguments
         selection = await track_tool_call("safe_tool_selection", {"question": question})
+        
+        # Ensure selection is a dict (MCP tools should always return dicts)
+        if not isinstance(selection, dict):
+            selection = {"arguments": {}, "parameters": {}}
+        
         arguments = selection.get("arguments", {})
         
         # Extract parameters from the selection (new enhanced format)
