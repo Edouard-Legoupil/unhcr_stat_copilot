@@ -3545,9 +3545,9 @@ def create_server() -> FastMCP:
             if any(keyword in question_lower for keyword in trend_keywords) or \
                any(pattern in question_lower for pattern in ["last \d+ year", "past \d+ year", "in the last", "over the past"]):
                 # Trend data question - use get_population with multiple years
-                # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                # For origin-focused queries (coo specified, no coa), set coa_all=True to get all destinations
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
                 if not year:
                     # Default to last 5 years
                     current_year = datetime.now().year
@@ -3592,8 +3592,10 @@ def create_server() -> FastMCP:
             elif any(keyword in question_lower for keyword in ["demographic", "age", "gender", "breakdown"]):
                 # Demographic data question
                 # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
+                if not coa and not coo:
+                    coa = "TUR"  # Default to Turkey if no country specified
                 if not year:
                     year = "2024"  # Default to current year
                 
@@ -3608,8 +3610,10 @@ def create_server() -> FastMCP:
             elif any(keyword in question_lower for keyword in ["solution", "return", "resettlement", "integration"]):
                 # Solutions data question
                 # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
+                if not coa and not coo:
+                    coa = "TUR"  # Default to Turkey if no country specified
                 if not year:
                     year = "2024"  # Default to current year
                 
@@ -3623,8 +3627,10 @@ def create_server() -> FastMCP:
             elif any(keyword in question_lower for keyword in ["rsd", "asylum decision", "recognition rate"]):
                 # RSD data question
                 # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
+                if not coa and not coo:
+                    coa = "TUR"  # Default to Turkey if no country specified
                 if not year:
                     year = "2024"  # Default to current year
                 
@@ -3638,8 +3644,10 @@ def create_server() -> FastMCP:
             elif any(keyword in question_lower for keyword in ["asylum application", "asylum claim"]):
                 # RSD applications question
                 # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
+                if not coa and not coo:
+                    coa = "TUR"  # Default to Turkey if no country specified
                 if not year:
                     year = "2024"  # Default to current year
                 
@@ -3653,8 +3661,10 @@ def create_server() -> FastMCP:
             else:
                 # Default to population data
                 # Ensure required parameters are present
-                if not coa:
-                    coa = "TUR"  # Default to Turkey
+                if not coa and coo:
+                    coa_all = True  # Get data for all countries of asylum when querying by origin
+                if not coa and not coo:
+                    coa = "TUR"  # Default to Turkey if no country specified
                 if not year:
                     year = "2024"  # Default to current year
                 
