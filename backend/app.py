@@ -17,7 +17,7 @@ load_dotenv()
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from backend.server import create_server
+from backend.mcp.server import create_server
 from backend.chat import process_chat_message
 from backend.llm import safe_tool_selection
 from backend.charts import generate_chart   

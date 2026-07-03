@@ -12,7 +12,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from backend.app import app as backend_app
-from backend.server import create_server
+from backend.mcp.server import create_server
 
 # Load environment variables from .env file
 load_dotenv()

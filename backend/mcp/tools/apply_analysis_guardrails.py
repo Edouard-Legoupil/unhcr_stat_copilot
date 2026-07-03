@@ -1,0 +1,218 @@
+"""
+Tool: apply_analysis_guardrails
+Apply UNHCR methodology guardrails to ensure analyses follow international standards.
+"""
+
+from typing import Any, Optional
+
+
+def apply_analysis_guardrails_tool(
+    analysis_request: dict[str, Any],
+    population_type: Optional[str] = None,
+    country_iso: Optional[str] = None,
+    year: Optional[str | int] = None,
+    detailed_report: bool = False
+) -> dict[str, Any]:
+    """
+    Apply UNHCR analysis guardrails to ensure compliance with international standards.
+    
+    Args:
+        analysis_request: The analysis request to validate
+        population_type: Specific population type being analyzed
+        country_iso: Country ISO code
+        year: Year of analysis
+        detailed_report: Whether to generate a detailed compliance report
+    
+    Returns:
+        Compliance validation results and recommendations
+    """
+    # Check population definition compliance
+    compliance_results = {
+        'population_definition': _check_population_definition_compliance(population_type or ''),
+        'country_code': _check_valid_country_code(country_iso or ''),
+        'data_disaggregation': _check_data_disaggregation(
+            analysis_request.get('data_fields', []),
+            population_type
+        ),
+        'data_completeness': _check_data_completeness(analysis_request.get('data', [])),
+        'data_consistency': _check_data_consistency(analysis_request.get('data', [])),
+        'storytelling_guardrails': _check_storytelling_guardrails(
+            analysis_request.get('context', ''),
+            population_type
+        )
+    }
+    
+    all_compliant = all(
+        result.get('compliant', False) for result in compliance_results.values()
+    )
+    
+    overall_compliance = {
+        'overall_compliant': all_compliant,
+        'compliance_percentage': sum(
+            1 for r in compliance_results.values() if r.get('compliant', False)
+        ) / len(compliance_results) * 100 if compliance_results else 0,
+        'compliance_level': _get_compliance_level(
+            sum(1 for r in compliance_results.values() if r.get('compliant', False)) / len(compliance_results) * 100 if compliance_results else 0
+        ),
+        'detailed_report': compliance_results if detailed_report else None
+    }
+    
+    return overall_compliance
+
+
+def _check_population_definition_compliance(population_type: str) -> dict[str, Any]:
+    """Check if population type definitions comply with UNHCR standards."""
+    unhcr_population_types = {
+        'refugees': {'compliant': True, 'definition': 'Persons recognized as refugees under the 1951 Convention'},
+        'asylum_seekers': {'compliant': True, 'definition': 'Persons whose applications for asylum are pending'},
+        'idps': {'compliant': True, 'definition': 'Internally displaced persons'},
+        'stateless': {'compliant': True, 'definition': 'Persons not considered as nationals by any State'},
+        'returned_refugees': {'compliant': True, 'definition': 'Refugees who have voluntarily returned'},
+        'returned_idps': {'compliant': True, 'definition': 'IDPs who have returned to their areas of origin'},
+        'oip': {'compliant': True, 'definition': 'Other people in need of international protection'},
+        'ooc': {'compliant': True, 'definition': 'Other persons of concern'}
+    }
+    
+    if population_type in unhcr_population_types:
+        return {
+            'compliant': True,
+            'population_type': population_type,
+            'definition': unhcr_population_types[population_type]['definition'],
+            'message': f'Population type {population_type} is compliant with UNHCR standards'
+        }
+    else:
+        return {
+            'compliant': False,
+            'population_type': population_type,
+            'message': f'Population type {population_type} is not a standard UNHCR classification',
+            'recommendation': f'Use one of: {list(unhcr_population_types.keys())}'
+        }
+
+
+def _check_valid_country_code(country_iso: str) -> dict[str, Any]:
+    """Check if country code is valid."""
+    if not country_iso:
+        return {'compliant': True, 'message': 'No country code specified'}
+    
+    # Check if it's a valid ISO3 code (simplified check)
+    if len(country_iso) == 3 and country_iso.isalpha() and country_iso.isupper():
+        return {'compliant': True, 'country_iso': country_iso, 'message': 'Valid ISO3 country code'}
+    else:
+        return {
+            'compliant': False,
+            'country_iso': country_iso,
+            'message': f'Invalid ISO3 country code: {country_iso}',
+            'recommendation': 'Use a valid 3-letter uppercase ISO country code'
+        }
+
+
+def _check_data_disaggregation(data_fields: list[str], population_type: Optional[str]) -> dict[str, Any]:
+    """Check if data is properly disaggregated according to UNHCR standards."""
+    required_disaggregations = {
+        'refugees': ['age', 'sex', 'country_of_origin'],
+        'asylum_seekers': ['age', 'sex', 'country_of_origin'],
+        'idps': ['age', 'sex'],
+        'demographics': ['age', 'sex']
+    }
+    
+    if population_type and population_type in required_disaggregations:
+        required = required_disaggregations[population_type]
+        missing = [d for d in required if d not in data_fields]
+        
+        if not missing:
+            return {
+                'compliant': True,
+                'message': f'Data properly disaggregated for {population_type}',
+                'required_fields': required
+            }
+        else:
+            return {
+                'compliant': False,
+                'message': f'Missing required disaggregation fields: {missing}',
+                'required_fields': required,
+                'provided_fields': data_fields,
+                'recommendation': f'Add missing fields: {missing}'
+            }
+    else:
+        return {
+            'compliant': True,
+            'message': 'Population type does not require specific disaggregation'
+        }
+
+
+def _check_data_completeness(data: list[dict[str, Any]]) -> dict[str, Any]:
+    """Check if data appears to be complete."""
+    if not data:
+        return {'compliant': False, 'message': 'No data provided', 'recommendation': 'Provide data for analysis'}
+    
+    # Check for common completeness indicators
+    has_values = all('value' in item or 'count' in item for item in data)
+    has_metadata = any('year' in item or 'country' in item for item in data)
+    
+    if has_values and has_metadata:
+        return {'compliant': True, 'message': 'Data appears complete with values and metadata'}
+    else:
+        missing = []
+        if not has_values:
+            missing.append('numeric values')
+        if not has_metadata:
+            missing.append('metadata (year, country, etc.)')
+        
+        return {
+            'compliant': False,
+            'message': f'Data appears incomplete, missing: {missing}',
+            'recommendation': f'Include {missing} in your data'
+        }
+
+
+def _check_data_consistency(data: list[dict[str, Any]]) -> dict[str, Any]:
+    """Check if data is internally consistent."""
+    if not data or len(data) < 2:
+        return {'compliant': True, 'message': 'Not enough data for consistency check'}
+    
+    # Simple consistency check: all items should have the same structure
+    keys_set = {frozenset(item.keys()) for item in data}
+    if len(keys_set) == 1:
+        return {'compliant': True, 'message': 'Data structure is consistent across all items'}
+    else:
+        return {
+            'compliant': False,
+            'message': f'Inconsistent data structure: {len(keys_set)} different structures found',
+            'recommendation': 'Ensure all data items have the same fields'
+        }
+
+
+def _check_storytelling_guardrails(context: str, population_type: Optional[str]) -> dict[str, Any]:
+    """Check if storytelling context follows UNHCR guidelines."""
+    if not context:
+        return {'compliant': True, 'message': 'No context provided for storytelling check'}
+    
+    # Check for problematic language
+    problematic_terms = [
+        'illegal migrant', 'illegal alien', 'bogus asylum seeker',
+        'queue jumper', 'economic migrant'
+    ]
+    
+    found_issues = [term for term in problematic_terms if term.lower() in context.lower()]
+    
+    if not found_issues:
+        return {'compliant': True, 'message': 'Context appears to follow UNHCR terminology guidelines'}
+    else:
+        return {
+            'compliant': False,
+            'message': f'Context contains problematic terminology: {found_issues}',
+            'recommendation': 'Use person-first language and avoid stigmatizing terms. '
+                           'Refer to UNHCR terminology guidelines.'
+        }
+
+
+def _get_compliance_level(compliance_percentage: float) -> str:
+    """Determine compliance level based on percentage."""
+    if compliance_percentage >= 90:
+        return 'FULLY_COMPLIANT'
+    elif compliance_percentage >= 75:
+        return 'SUBSTANTIALLY_COMPLIANT'
+    elif compliance_percentage >= 50:
+        return 'PARTIALLY_COMPLIANT'
+    else:
+        return 'NON_COMPLIANT'
