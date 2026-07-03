@@ -7,7 +7,6 @@ from datetime import datetime
 
 
 from backend.charts import generate_chart
-from backend.llm import safe_tool_selection
 from backend.mcp_bridge import call_tool
 from backend.question_parser import (
     extract_question_parameters, 
@@ -619,8 +618,6 @@ async def generate_analytical_story(
 ):
 
     try:
-        from backend.llm import generate_story_from_data
-        
         # Extract configuration if provided
         tone = None
         length_config = None
@@ -630,14 +627,34 @@ async def generate_analytical_story(
             length_config = analysis_config.get("length")
             structure = analysis_config.get("structure")
         
-        story_content = await generate_story_from_data(
-            question, result,
-            audience=audience,
-            document_type=document_type,
-            tone=tone,
-            length_config=length_config,
-            structure=structure
-        )
+        # Try LLM-based story generation first, then fallback to MCP tool
+        try:
+            from backend.llm import generate_story_from_data
+            story_content = await generate_story_from_data(
+                question, result,
+                audience=audience,
+                document_type=document_type,
+                tone=tone,
+                length_config=length_config,
+                structure=structure
+            )
+        except Exception as e:
+            logger.debug(f"LLM story generation failed: {e}, falling back to MCP tool")
+            # Use the MCP tool as fallback
+            result_dict = {"data": result} if result else {}
+            story_result = await call_tool(
+                "generate_analytical_story",
+                {
+                    "data": result_dict,
+                    "question": question,
+                    "audience": audience,
+                    "document_type": document_type
+                }
+            )
+            if isinstance(story_result, dict):
+                story_content = story_result.get("story", "")
+            else:
+                story_content = str(story_result)
 
         return {
             "title": f"Analytical Story: {question[:50]}",
@@ -772,8 +789,6 @@ async def generate_comprehensive_quarto_analysis(
     report generation using Jinja2 templating system.
     """
     try:
-        from backend.llm import safe_tool_selection
-        
         # Apply audience-specific document type validation and defaults
         if audience not in ANALYSIS_CONFIG:
             logger.warning(f"Unknown audience '{audience}', defaulting to 'internal'")

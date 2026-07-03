@@ -19,7 +19,6 @@ from slowapi.util import get_remote_address
 
 from backend.mcp.server import create_server
 from backend.chat import process_chat_message
-from backend.llm import safe_tool_selection
 from backend.charts import generate_chart   
 from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError
 from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses
