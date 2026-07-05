@@ -52,12 +52,12 @@ engine: jupyter
 
 This analysis was automatically generated using the UNHCR Statistics Copilot.
 
-- **Tone**: {{ analysis_config.tone | default("formal, precise, objective") }}
-{% if analysis_config.length %}
-- **Length**: {{ analysis_config.length.wordRange | default("1200-3000") }} words
-- **Reading Time**: {{ analysis_config.length.readingTime | default("6-15 min") }}
+- **Tone**: {{ analysis_config.get('tone', 'formal, precise, objective') }}
+{% if analysis_config.get('length') %}
+- **Length**: {{ analysis_config.get('length', {}).get('wordRange', '1200-3000') }} words
+- **Reading Time**: {{ analysis_config.get('length', {}).get('readingTime', '6-15 min') }}
 {% endif %}
-- **Structure**: {{ analysis_config.structure | join(' -> ') | default("N/A") }}
+- **Structure**: {{ analysis_config.get('structure', []) | join(' -> ') | default("N/A") }}
 
 {% endif %}
 
