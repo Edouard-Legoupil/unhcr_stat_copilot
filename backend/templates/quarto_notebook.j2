@@ -62,37 +62,12 @@ This analysis was automatically generated using the UNHCR Statistics Copilot.
 {% endif %}
 
 {# Code cells section (optional) #}
-{% if include_code_cells %}
+{% if include_code_cells and python_code %}
 
 ## Code
 
 ```{python}
- #| label: setup
- #| echo: false
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-{% if use_unhcr_style %}
-import unhcrpyplotstyle  # noqa: F401
-plt.style.use("unhcr")
-{% endif %}
-
- # Load your data here
- # df = pd.read_csv("data.csv")
-```
-
-```{python}
- #| label: fig-example
- #| fig-cap: "{{ title|replace("'", "\\\\'") }}"
-
- # Example - uncomment and adapt:
- # fig, ax = plt.subplots(figsize=(10, 6))
- # ax.bar(df["year"], df["refugees"])
- # ax.set_title("{{ title|replace("'", "\\\\'") }}")
- # plt.tight_layout()
- # plt.show()
+{{ python_code | indent(2) }}
 ```
 {% endif %}
 
@@ -124,8 +99,8 @@ forcibly displaced populations.
 
 This analysis was generated using the following tool sequence:
 
-{% for tool in metadata.get('tool_sequence', []) %}- **{{ tool.tool }}**: {{ 'SUCCESS' if tool.success else 'FAILED' }} ({{ tool.duration_ms }}ms)
-  - Purpose: {{ tool.result_summary if tool.success else tool.error }}
+{% for tool in metadata.get('tool_sequence', []) %}- **{{ tool.tool }}**: {{ 'SUCCESS' if tool.get('success', False) else 'FAILED' }} ({{ tool.get('duration_ms', 0) }}ms)
+  - Purpose: {{ tool.get('result_summary', tool.get('error', 'N/A')) }}
 {% endfor %}
 
 **Data Sources**: UNHCR Population Statistics API

@@ -4,10 +4,68 @@ Create Quarto notebooks from data stories.
 """
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 import yaml
+
+try:
+    import jinja2
+    JINJA2_AVAILABLE = True
+except ImportError:
+    JINJA2_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
+
+def _escape_jinja(text: str) -> str:
+    """
+    Escape Jinja2 special characters in text to prevent template rendering issues.
+    
+    Args:
+        text: Text that may contain Jinja2 syntax
+        
+    Returns:
+        Text with Jinja2 syntax escaped
+    """
+    return text.replace('{{', '\{{').replace('}}', '\}}').replace('{%', '\{%').replace('%}', '\%}')
+
+
+def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2.Template]:
+    """
+    Load a Jinja2 template from the templates directory.
+    
+    Args:
+        template_name: Name of the template file
+        
+    Returns:
+        Compiled Jinja2 template or None if not available
+    """
+    if not JINJA2_AVAILABLE:
+        logger.warning("Jinja2 not available, using manual template generation")
+        return None
+    
+    try:
+        templates_dir = Path(__file__).parent.parent.parent / "templates"
+        if not templates_dir.exists():
+            logger.warning(f"Templates directory not found at {templates_dir}")
+            return None
+        
+        # Create Jinja2 environment with custom filters
+        env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(templates_dir),
+            autoescape=False,
+            undefined=jinja2.StrictUndefined
+        )
+        
+        # Add custom filter for escaping Jinja syntax in content
+        env.filters['escape_jinja'] = _escape_jinja
+        
+        return env.get_template(template_name)
+    except Exception as e:
+        logger.error(f"Failed to load template {template_name}: {e}")
+        return None
 
 
 def _generate_data_visualization_code(data: Any, data_name: str = "data") -> str:
@@ -178,61 +236,102 @@ async def create_quarto_notebook_tool(
         Generated notebook content and metadata
     """
     try:
-        # Generate notebook content
-        yaml_header = {
-            'title': title or 'UNHCR Data Analysis',
-            'author': author or 'UNHCR Statistics Copilot',
-            'date': date or datetime.now().strftime('%Y-%m-%d'),
-            'format': {
-                'html': {
-                    'theme': 'cosmo' if use_unhcr_theme else None,
-                    'css': 'styles.css' if use_unhcr_style else None
+        # Try to use Jinja2 template first
+        template = _load_template("quarto_notebook.j2")
+        
+        if template and JINJA2_AVAILABLE:
+            # Generate Python code if data is provided and code cells are requested
+            python_code = ""
+            if include_code_cells and data is not None:
+                python_code = _generate_data_visualization_code(data)
+            
+            # Prepare template variables
+            timestamp = date or datetime.now().isoformat()
+            
+            # Escape story_content for Jinja2 to prevent template rendering issues
+            escaped_story = _escape_jinja(story_content) if story_content else ""
+            
+            # Build metadata for template
+            template_metadata = metadata or {}
+            if 'tool_sequence' not in template_metadata:
+                template_metadata['tool_sequence'] = []
+            
+            # Render the template
+            quarto_content = template.render(
+                title=title or 'UNHCR Data Analysis',
+                author=author or 'UNHCR Statistics Copilot',
+                date=date or datetime.now().strftime('%Y-%m-%d'),
+                use_unhcr_theme=use_unhcr_theme,
+                use_unhcr_style=use_unhcr_style,
+                include_code_cells=include_code_cells,
+                python_code=python_code,
+                story_content=escaped_story,
+                timestamp=timestamp,
+                audience=metadata.get('audience') if metadata else None,
+                document_type=metadata.get('document_type') if metadata else None,
+                analysis_config=metadata.get('analysis_config') if metadata else None,
+                original_query=original_query,
+                metadata=template_metadata
+            )
+        else:
+            # Fallback to manual generation if template is not available
+            logger.warning("Using manual Quarto generation (Jinja2 template not available)")
+            
+            # Generate notebook content
+            yaml_header = {
+                'title': title or 'UNHCR Data Analysis',
+                'author': author or 'UNHCR Statistics Copilot',
+                'date': date or datetime.now().strftime('%Y-%m-%d'),
+                'format': {
+                    'html': {
+                        'theme': 'cosmo' if use_unhcr_theme else None,
+                        'css': 'styles.css' if use_unhcr_style else None
+                    }
                 }
             }
-        }
-        
-        if metadata:
-            yaml_header['metadata'] = metadata
-        
-        if original_query:
-            yaml_header['original_query'] = original_query
-        
-        yaml_str = yaml.dump(yaml_header, default_flow_style=False, allow_unicode=True)
-        
-        # Add Quartro-specific markers
-        quarto_content = f"""---
+            
+            if metadata:
+                yaml_header['metadata'] = metadata
+            
+            if original_query:
+                yaml_header['original_query'] = original_query
+            
+            yaml_str = yaml.dump(yaml_header, default_flow_style=False, allow_unicode=True)
+            
+            # Add Quartro-specific markers
+            quarto_content = f"""---
 {yaml_str}---
 
 """
-        
-        if include_code_cells:
-            if data is not None:
-                # Generate actual visualization code from data
-                viz_code = _generate_data_visualization_code(data)
-                quarto_content += f"""```{{python}}
+            
+            if include_code_cells:
+                if data is not None:
+                    # Generate actual visualization code from data
+                    viz_code = _generate_data_visualization_code(data)
+                    quarto_content += f"""```{{python}}
 # Data Analysis Code
 {viz_code}
 ```
 
 """
-            else:
-                # Fallback to placeholder if no data
-                quarto_content += """```{python}
+                else:
+                    # Fallback to placeholder if no data
+                    quarto_content += """```{python}
 # Data Analysis Code
 # Add your analysis code here
 print("UNHCR Data Analysis")
 ```
 
 """
-        
-        quarto_content += f"""# {title or 'UNHCR Data Analysis'}
+            
+            quarto_content += f"""# {title or 'UNHCR Data Analysis'}
 
 {story_content}
 
 """
-        
-        if include_code_cells:
-            quarto_content += """```{python}
+            
+            if include_code_cells:
+                quarto_content += """```{python}
 # Additional analysis can be added here
 ```
 """
@@ -257,6 +356,7 @@ print("UNHCR Data Analysis")
             'status': 'success'
         }
     except Exception as e:
+        logger.exception(f"Failed to create Quarto notebook: {e}")
         return {
             'error': f'Failed to create Quarto notebook: {str(e)}',
             'status': 'error'
