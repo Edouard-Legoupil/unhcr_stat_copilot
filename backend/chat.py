@@ -853,7 +853,8 @@ async def generate_comprehensive_quarto_analysis(
                         include_code_cells=arguments.get("include_code_cells", False),
                         use_unhcr_theme=arguments.get("use_unhcr_theme", True),
                         use_unhcr_style=arguments.get("use_unhcr_style", True),
-                        metadata=arguments.get("metadata")
+                        metadata=arguments.get("metadata"),
+                        data=arguments.get("data")
                     )
                 else:
                     # Fallback to MCP bridge for unknown tools
