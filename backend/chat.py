@@ -948,6 +948,30 @@ async def generate_comprehensive_quarto_analysis(
             
         # 4. Generate the Quarto notebook using the content
         metadata = {}  # Initialize metadata dict
+        
+        # Extract the actual data from data_result for code generation
+        # data_result may contain nested 'data' field with 'items' inside
+        notebook_data = None
+        if isinstance(data_result, dict):
+            # Try to extract the data items from nested structure
+            # data_result['data'] might be {'page': 1, 'items': [...], ...}
+            if 'data' in data_result and isinstance(data_result['data'], dict):
+                nested_data = data_result['data']
+                if 'items' in nested_data:
+                    notebook_data = nested_data['items']
+                elif 'total' in nested_data:
+                    # Sometimes 'total' contains the actual list
+                    notebook_data = nested_data.get('total', nested_data)
+                else:
+                    notebook_data = nested_data
+            elif 'items' in data_result:
+                notebook_data = data_result['items']
+            elif 'result' in data_result:
+                notebook_data = data_result['result']
+            else:
+                # If data_result has data directly
+                notebook_data = data_result
+        
         quarto_result = await call_tool_directly(
             "create_quarto_notebook",
             {
@@ -964,7 +988,8 @@ async def generate_comprehensive_quarto_analysis(
                         "length": config["length"],
                         "structure": config["structure"]
                     }
-                }
+                },
+                "data": notebook_data
             }
         )
         

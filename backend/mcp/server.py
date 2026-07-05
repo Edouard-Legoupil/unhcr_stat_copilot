@@ -403,11 +403,12 @@ def create_server() -> FastMCP:
         use_unhcr_theme: bool = True,
         use_unhcr_style: bool = True,
         original_query: str | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
+        data: Any | None = None
     ) -> dict[str, Any]:
         return await create_quarto_notebook_tool(
             story_content, output_path, title, author, date, include_code_cells,
-            use_unhcr_theme, use_unhcr_style, original_query, metadata
+            use_unhcr_theme, use_unhcr_style, original_query, metadata, data
         )
 
     @server.tool(

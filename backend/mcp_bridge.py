@@ -219,7 +219,7 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "create_quarto_notebook": {
         "required": ["story_content"],
-        "optional": ["output_path", "title", "author", "date", "include_code_cells", "use_unhcr_theme", "use_unhcr_style", "original_query", "metadata"],
+        "optional": ["output_path", "title", "author", "date", "include_code_cells", "use_unhcr_theme", "use_unhcr_style", "original_query", "metadata", "data"],
         "types": {
             "story_content": str,
             "output_path": str,
@@ -230,7 +230,8 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "use_unhcr_theme": bool,
             "use_unhcr_style": bool,
             "original_query": str,
-            "metadata": dict
+            "metadata": dict,
+            "data": (dict, list)
         }
     },
     "safe_tool_selection": {

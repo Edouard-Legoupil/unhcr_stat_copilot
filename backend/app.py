@@ -1073,6 +1073,7 @@ async def create_report(
         }
     """
     story = payload.get("story")
+    data = payload.get("data")
 
     title = payload.get(
         "title",
@@ -1087,6 +1088,7 @@ async def create_report(
             "include_code_cells": True,
             "use_unhcr_theme": True,
             "use_unhcr_style": True,
+            "data": data
         }
     )
 
