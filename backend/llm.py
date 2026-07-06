@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import asyncio
 
 import httpx
 from dotenv import load_dotenv
@@ -128,34 +129,57 @@ class AzureOpenAIResponsesClient:
             if value is not None:
                 payload[key] = value
         
-        try:
-            async with httpx.AsyncClient() as http_client:
-                response = await http_client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                response_data = response.json()
+        # Retry with exponential backoff - max 3 retries
+        max_retries = 3
+        base_delay = 1.0  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    response = await http_client.post(url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    response_data = response.json()
+                    
+                    # Extract content from response
+                    content = ""
+                    if "choices" in response_data:
+                        content = response_data["choices"][0]["message"]["content"]
+                    elif "output" in response_data:
+                        content = response_data["output"]
+                    else:
+                        content = response_data.get("text", "") or response_data.get("content", "")
+                        if not content:
+                            for key, value in response_data.items():
+                                if isinstance(value, str) and value:
+                                    content = value
+                                    break
+                    
+                    return MockResponse(content)
+                    
+            except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Azure OpenAI Responses API timeout after {max_retries} retries: {e}")
+                    raise RuntimeError(f"Azure OpenAI API timeout after {max_retries} retries: {e}") from e
+                delay = base_delay * (2 ** attempt)
+                logger.warning(f"Azure OpenAI timeout (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...")
+                await asyncio.sleep(delay)
                 
-                # Extract content from response
-                content = ""
-                if "choices" in response_data:
-                    content = response_data["choices"][0]["message"]["content"]
-                elif "output" in response_data:
-                    content = response_data["output"]
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code >= 500 and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(f"Azure OpenAI server error {e.response.status_code} (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...")
+                    await asyncio.sleep(delay)
                 else:
-                    content = response_data.get("text", "") or response_data.get("content", "")
-                    if not content:
-                        for key, value in response_data.items():
-                            if isinstance(value, str) and value:
-                                content = value
-                                break
-                
-                return MockResponse(content)
-            
-        except httpx.HTTPStatusError as e:
-            logger.error(f"Azure OpenAI Responses API error: {e.response.status_code} - {e.response.text}")
-            raise RuntimeError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
-        except Exception as e:
-            logger.error(f"Azure OpenAI Responses API request failed: {e}")
-            raise RuntimeError(f"Failed to call Azure OpenAI: {e}") from e
+                    logger.error(f"Azure OpenAI Responses API error: {e.response.status_code} - {e.response.text}")
+                    raise RuntimeError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
+                    
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Azure OpenAI Responses API request failed after {max_retries} retries: {e}")
+                    raise RuntimeError(f"Failed to call Azure OpenAI after {max_retries} retries: {e}") from e
+                delay = base_delay * (2 ** attempt)
+                logger.warning(f"Azure OpenAI request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...")
+                await asyncio.sleep(delay)
 
 
 # Create the client using our custom class
