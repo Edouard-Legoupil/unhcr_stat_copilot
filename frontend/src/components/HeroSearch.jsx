@@ -104,15 +104,13 @@ export default function HeroSearch({
 
             <div className="tab-content">
                 {mode === "content" ? (
-                    response && ([
-                        "quarto_notebook",
-                        "comprehensive_quarto",
-                        "basic_quarto_fallback"
-                    ].includes(response.analysis_type) && 
-                    (response.quarto_rendered_html || response.quarto_content)) ? (
+                    response && (
+                        ["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"].includes(response.analysis_type) && 
+                        (response.quarto_rendered_html || response.quarto_content || response.content)
+                    ) ? (
                         <IntegratedAnalysisViewer
-                            quartoContent={response.quarto_rendered_html || response.quarto_content}
-                            quartoRawContent={response.quarto_content}
+                            quartoContent={response.quarto_rendered_html || response.quarto_content || response.content}
+                            quartoRawContent={response.quarto_content || response.content}
                             metadata={response.metadata || response.quarto_metadata}
                             response={response}
                             rendered={response.rendered || false}
@@ -121,6 +119,11 @@ export default function HeroSearch({
                     ) : (
                         <div className="tab-content-empty">
                             <p>No analysis content available. Please select an analysis from "Available Insights" or generate a new one.</p>
+                            {response && (
+                                <pre style={{ marginTop: '16px', fontSize: '12px', overflow: 'auto' }}>
+                                    {JSON.stringify(response, null, 2)}
+                                </pre>
+                            )}
                         </div>
                     )
                 ) : mode === "new" ? (
