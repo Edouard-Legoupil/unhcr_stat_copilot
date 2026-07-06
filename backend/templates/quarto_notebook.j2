@@ -35,22 +35,28 @@ unhcr_metadata:
   document_type: {{ metadata.document_type|quote_yaml }}
   {%- endif %}
   {%- if metadata.get('analysis_config') %}
-  analysis_config: {{ metadata.analysis_config|tojson|quote_yaml }}
+  analysis_config: |
+    {{ metadata.analysis_config|tojson|indent(4, first=false) }}
   {%- endif %}
   {%- if metadata.get('tool_sequence') %}
-  tool_sequence: {{ metadata.tool_sequence|tojson|quote_yaml }}
+  tool_sequence: |
+    {{ metadata.tool_sequence|tojson|indent(4, first=false) }}
   {%- endif %}
   {%- if metadata.get('statistics') %}
-  statistics: {{ metadata.statistics|tojson|quote_yaml }}
+  statistics: |
+    {{ metadata.statistics|tojson|indent(4, first=false) }}
   {%- endif %}
   {%- if metadata.get('guardrails') %}
-  guardrails: {{ metadata.guardrails|tojson|quote_yaml }}
+  guardrails: |
+    {{ metadata.guardrails|tojson|indent(4, first=false) }}
   {%- endif %}
   {%- if metadata.get('visualization_structure') %}
-  visualization_structure: {{ metadata.visualization_structure|tojson|quote_yaml }}
+  visualization_structure: |
+    {{ metadata.visualization_structure|tojson|indent(4, first=false) }}
   {%- endif %}
   {%- if metadata.get('visualization_description') %}
-  visualization_description: {{ metadata.visualization_description|tojson|quote_yaml }}
+  visualization_description: |
+    {{ metadata.visualization_description|tojson|indent(4, first=false) }}
   {%- endif %}
 {% endif %}
 
