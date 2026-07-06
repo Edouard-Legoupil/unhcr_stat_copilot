@@ -925,7 +925,122 @@ async def generate_comprehensive_quarto_analysis(
         
         data_result = await call_tool_directly("get_data_for_story", filtered_arguments)
         
-        # 3. Generate analytical story based on data
+        # 3. NEW: Apply guardrails to ensure compliance with UNHCR standards
+        guardrails_result = None
+        if data_result and isinstance(data_result, dict):
+            if not (data_result.get("error") or (data_result.get("raw_text") and "Error" in data_result.get("raw_text", ""))):
+                try:
+                    guardrails_result = await call_tool_directly(
+                        "apply_analysis_guardrails",
+                        {
+                            "analysis_request": {
+                                "data_source": "UNHCR MCP",
+                                "data_fields": list(data_result.get('items', [{}])[0].keys()) if data_result.get('items') else [],
+                                "storytelling_context": question,
+                                "data": data_result
+                            },
+                            "detailed_report": True
+                        }
+                    )
+                    logger.info("Applied analysis guardrails")
+                except Exception as e:
+                    logger.warning(f"Guardrails application failed: {e}")
+                    guardrails_result = {"status": "skipped", "error": str(e)}
+        
+        # 4. NEW: Extract visualization structure
+        viz_structure = None
+        if data_result and isinstance(data_result, dict):
+            if not (data_result.get("error") or (data_result.get("raw_text") and "Error" in data_result.get("raw_text", ""))):
+                try:
+                    # Determine visualization type based on data
+                    items = data_result.get('items', [])
+                    if items and isinstance(items[0], dict):
+                        # Check if there's a year column
+                        has_year = any('year' in str(k).lower() for k in items[0].keys())
+                        numeric_cols = [k for k, v in items[0].items() if isinstance(v, (int, float))]
+                        if has_year and numeric_cols:
+                            viz_type = "line_chart"
+                            x_label = "Year"
+                            y_label = numeric_cols[0]
+                        else:
+                            viz_type = "bar_chart"
+                            x_label = "Category"
+                            y_label = "Count" if numeric_cols else "Value"
+                    else:
+                        viz_type = "table"
+                        x_label = "Category"
+                        y_label = "Value"
+                    
+                    viz_structure = await call_tool_directly(
+                        "extract_visualization_structure",
+                        {
+                            "visualization_type": viz_type,
+                            "title": f"{question[:50]}",
+                            "subtitle": f"Analysis of {topic}" if topic else "",
+                            "x_axis_label": x_label,
+                            "y_axis_label": y_label
+                        }
+                    )
+                    logger.info("Extracted visualization structure")
+                except Exception as e:
+                    logger.warning(f"Visualization structure extraction failed: {e}")
+                    viz_structure = {"status": "skipped", "error": str(e)}
+        
+        # 5. NEW: Analyze data statistics
+        statistics_result = None
+        if data_result and isinstance(data_result, dict):
+            if not (data_result.get("error") or (data_result.get("raw_text") and "Error" in data_result.get("raw_text", ""))):
+                try:
+                    items = data_result.get('items', [])
+                    if items and isinstance(items[0], dict):
+                        # Detect numeric and categorical columns
+                        numeric_cols = []
+                        categorical_cols = []
+                        for k, v in items[0].items():
+                            if isinstance(v, (int, float)):
+                                # Skip ID-like columns
+                                if not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'coo', 'coa']):
+                                    numeric_cols.append(k)
+                            elif isinstance(v, str):
+                                # Skip ID-like string columns
+                                if not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'coo', 'coa', 'year']):
+                                    categorical_cols.append(k)
+                        
+                        statistics_result = await call_tool_directly(
+                            "analyze_data_statistics",
+                            {
+                                "data": items,
+                                "numeric_columns": numeric_cols[:5],
+                                "categorical_columns": categorical_cols[:3],
+                                "correlation_columns": numeric_cols[:2] if len(numeric_cols) >= 2 else None
+                            }
+                        )
+                        logger.info("Analyzed data statistics")
+                except Exception as e:
+                    logger.warning(f"Data statistics analysis failed: {e}")
+                    statistics_result = {"status": "skipped", "error": str(e)}
+        
+        # 6. NEW: Generate visualization description
+        viz_description = None
+        if viz_structure and statistics_result:
+            if not (viz_structure.get("error") or statistics_result.get("error")):
+                try:
+                    viz_description = await call_tool_directly(
+                        "generate_visualization_description",
+                        {
+                            "structure": viz_structure,
+                            "statistics": statistics_result,
+                            "description_type": "both",
+                            "max_length": 500,
+                            "focus_areas": ["trends", "comparisons", "outliers"]
+                        }
+                    )
+                    logger.info("Generated visualization description")
+                except Exception as e:
+                    logger.warning(f"Visualization description generation failed: {e}")
+                    viz_description = {"status": "skipped", "error": str(e)}
+        
+        # 7. Generate analytical story based on data (enhanced with pipeline results)
         # Check if data_result contains error information
         if data_result and isinstance(data_result, dict):
             # Check for error patterns in the result
@@ -933,8 +1048,22 @@ async def generate_comprehensive_quarto_analysis(
                 logger.error(f"Data retrieval failed: {data_result}")
                 story_content = f"Data retrieval error: {data_result.get('raw_text', 'Unknown error')}"
             else:
-                # Valid data, proceed with story generation
-                story_response = await call_tool_directly("generate_analytical_story", {"data": data_result, "question": question, "audience": audience, "document_type": document_type, "analysis_config": config})
+                # Valid data, proceed with story generation (now with enhanced data)
+                story_response = await call_tool_directly(
+                    "generate_analytical_story", 
+                    {
+                        "data": data_result, 
+                        "question": question, 
+                        "audience": audience, 
+                        "document_type": document_type, 
+                        "analysis_config": config,
+                        # NEW: Include pipeline results in story generation
+                        "statistics": statistics_result,
+                        "guardrails": guardrails_result,
+                        "visualization_structure": viz_structure,
+                        "visualization_description": viz_description
+                    }
+                )
                 
                 # Check if story generation succeeded
                 if story_response and isinstance(story_response, dict):
@@ -1015,7 +1144,23 @@ async def generate_comprehensive_quarto_analysis(
             }
         }
         
-        # Add analysis metadata if available
+        # Add NEW pipeline metadata
+        if guardrails_result:
+            quarto_metadata["guardrails"] = guardrails_result
+        if viz_structure:
+            quarto_metadata["visualization_structure"] = viz_structure
+        if statistics_result:
+            quarto_metadata["statistics"] = statistics_result
+        if viz_description:
+            quarto_metadata["visualization_description"] = viz_description
+        
+        # Also add to main metadata for history
+        metadata["guardrails"] = guardrails_result
+        metadata["visualization_structure"] = viz_structure
+        metadata["statistics"] = statistics_result
+        metadata["visualization_description"] = viz_description
+        
+        # Add analysis metadata if available (from data_result)
         if stats_data:
             quarto_metadata["statistics"] = stats_data
         if guardrails_data:

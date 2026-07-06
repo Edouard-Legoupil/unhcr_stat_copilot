@@ -33,6 +33,7 @@ def _extract_text_from_message(content: Any) -> str:
     - Dicts with 'content' or 'text' keys
     - Nested structures
     - Azure OpenAI format with content as list of dicts
+    - LLM message objects with 'raw_text', 'message', 'story' fields
     
     Args:
         content: The content to extract text from
@@ -65,27 +66,45 @@ def _extract_text_from_message(content: Any) -> str:
         texts = []
         for item in content:
             if isinstance(item, dict):
-                # Azure OpenAI format: {'type': 'output_text', 'text': 'actual text'}
-                if 'text' in item:
-                    texts.append(item['text'])
-                # Also try content field
-                elif 'content' in item:
-                    text = _extract_text_from_message(item['content'])
-                    if text:
-                        texts.append(text)
-                else:
-                    # Try to extract text from message object
+                # Enhanced: Check multiple possible text fields in order of priority
+                text_fields = ['text', 'content', 'raw_text', 'message', 'story', 'narrative']
+                text_found = False
+                for key in text_fields:
+                    if key in item:
+                        text = _extract_text_from_message(item[key])
+                        if text:
+                            texts.append(text)
+                            text_found = True
+                            break
+                
+                if not text_found:
+                    # Try to extract text from any value that's not metadata
+                    for key, value in item.items():
+                        if key not in ['type', 'role', 'name', 'usage', 'model']:
+                            text = _extract_text_from_message(value)
+                            if text:
+                                texts.append(text)
+                                text_found = True
+                                break
+                
+                if not text_found:
+                    # Try string representation
                     text = _extract_text_from_message(item)
                     if text:
                         texts.append(text)
             elif isinstance(item, str):
-                texts.append(item)
+                item_cleaned = item.strip()
+                if item_cleaned:
+                    texts.append(item_cleaned)
             else:
                 # Try string conversion as fallback
                 text = _extract_text_from_message(item)
                 if text:
                     texts.append(text)
-        return "\n\n".join(texts)
+        
+        if texts:
+            return "\n\n".join(texts)
+        return ""
     
     if isinstance(content, dict):
         # Azure OpenAI message format: {'type': 'message', 'content': [...]}
@@ -104,8 +123,9 @@ def _extract_text_from_message(content: Any) -> str:
             if texts:
                 return '\n\n'.join(texts)
         
-        # Try common text fields
-        for key in ['content', 'text', 'message', 'story', 'raw_text']:
+        # Try common text fields in priority order
+        text_fields = ['story', 'content', 'text', 'raw_text', 'message', 'narrative', 'description']
+        for key in text_fields:
             if key in content:
                 text = _extract_text_from_message(content[key])
                 if text:
@@ -115,11 +135,24 @@ def _extract_text_from_message(content: Any) -> str:
         if 'content' in content:
             return _extract_text_from_message(content['content'])
         
+        # Try any non-metadata field
+        for key, value in content.items():
+            if key not in ['type', 'role', 'name', 'usage', 'model', 'finish_reason']:
+                text = _extract_text_from_message(value)
+                if text:
+                    return text
+        
         # Return string representation as fallback
-        return str(content)
+        try:
+            return str(content)
+        except Exception:
+            return ""
     
     # Fallback: convert to string
-    return str(content)
+    try:
+        return str(content)
+    except Exception:
+        return ""
 
 
 def _render_quarto_file(qmd_path: str | Path, output_dir: str | Path, render_html: bool = True, render_pdf: bool = True) -> dict[str, Any]:
@@ -358,10 +391,12 @@ def _generate_data_visualization_code(data: Any, data_name: str = "data") -> str
         
     Returns:
         Python code string with data loading and visualization
+        Note: Code is generated without leading indentation - the Quarto template
+        will handle indentation within the code cell.
     """
     code_lines = []
     
-    # Import statements
+    # Import statements - NO leading indentation
     code_lines.append("import pandas as pd")
     code_lines.append("import matplotlib.pyplot as plt")
     code_lines.append("import seaborn as sns")
@@ -498,6 +533,13 @@ async def create_quarto_notebook_tool(
     render_html: bool = True,
     render_pdf: bool = True,
 ) -> dict[str, Any]:
+    """
+    Create a Quarto notebook from story content.
+    
+    By default, always pre-renders to HTML and PDF for performance.
+    All metadata is stored in the YAML header (visible only in source, not rendered output).
+    Code cells use echo: false to hide code in rendered output.
+    """
     """
     Create a Quarto notebook from story content.
     
