@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
  * IntegratedAnalysisViewer - Combined Quarto viewer with collapsible debug panel
  * Features a subtle triangle toggle to fold/unfold debug content within the same box
  */
-export default function IntegratedAnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false }) {
+export default function IntegratedAnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false, analysisId = null }) {
     const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
@@ -116,6 +116,17 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                         <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
                             ✅ Pre-rendered
                         </span>
+                    )}
+                    {analysisId && (
+                        <button
+                            className="pdf-download-button"
+                            onClick={() => {
+                                window.location.href = `/quarto/${analysisId}/pdf`;
+                            }}
+                            title="Download as PDF"
+                        >
+                            📥 PDF
+                        </button>
                     )}
                 </div>
             </div>

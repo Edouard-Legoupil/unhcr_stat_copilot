@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-export default function QuartoViewer({ quartoContent, quartoRawContent, metadata, rendered = false }) {
+export default function QuartoViewer({ quartoContent, quartoRawContent, metadata, rendered = false, analysisId = null }) {
     const [showRaw, setShowRaw] = useState(false);
     const [displayContent, setDisplayContent] = useState('');
     const [isRendered, setIsRendered] = useState(rendered);
@@ -86,6 +86,17 @@ export default function QuartoViewer({ quartoContent, quartoRawContent, metadata
                             <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
                                 ✅ Pre-rendered
                             </span>
+                        )}
+                        {analysisId && (
+                            <button
+                                className="pdf-download-button"
+                                onClick={() => {
+                                    window.location.href = `/quarto/${analysisId}/pdf`;
+                                }}
+                                title="Download as PDF"
+                            >
+                                📥 PDF
+                            </button>
                         )}
                         {hasTools && (
                             <button

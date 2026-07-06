@@ -116,6 +116,7 @@ export default function HeroSearch({
                             metadata={response.metadata || response.quarto_metadata}
                             response={response}
                             rendered={response.rendered || false}
+                            analysisId={response.id}
                         />
                     ) : (
                         <div className="tab-content-empty">

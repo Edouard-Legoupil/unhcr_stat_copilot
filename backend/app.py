@@ -936,6 +936,167 @@ async def get_rendered_quarto_analysis(analysis_id: str):
 
 
 # ---------------------------------------------------------------------
+# Quarto PDF Rendering Endpoint
+# ---------------------------------------------------------------------
+
+@app.get("/quarto/{analysis_id}/pdf",
+         summary="Get Rendered Quarto Analysis as PDF",
+         description="Get the pre-rendered PDF version of a Quarto analysis using the quarto render CLI.",
+         response_description="Rendered PDF file",
+         responses={
+             200: {
+                 "description": "Successfully rendered PDF",
+                 "content": {
+                     "application/pdf": {
+                         "example": "PDF binary data"
+                     }
+                 }
+             },
+             404: {"description": "Quarto analysis or file not found"},
+             500: {"description": "Internal server error during rendering"}
+         })
+async def get_rendered_quarto_analysis_pdf(analysis_id: str):
+    """
+    Get the pre-rendered PDF version of a Quarto analysis.
+    
+    This endpoint uses the Quarto CLI (quarto render command) to convert the .qmd
+    file into a fully rendered PDF document with proper styling, themes, and
+    all Quarto-specific features applied.
+    
+    This is the recommended way to get PDF versions of Quarto analyses, as it properly handles:
+    - YAML front matter (title, author, theme, etc.)
+    - All markdown features (tables, lists, blockquotes, etc.)
+    - Quarto-specific extensions
+    - Code cells and outputs (if present)
+    - LaTeX/math rendering
+    - UNHCR theme application
+    
+    This endpoint does not require authentication.
+    
+    Args:
+        analysis_id (str): The unique identifier of the Quarto analysis
+    
+    Returns:
+        Response: A Response object containing:
+            - PDF binary content
+            - media_type: "application/pdf"
+            - headers with filename for download
+    
+    Raises:
+        HTTPException 404: If the analysis or Quarto file is not found
+        HTTPException 500: If the Quarto CLI is not available or rendering fails
+    
+    Note:
+        This endpoint requires the Quarto CLI to be installed on the server.
+        The rendering is performed on-demand, which may take a few seconds for
+        complex documents.
+        
+        The PDF will be rendered with the format settings from the Quarto file's
+        YAML header (pdf: documentclass, papersize, geometry, etc.).
+    """
+    import subprocess
+    import tempfile
+    
+    try:
+        # Find the metadata file for this analysis
+        metadata_file = os.path.join("./data/analysis_history", f"{analysis_id}.json")
+        
+        if not os.path.exists(metadata_file):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto analysis not found"
+            )
+        
+        # Read metadata to find the Quarto file
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        
+        quarto_filepath = metadata.get("filepath")
+        
+        if not quarto_filepath or not os.path.exists(quarto_filepath):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto file not found"
+            )
+        
+        # Create a temporary directory for rendering
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Copy the .qmd file to temp dir with a simple filename
+            temp_qmd = os.path.join(temp_dir, "analysis.qmd")
+            with open(temp_qmd, "w", encoding="utf-8") as f:
+                with open(quarto_filepath, "r", encoding="utf-8") as src:
+                    f.write(src.read())
+            
+            # Run quarto render command for PDF
+            # Quarto will create the PDF file in the same directory with the same name
+            result = subprocess.run(
+                ["quarto", "render", temp_qmd, "--to", "pdf"],
+                capture_output=True,
+                text=True,
+                cwd=temp_dir
+            )
+            
+            if result.returncode != 0:
+                logger.error(f"Quarto PDF render failed for {analysis_id}: {result.stderr}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Quarto PDF rendering failed: {result.stderr}"
+                )
+            
+            # Find the generated PDF file
+            # Quarto creates: analysis.pdf (same name as qmd but with .pdf extension)
+            temp_pdf = os.path.join(temp_dir, "analysis.pdf")
+            
+            if not os.path.exists(temp_pdf):
+                # List all files in temp dir to find the PDF
+                files = os.listdir(temp_dir)
+                pdf_files = [f for f in files if f.lower().endswith('.pdf')]
+                if pdf_files:
+                    temp_pdf = os.path.join(temp_dir, pdf_files[0])
+                else:
+                    logger.error(f"No PDF files found in temp dir. Files: {files}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Quarto did not produce PDF output. Files created: {files}"
+                    )
+            
+            # Read and return the rendered PDF
+            with open(temp_pdf, "rb") as f:
+                rendered_pdf = f.read()
+            
+            # Get a nice filename for the download
+            qmd_filename = os.path.basename(quarto_filepath)
+            pdf_filename = qmd_filename.replace('.qmd', '.pdf')
+            
+            return Response(
+                content=rendered_pdf,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename={pdf_filename}"
+                }
+            )
+        
+    except subprocess.CalledProcessError as e:
+        logger.exception(f"Quarto CLI error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Quarto CLI error: {str(e)}"
+        )
+    except FileNotFoundError as e:
+        logger.exception(f"Quarto CLI not found: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Quarto CLI is not installed on the server. Please install Quarto to use this feature."
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+# ---------------------------------------------------------------------
 # AI Story Endpoint
 # ---------------------------------------------------------------------
 

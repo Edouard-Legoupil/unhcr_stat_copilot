@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
  * AnalysisViewer - Integrated viewer for Quarto content with debug information
  * Combines QuartoViewer and DebugPanel functionality with a collapsible debug section
  */
-export default function AnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false }) {
+export default function AnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false, analysisId = null }) {
     const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
@@ -116,6 +116,17 @@ export default function AnalysisViewer({ quartoContent, quartoRawContent, metada
                         <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
                             ✅ Pre-rendered
                         </span>
+                    )}
+                    {analysisId && (
+                        <button
+                            className="pdf-download-button"
+                            onClick={() => {
+                                window.location.href = `/quarto/${analysisId}/pdf`;
+                            }}
+                            title="Download as PDF"
+                        >
+                            📥 PDF
+                        </button>
                     )}
 
                     <button
