@@ -5,7 +5,10 @@ Create Quarto notebooks from data stories.
 
 import json
 import logging
+import os
 import re
+import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -117,6 +120,143 @@ def _extract_text_from_message(content: Any) -> str:
     
     # Fallback: convert to string
     return str(content)
+
+
+def _render_quarto_file(qmd_path: str | Path, output_dir: str | Path, render_html: bool = True, render_pdf: bool = True) -> dict[str, Any]:
+    """
+    Render a Quarto file to HTML and/or PDF using the Quarto CLI.
+    
+    Args:
+        qmd_path: Path to the .qmd file to render
+        output_dir: Directory to save rendered files
+        render_html: Whether to render HTML
+        render_pdf: Whether to render PDF
+        
+    Returns:
+        Dictionary with paths to rendered files and status information
+    """
+    qmd_path = Path(qmd_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    results = {
+        'html_path': None,
+        'pdf_path': None,
+        'html_rendered': False,
+        'pdf_rendered': False,
+        'errors': []
+    }
+    
+    # Check if Quarto CLI is available
+    try:
+        result = subprocess.run(['quarto', '--version'], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.warning("Quarto CLI not available - rendering will be skipped")
+            results['errors'].append("Quarto CLI not available")
+            return results
+    except FileNotFoundError:
+        logger.warning("Quarto CLI not found - rendering will be skipped")
+        results['errors'].append("Quarto CLI not found")
+        return results
+    
+    # Render HTML
+    if render_html:
+        try:
+            # Change to output directory and render without --output flag
+            # Quarto will auto-generate output with same name as input but .html extension
+            original_cwd = os.getcwd()
+            os.chdir(output_dir)
+            
+            # Create a symlink or copy to current directory with simple name
+            temp_qmd = output_dir / "temp_analysis.qmd"
+            if temp_qmd.exists():
+                temp_qmd.unlink()
+            shutil.copy2(qmd_path, temp_qmd)
+            
+            result = subprocess.run(
+                ['quarto', 'render', 'temp_analysis.qmd', '--to', 'html'],
+                capture_output=True,
+                text=True,
+                cwd=output_dir
+            )
+            
+            os.chdir(original_cwd)
+            
+            # Check for auto-generated HTML file
+            html_path = output_dir / "temp_analysis.html"
+            if result.returncode == 0 and html_path.exists():
+                # Move to final location
+                final_html_path = output_dir / f"{qmd_path.stem}.html"
+                if final_html_path.exists():
+                    final_html_path.unlink()
+                html_path.rename(final_html_path)
+                results['html_path'] = str(final_html_path)
+                results['html_rendered'] = True
+                logger.info(f"Successfully rendered HTML: {final_html_path}")
+            else:
+                logger.error(f"Failed to render HTML: {result.stderr}")
+                results['errors'].append(f"HTML rendering failed: {result.stderr}")
+                # Cleanup temp file
+                if temp_qmd.exists():
+                    temp_qmd.unlink()
+        except Exception as e:
+            logger.error(f"Exception during HTML rendering: {e}")
+            results['errors'].append(f"HTML rendering exception: {str(e)}")
+        finally:
+            try:
+                os.chdir(original_cwd)
+            except:
+                pass
+    
+    # Render PDF
+    if render_pdf:
+        try:
+            # Change to output directory and render without --output flag
+            original_cwd_pdf = os.getcwd()
+            os.chdir(output_dir)
+            
+            # Create a symlink or copy to current directory with simple name
+            temp_qmd = output_dir / "temp_analysis.qmd"
+            if temp_qmd.exists():
+                temp_qmd.unlink()
+            shutil.copy2(qmd_path, temp_qmd)
+            
+            result = subprocess.run(
+                ['quarto', 'render', 'temp_analysis.qmd', '--to', 'pdf'],
+                capture_output=True,
+                text=True,
+                cwd=output_dir
+            )
+            
+            os.chdir(original_cwd)
+            
+            # Check for auto-generated PDF file
+            pdf_path = output_dir / "temp_analysis.pdf"
+            if result.returncode == 0 and pdf_path.exists():
+                # Move to final location
+                final_pdf_path = output_dir / f"{qmd_path.stem}.pdf"
+                if final_pdf_path.exists():
+                    final_pdf_path.unlink()
+                pdf_path.rename(final_pdf_path)
+                results['pdf_path'] = str(final_pdf_path)
+                results['pdf_rendered'] = True
+                logger.info(f"Successfully rendered PDF: {final_pdf_path}")
+            else:
+                logger.error(f"Failed to render PDF: {result.stderr}")
+                results['errors'].append(f"PDF rendering failed: {result.stderr}")
+                # Cleanup temp file
+                if temp_qmd.exists():
+                    temp_qmd.unlink()
+        except Exception as e:
+            logger.error(f"Exception during PDF rendering: {e}")
+            results['errors'].append(f"PDF rendering exception: {str(e)}")
+        finally:
+            try:
+                os.chdir(original_cwd_pdf)
+            except:
+                pass
+    
+    return results
 
 
 def _escape_jinja(text: str | list | Any) -> str:
@@ -355,6 +495,8 @@ async def create_quarto_notebook_tool(
     original_query: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     data: Optional[Any] = None,
+    render_html: bool = True,
+    render_pdf: bool = True,
 ) -> dict[str, Any]:
     """
     Create a Quarto notebook from story content.
@@ -363,6 +505,8 @@ async def create_quarto_notebook_tool(
         story_content: The main content for the notebook
         output_path: Path to save the notebook
         title: Title for the notebook
+        render_html: Whether to automatically render HTML after creation
+        render_pdf: Whether to automatically render PDF after creation
         author: Author name
         date: Date for the notebook
         include_code_cells: Whether to include code cells
@@ -508,11 +652,30 @@ print("UNHCR Data Analysis")
             output_dir.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(quarto_content)
+            
+            # Pre-render HTML and PDF if requested
+            render_results = {'html_path': None, 'pdf_path': None, 'errors': []}
+            if render_html or render_pdf:
+                render_results = _render_quarto_file(
+                    qmd_path=output_path,
+                    output_dir=output_dir,
+                    render_html=render_html,
+                    render_pdf=render_pdf
+                )
+        else:
+            render_results = {'html_path': None, 'pdf_path': None, 'errors': []}
         
         return {
             'content': quarto_content,
             'format': 'quarto',
             'path': output_path,
+            'html_path': render_results.get('html_path'),
+            'pdf_path': render_results.get('pdf_path'),
+            'rendered': {
+                'html': render_results.get('html_rendered', False),
+                'pdf': render_results.get('pdf_rendered', False)
+            },
+            'render_errors': render_results.get('errors', []),
             'metadata': {
                 'title': title,
                 'author': author,

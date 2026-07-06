@@ -954,6 +954,17 @@ async def generate_comprehensive_quarto_analysis(
         # 4. Generate the Quarto notebook using the content
         metadata = {}  # Initialize metadata dict
         
+        # Generate a unique analysis ID for this Quarto notebook
+        import uuid
+        analysis_id = str(uuid.uuid4())
+        
+        # Create output paths
+        from backend.history import QUARTO_DIR
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safe_title = "_".join(story_title.split()[:10]) if story_title else "analysis"
+        quarto_filename = f"{timestamp}_{safe_title}_{analysis_id}.qmd"
+        quarto_path = os.path.join(QUARTO_DIR, quarto_filename)
+        
         # Extract the actual data from data_result for code generation
         # data_result may contain nested 'data' field with 'items' inside
         notebook_data = None
@@ -1014,16 +1025,20 @@ async def generate_comprehensive_quarto_analysis(
         if visualization_description:
             quarto_metadata["visualization_description"] = visualization_description
         
+        # Generate the Quarto notebook with pre-rendering enabled
         quarto_result = await call_tool_directly(
             "create_quarto_notebook",
             {
                 "story_content": story_content,
                 "title": story_title,
+                "output_path": quarto_path,
                 "include_code_cells": True,
                 "use_unhcr_theme": True,
                 "use_unhcr_style": True,
                 "metadata": quarto_metadata,
-                "data": notebook_data
+                "data": notebook_data,
+                "render_html": True,
+                "render_pdf": True
             }
         )
         
@@ -1096,8 +1111,25 @@ async def generate_comprehensive_quarto_analysis(
         metadata["style"] = style
         metadata["template_engine"] = "jinja2"
         
+        # Add file paths to metadata
+        metadata["filepath"] = quarto_path
+        metadata["analysis_id"] = analysis_id
+        if isinstance(quarto_result, dict):
+            metadata["html_path"] = quarto_result.get("html_path")
+            metadata["pdf_path"] = quarto_result.get("pdf_path")
+            metadata["rendered"] = quarto_result.get("rendered", {})
+        
+        # Save analysis to history
+        from backend.history import save_analysis
+        metadata["quarto_content"] = quarto_content
+        save_analysis(metadata)
+        
         return {
             "quarto_content": quarto_content,
+            "html_path": quarto_result.get("html_path") if isinstance(quarto_result, dict) else None,
+            "pdf_path": quarto_result.get("pdf_path") if isinstance(quarto_result, dict) else None,
+            "filepath": quarto_path,
+            "analysis_id": analysis_id,
             "metadata": metadata
         }
 

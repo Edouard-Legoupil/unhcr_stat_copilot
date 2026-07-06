@@ -816,9 +816,8 @@ async def get_rendered_quarto_analysis(analysis_id: str):
     """
     Get the pre-rendered HTML version of a Quarto analysis.
     
-    This endpoint uses the Quarto CLI (quarto render command) to convert the .qmd
-    file into a fully rendered HTML document with proper styling, themes, and
-    all Quarto-specific features applied.
+    This endpoint first tries to serve pre-rendered HTML files (if available),
+    falling back to on-demand rendering using the Quarto CLI if necessary.
     
     This is the recommended way to display Quarto analyses, as it properly handles:
     - YAML front matter (title, author, theme, etc.)
@@ -843,18 +842,34 @@ async def get_rendered_quarto_analysis(analysis_id: str):
         HTTPException 500: If the Quarto CLI is not available or rendering fails
     
     Note:
-        This endpoint requires the Quarto CLI to be installed on the server.
-        The rendering is performed on-demand, which may take a few seconds for
-        complex documents.
+        This endpoint first checks for pre-rendered HTML files in data/quarto_analyses/.
+        If not found, it falls back to on-demand rendering using Quarto CLI.
     """
     import subprocess
     import tempfile
     import shutil
+    from pathlib import Path
     
     try:
-        # Find the metadata file for this analysis
+        # First, check if we have pre-rendered HTML in the quarto_analyses directory
+        from backend.history import QUARTO_DIR
+        
+        # Try to find the analysis metadata to get the HTML path
         metadata_file = os.path.join("./data/analysis_history", f"{analysis_id}.json")
         
+        if os.path.exists(metadata_file):
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            # Check if we have a pre-rendered HTML path
+            html_path = metadata.get("html_path")
+            if html_path and os.path.exists(html_path):
+                # Serve the pre-rendered HTML directly
+                with open(html_path, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                return Response(content=html_content, media_type="text/html")
+        
+        # Fallback: on-demand rendering
         if not os.path.exists(metadata_file):
             raise HTTPException(
                 status_code=404,
@@ -917,12 +932,20 @@ async def get_rendered_quarto_analysis(analysis_id: str):
             
             # Read and return the rendered HTML
             with open(temp_html, "r", encoding="utf-8") as f:
-                rendered_html = f.read()
+                html_content = f.read()
             
-            return Response(
-                content=rendered_html,
-                media_type="text/html"
-            )
+            # Update metadata with the rendered HTML path for future requests
+            html_filename = f"{Path(quarto_filepath).stem}.html"
+            html_save_path = os.path.join(QUARTO_DIR, html_filename)
+            with open(html_save_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            
+            # Update metadata
+            metadata["html_path"] = html_save_path
+            with open(metadata_file, "w", encoding="utf-8") as f:
+                json.dump(metadata, f)
+            
+            return Response(content=html_content, media_type="text/html")
         
     except subprocess.CalledProcessError as e:
         logger.exception(f"Quarto CLI error: {e}")
@@ -968,9 +991,8 @@ async def get_rendered_quarto_analysis_pdf(analysis_id: str):
     """
     Get the pre-rendered PDF version of a Quarto analysis.
     
-    This endpoint uses the Quarto CLI (quarto render command) to convert the .qmd
-    file into a fully rendered PDF document with proper styling, themes, and
-    all Quarto-specific features applied.
+    This endpoint first tries to serve pre-rendered PDF files (if available),
+    falling back to on-demand rendering using the Quarto CLI if necessary.
     
     This is the recommended way to get PDF versions of Quarto analyses, as it properly handles:
     - YAML front matter (title, author, theme, etc.)
@@ -996,20 +1018,47 @@ async def get_rendered_quarto_analysis_pdf(analysis_id: str):
         HTTPException 500: If the Quarto CLI is not available or rendering fails
     
     Note:
-        This endpoint requires the Quarto CLI to be installed on the server.
-        The rendering is performed on-demand, which may take a few seconds for
-        complex documents.
+        This endpoint first checks for pre-rendered PDF files in data/quarto_analyses/.
+        If not found, it falls back to on-demand rendering using Quarto CLI.
         
         The PDF will be rendered with the format settings from the Quarto file's
         YAML header (pdf: documentclass, papersize, geometry, etc.).
     """
     import subprocess
     import tempfile
+    from pathlib import Path
     
     try:
-        # Find the metadata file for this analysis
+        # First, check if we have pre-rendered PDF in the quarto_analyses directory
+        from backend.history import QUARTO_DIR
+        
+        # Try to find the analysis metadata to get the PDF path
         metadata_file = os.path.join("./data/analysis_history", f"{analysis_id}.json")
         
+        if os.path.exists(metadata_file):
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            # Check if we have a pre-rendered PDF path
+            pdf_path = metadata.get("pdf_path")
+            if pdf_path and os.path.exists(pdf_path):
+                # Serve the pre-rendered PDF directly
+                with open(pdf_path, "rb") as f:
+                    rendered_pdf = f.read()
+                
+                # Get a nice filename for the download
+                qmd_filename = os.path.basename(metadata.get("filepath", "analysis.qmd"))
+                pdf_filename = qmd_filename.replace('.qmd', '.pdf')
+                
+                return Response(
+                    content=rendered_pdf,
+                    media_type="application/pdf",
+                    headers={
+                        "Content-Disposition": f"attachment; filename={pdf_filename}"
+                    }
+                )
+        
+        # Fallback: on-demand rendering
         if not os.path.exists(metadata_file):
             raise HTTPException(
                 status_code=404,
@@ -1072,6 +1121,17 @@ async def get_rendered_quarto_analysis_pdf(analysis_id: str):
             # Read and return the rendered PDF
             with open(temp_pdf, "rb") as f:
                 rendered_pdf = f.read()
+            
+            # Save the PDF for future requests
+            pdf_filename = f"{Path(quarto_filepath).stem}.pdf"
+            pdf_save_path = os.path.join(QUARTO_DIR, pdf_filename)
+            with open(pdf_save_path, "wb") as f:
+                f.write(rendered_pdf)
+            
+            # Update metadata
+            metadata["pdf_path"] = pdf_save_path
+            with open(metadata_file, "w", encoding="utf-8") as f:
+                json.dump(metadata, f)
             
             # Get a nice filename for the download
             qmd_filename = os.path.basename(quarto_filepath)
