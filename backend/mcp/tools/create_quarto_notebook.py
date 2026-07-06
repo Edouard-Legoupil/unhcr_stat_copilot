@@ -363,6 +363,7 @@ async def create_quarto_notebook_tool(
                     # Generate actual visualization code from data
                     viz_code = _generate_data_visualization_code(data)
                     quarto_content += f"""```{{python}}
+#| echo: false
 # Data Analysis Code
 {viz_code}
 ```
@@ -371,6 +372,7 @@ async def create_quarto_notebook_tool(
                 else:
                     # Fallback to placeholder if no data
                     quarto_content += """```{python}
+#| echo: false
 # Data Analysis Code
 # Add your analysis code here
 print("UNHCR Data Analysis")
@@ -386,6 +388,7 @@ print("UNHCR Data Analysis")
             
             if include_code_cells:
                 quarto_content += """```{python}
+#| echo: false
 # Additional analysis can be added here
 ```
 """
