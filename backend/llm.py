@@ -97,27 +97,14 @@ class AzureOpenAIResponsesClient:
     async def _responses_create(
         self,
         model: str,
-        messages: list | None = None,
-        input_param: list | str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        max_completion_tokens: int | None = None,
-        response_format: dict | None = None,
-        text_format: dict | None = None,
+        input: list,
+        max_output_tokens: int | None = None,
+        text: dict | None = None,
         **kwargs
     ) -> MockResponse:
         """
         Internal implementation for the Responses API.
-        
-        The Azure OpenAI Responses API uses different parameter names:
-        - 'messages' -> 'input' (required parameter change)
-        - 'response_format' -> 'text.format' (required parameter change)
-        - 'max_tokens' -> 'max_output_tokens' (required parameter change)
-        - 'max_completion_tokens' -> 'max_output_tokens' (required parameter change)
-        
-        Note: The Responses API expects text.format to be an object {"type": "json_object"} or {"type": "text"}.
-        
-        This method handles backward compatibility by accepting both old and new names.
+        Uses Responses API parameter names: input, max_output_tokens, text.
         """
         url = f"{base_url}/responses?api-version={self.api_version}"
         
@@ -129,47 +116,17 @@ class AzureOpenAIResponsesClient:
         # Build the request payload for Responses API
         payload = {
             "model": model,
+            "input": input,
         }
         
-        # Handle input parameter - Responses API uses 'input' instead of 'messages'
-        if input_param is not None:
-            payload["input"] = input_param
-        elif messages is not None:
-            # Backward compatibility: convert messages to input
-            payload["input"] = messages
+        if max_output_tokens is not None:
+            payload["max_output_tokens"] = max_output_tokens
+        if text is not None:
+            payload["text"] = text
         
-        # Handle text format - Responses API uses 'text.format' instead of 'response_format'
-        # The Responses API expects text.format to be an object: {"type": "json_object"} or {"type": "text"}
-        if text_format is not None:
-            if "text" not in payload:
-                payload["text"] = {}
-            format_type = text_format.get("type", "text")
-            payload["text"]["format"] = {"type": format_type}
-        elif response_format is not None:
-            # Backward compatibility: convert response_format to text.format
-            if "text" not in payload:
-                payload["text"] = {}
-            format_type = response_format.get("type", "text")
-            payload["text"]["format"] = {"type": format_type}
-        
-        # Add optional parameters
-        if temperature is not None:
-            payload["temperature"] = temperature
-        if max_tokens is not None:
-            payload["max_output_tokens"] = max_tokens
-        elif max_completion_tokens is not None:
-            payload["max_output_tokens"] = max_completion_tokens
-        
-        # Add any additional kwargs
         for key, value in kwargs.items():
             if value is not None:
-                # Map known parameter names to Responses API names
-                if key == "max_tokens":
-                    payload["max_output_tokens"] = value
-                elif key == "max_completion_tokens":
-                    payload["max_output_tokens"] = value
-                else:
-                    payload[key] = value
+                payload[key] = value
         
         try:
             async with httpx.AsyncClient() as http_client:
@@ -417,20 +374,11 @@ Return JSON:
 
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
-        temperature=1,
-        input_param=[
-            {
-                "role": "system",
-                "content": prompt
-            },
-            {
-                "role": "user",
-                "content": question
-            }
+        input=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": question}
         ],
-        text_format={
-            "type": "json_object"
-        }
+        text={"format": {"type": "json_object"}}
     )
 
     return json.loads(
@@ -453,20 +401,11 @@ async def select_tool_from_prompt(
 
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
-        temperature=1,
-        input_param=[
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": question
-            }
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
         ],
-        text_format={
-            "type": "json_object"
-        }
+        text={"format": {"type": "json_object"}}
     )
 
     return json.loads(
@@ -533,16 +472,8 @@ Return JSON:
 
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
-        temperature=1,
-        input_param=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        text_format={
-            "type": "json_object"
-        }
+        input=[{"role": "user", "content": prompt}],
+        text={"format": {"type": "json_object"}}
     )
 
     return json.loads(
@@ -716,11 +647,11 @@ async def generate_story_from_data(
 
         response = await client.chat.completions.create(
             model=AZURE_OPENAI_DEPLOYMENT,
-            input_param=[
+            input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_completion_tokens=1500
+            max_output_tokens=1500
         )
         
         return response.choices[0].message.content
