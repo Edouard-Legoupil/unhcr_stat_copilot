@@ -115,8 +115,7 @@ class AzureOpenAIResponsesClient:
         - 'max_tokens' -> 'max_output_tokens' (required parameter change)
         - 'max_completion_tokens' -> 'max_output_tokens' (required parameter change)
         
-        Note: The Responses API expects text.format to be an object {"type": "text"} or {"type": "json"}
-        (not the string 'json_object'). This method automatically maps 'json_object' to 'json'.
+        Note: The Responses API expects text.format to be an object {"type": "json_object"} or {"type": "text"}.
         
         This method handles backward compatibility by accepting both old and new names.
         """
@@ -140,26 +139,18 @@ class AzureOpenAIResponsesClient:
             payload["input"] = messages
         
         # Handle text format - Responses API uses 'text.format' instead of 'response_format'
-        # The Responses API expects text.format to be an object: {"type": "text"} or {"type": "json"}
+        # The Responses API expects text.format to be an object: {"type": "json_object"} or {"type": "text"}
         if text_format is not None:
             if "text" not in payload:
                 payload["text"] = {}
-            # Map json_object to json for Responses API
             format_type = text_format.get("type", "text")
-            if format_type == "json_object":
-                payload["text"]["format"] = {"type": "json"}
-            else:
-                payload["text"]["format"] = {"type": format_type}
+            payload["text"]["format"] = {"type": format_type}
         elif response_format is not None:
             # Backward compatibility: convert response_format to text.format
             if "text" not in payload:
                 payload["text"] = {}
-            # Map json_object to json for Responses API
             format_type = response_format.get("type", "text")
-            if format_type == "json_object":
-                payload["text"]["format"] = {"type": "json"}
-            else:
-                payload["text"]["format"] = {"type": format_type}
+            payload["text"]["format"] = {"type": format_type}
         
         # Add optional parameters
         if temperature is not None:
