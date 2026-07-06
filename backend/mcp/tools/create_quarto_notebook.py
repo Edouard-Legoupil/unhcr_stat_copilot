@@ -32,6 +32,40 @@ def _escape_jinja(text: str) -> str:
     return text.replace('{{', '\{{').replace('}}', '\}}').replace('{%', '\{%').replace('%}', '\%}')
 
 
+def _quote_yaml(text: str) -> str:
+    """
+    Quote a string for YAML to handle special characters (colons, etc.).
+    
+    Args:
+        text: Text that may contain YAML special characters
+        
+    Returns:
+        Quoted text safe for YAML
+    """
+    if not text:
+        return ''
+    # Check if the text contains characters that need quoting in YAML
+    # These include: : { } [ ] , & * # ? | - < > = ! % @ ` (space followed by colon is OK in plain style)
+    # Also need to check for strings that start with special characters or look like dates/times/booleans
+    special_chars = '{}[],&*#?|<>=!%@`'
+    # Also quote if contains colon followed by space (which is interpreted as key-value separator)
+    has_colon_space = ': ' in text
+    
+    if has_colon_space or any(char in text for char in special_chars):
+        # Use double quotes and escape any existing double quotes
+        escaped_text = text.replace('"', '\\"')
+        return f'"{escaped_text}"'
+    
+    # Also check if the text looks like a boolean, null, date, or number
+    # These should be quoted to be treated as strings
+    lower_text = text.lower()
+    if lower_text in ('true', 'false', 'yes', 'no', 'null', 'none', 'on', 'off'):
+        escaped_text = text.replace('"', '\\"')
+        return f'"{escaped_text}"'
+    
+    return text
+
+
 def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2.Template]:
     """
     Load a Jinja2 template from the templates directory.
@@ -61,6 +95,9 @@ def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2
         
         # Add custom filter for escaping Jinja syntax in content
         env.filters['escape_jinja'] = _escape_jinja
+        
+        # Add custom filter for quoting YAML strings
+        env.filters['quote_yaml'] = _quote_yaml
         
         return env.get_template(template_name)
     except Exception as e:

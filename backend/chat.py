@@ -977,7 +977,7 @@ async def generate_comprehensive_quarto_analysis(
             "create_quarto_notebook",
             {
                 "story_content": story_content,
-                "title": f"UNHCR Analysis: {question[:50]}..." if len(question) > 50 else f"UNHCR Analysis: {question}",
+                "title": f"UNHCR Analysis: {question}",
                 "include_code_cells": True,
                 "use_unhcr_theme": True,
                 "use_unhcr_style": True,

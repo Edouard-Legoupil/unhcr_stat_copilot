@@ -1,9 +1,9 @@
 {# UNHCR Quarto Notebook Template #}
 {# Uses Jinja2 templating for flexible document generation #}
 ---
-title: {{ title|e }}
-author: {{ author|e }}
-date: {{ date|e }}
+title: {{ title|quote_yaml }}
+author: {{ author|quote_yaml }}
+date: {{ date|quote_yaml }}
 format:
   html:
     embed-resources: true
