@@ -125,7 +125,8 @@ def test_quarto_creation():
                 story_content=story,
                 output_path=temp_path,
                 title="Test Notebook",
-                include_code_cells=False
+                include_code_cells=True,
+                data=[{"year": 2023, "value": 100}]
             )
             
             assert result['status'] == 'success', f"Expected success, got: {result.get('status')}"
