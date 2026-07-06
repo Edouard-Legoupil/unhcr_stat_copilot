@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "============================================================"
-echo "🚀 Starting Proposal Generator - Azure Optimized"
+echo "🚀 Starting UNHCR Stat Copilot - Azure Optimized"
 echo "============================================================"
 echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo ""

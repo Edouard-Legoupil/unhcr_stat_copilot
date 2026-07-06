@@ -33,7 +33,7 @@ if [ ! -d ".venv" ]; then
 
     echo "Creating Python 3.12 virtual environment..."
 
-    uv .venv --python 3.12
+    uv venv --python 3.12
 
 fi
 

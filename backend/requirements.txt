@@ -43,3 +43,6 @@ quarto
 plotly
 matplotlib
 seaborn
+
+structlog
+prometheus_client
