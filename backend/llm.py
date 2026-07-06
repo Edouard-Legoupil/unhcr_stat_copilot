@@ -112,6 +112,8 @@ class AzureOpenAIResponsesClient:
         The Azure OpenAI Responses API uses different parameter names:
         - 'messages' -> 'input' (required parameter change)
         - 'response_format' -> 'text.format' (required parameter change)
+        - 'max_tokens' -> 'max_output_tokens' (required parameter change)
+        - 'max_completion_tokens' -> 'max_output_tokens' (required parameter change)
         
         This method handles backward compatibility by accepting both old and new names.
         """
@@ -149,14 +151,20 @@ class AzureOpenAIResponsesClient:
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+            payload["max_output_tokens"] = max_tokens
         elif max_completion_tokens is not None:
-            payload["max_tokens"] = max_completion_tokens
+            payload["max_output_tokens"] = max_completion_tokens
         
         # Add any additional kwargs
         for key, value in kwargs.items():
             if value is not None:
-                payload[key] = value
+                # Map known parameter names to Responses API names
+                if key == "max_tokens":
+                    payload["max_output_tokens"] = value
+                elif key == "max_completion_tokens":
+                    payload["max_output_tokens"] = value
+                else:
+                    payload[key] = value
         
         try:
             async with httpx.AsyncClient() as http_client:
