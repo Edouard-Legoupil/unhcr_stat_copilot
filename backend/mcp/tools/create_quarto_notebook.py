@@ -284,11 +284,28 @@ async def create_quarto_notebook_tool(
                 'date': date or datetime.now().strftime('%Y-%m-%d'),
                 'format': {
                     'html': {
-                        'theme': 'cosmo' if use_unhcr_theme else None,
-                        'css': 'styles.css' if use_unhcr_style else None
+                        'embed-resources': True,
+                        'standalone': True
                     }
                 }
             }
+            
+            # Add theme configuration
+            if use_unhcr_theme:
+                yaml_header['format']['html']['theme'] = ['unhcr', 'cosmo']
+                yaml_header['format']['html']['css'] = 'unhcr.css'
+            else:
+                yaml_header['format']['html']['theme'] = 'cosmo'
+            
+            # Add PDF format
+            yaml_header['format']['pdf'] = {
+                'documentclass': 'article',
+                'papersize': 'a4',
+                'geometry': ['top=30mm', 'left=20mm', 'right=20mm', 'bottom=30mm']
+            }
+            
+            yaml_header['editor'] = 'visual'
+            yaml_header['engine'] = 'jupyter'
             
             if metadata:
                 yaml_header['metadata'] = metadata
@@ -296,7 +313,7 @@ async def create_quarto_notebook_tool(
             if original_query:
                 yaml_header['original_query'] = original_query
             
-            yaml_str = yaml.dump(yaml_header, default_flow_style=False, allow_unicode=True)
+            yaml_str = yaml.dump(yaml_header, default_flow_style=False, allow_unicode=True, sort_keys=False)
             
             # Add Quartro-specific markers
             quarto_content = f"""---

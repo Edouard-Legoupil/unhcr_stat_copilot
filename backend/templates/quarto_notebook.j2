@@ -8,14 +8,14 @@ format:
   html:
     embed-resources: true
     standalone: true
-  {% if use_unhcr_theme %}
+    {%- if use_unhcr_theme %}
     theme:
       - unhcr
       - cosmo
     css: unhcr.css
-  {% else %}
+    {%- else %}
     theme: cosmo
-  {% endif %}
+    {%- endif %}
   pdf:
     documentclass: article
     papersize: a4
