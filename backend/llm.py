@@ -5,8 +5,8 @@ import logging
 import os
 import time
 
+import httpx
 from dotenv import load_dotenv
-from openai import AsyncAzureOpenAI
 
 from backend.mcp_bridge import call_tool
 
@@ -42,13 +42,137 @@ if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_API_KEY:
         "Azure OpenAI is required. Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in your environment."
     )
 
+
+# Custom Azure OpenAI client for Responses API
+# Azure OpenAI Responses API uses /responses endpoint instead of /deployments/{name}/chat/completions
+base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai"
+
+
+class MockResponse:
+    """Mock response object that mimics AzureOpenAI chat completion response."""
+    def __init__(self, content: str):
+        self.choices = [MockChoice(content)]
+
+
+class MockChoice:
+    """Mock choice object."""
+    def __init__(self, content: str):
+        self.message = MockMessage(content)
+
+
+class MockMessage:
+    """Mock message object."""
+    def __init__(self, content: str):
+        self.content = content
+
+
+class MockCompletions:
+    """Mock completions object with create method."""
+    def __init__(self, client):
+        self.client = client
+    
+    async def create(self, **kwargs):
+        """Handle the create call by forwarding to _responses_create"""
+        return await self.client._responses_create(**kwargs)
+
+
+class MockChat:
+    """Mock chat object with completions attribute."""
+    def __init__(self, client):
+        self.completions = MockCompletions(client)
+
+
+class AzureOpenAIResponsesClient:
+    """
+    Custom Azure OpenAI client that uses the Responses API endpoint.
+    This class mimics the AsyncAzureOpenAI interface but uses /responses endpoint.
+    """
+    
+    def __init__(self, api_key, azure_endpoint, api_version):
+        self.api_key = api_key
+        self.azure_endpoint = azure_endpoint
+        self.api_version = api_version
+        self.chat = MockChat(self)
+    
+    async def _responses_create(
+        self,
+        model: str,
+        messages: list,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        max_completion_tokens: int | None = None,
+        response_format: dict | None = None,
+        **kwargs
+    ) -> MockResponse:
+        """
+        Internal implementation for the Responses API.
+        """
+        url = f"{base_url}/responses?api-version={self.api_version}"
+        
+        headers = {
+            "api-key": self.api_key,
+            "Content-Type": "application/json"
+        }
+        
+        # Build the request payload for Responses API
+        payload = {
+            "messages": messages,
+            "model": model,
+        }
+        
+        # Add optional parameters
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        elif max_completion_tokens is not None:
+            payload["max_tokens"] = max_completion_tokens
+        if response_format is not None:
+            payload["response_format"] = response_format
+        
+        # Add any additional kwargs
+        for key, value in kwargs.items():
+            if value is not None:
+                payload[key] = value
+        
+        try:
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                response_data = response.json()
+                
+                # Extract content from response
+                content = ""
+                if "choices" in response_data:
+                    content = response_data["choices"][0]["message"]["content"]
+                elif "output" in response_data:
+                    content = response_data["output"]
+                else:
+                    content = response_data.get("text", "") or response_data.get("content", "")
+                    if not content:
+                        for key, value in response_data.items():
+                            if isinstance(value, str) and value:
+                                content = value
+                                break
+                
+                return MockResponse(content)
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Azure OpenAI Responses API error: {e.response.status_code} - {e.response.text}")
+            raise RuntimeError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
+        except Exception as e:
+            logger.error(f"Azure OpenAI Responses API request failed: {e}")
+            raise RuntimeError(f"Failed to call Azure OpenAI: {e}") from e
+
+
+# Create the client using our custom class
 try:
-    client = AsyncAzureOpenAI(
+    client = AzureOpenAIResponsesClient(
         api_key=AZURE_OPENAI_API_KEY,
         azure_endpoint=AZURE_OPENAI_ENDPOINT,
         api_version=OPENAI_API_VERSION,
     )
-    logger.info("Azure OpenAI client initialized successfully")
+    logger.info("Azure OpenAI client (Responses API) initialized successfully")
 except Exception as e:
     raise RuntimeError(f"Failed to initialize Azure OpenAI client: {e}") from e
 

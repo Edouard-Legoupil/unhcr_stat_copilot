@@ -8,6 +8,7 @@ plotly
 openai
 mcp
 smithery
+httpx
 pycountry
 scipy
 numpy
@@ -41,3 +42,4 @@ limits
 quarto
 plotly
 matplotlib
+seaborn
