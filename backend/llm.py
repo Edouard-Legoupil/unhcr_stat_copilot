@@ -115,6 +115,9 @@ class AzureOpenAIResponsesClient:
         - 'max_tokens' -> 'max_output_tokens' (required parameter change)
         - 'max_completion_tokens' -> 'max_output_tokens' (required parameter change)
         
+        Note: The Responses API expects text.format to be 'text' or 'json' (not 'json_object').
+        This method automatically maps 'json_object' to 'json' for backward compatibility.
+        
         This method handles backward compatibility by accepting both old and new names.
         """
         url = f"{base_url}/responses?api-version={self.api_version}"
@@ -140,12 +143,22 @@ class AzureOpenAIResponsesClient:
         if text_format is not None:
             if "text" not in payload:
                 payload["text"] = {}
-            payload["text"]["format"] = text_format.get("type", "text")
+            # Map json_object to json for Responses API
+            format_type = text_format.get("type", "text")
+            if format_type == "json_object":
+                payload["text"]["format"] = "json"
+            else:
+                payload["text"]["format"] = format_type
         elif response_format is not None:
             # Backward compatibility: convert response_format to text.format
             if "text" not in payload:
                 payload["text"] = {}
-            payload["text"]["format"] = response_format.get("type", "text")
+            # Map json_object to json for Responses API
+            format_type = response_format.get("type", "text")
+            if format_type == "json_object":
+                payload["text"]["format"] = "json"
+            else:
+                payload["text"]["format"] = format_type
         
         # Add optional parameters
         if temperature is not None:
