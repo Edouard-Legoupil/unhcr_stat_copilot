@@ -114,6 +114,56 @@ def _generate_story_from_template(
     Returns:
         Generated story content
     """
+    # Extract structure from analysis_config or use defaults based on document_type
+    structure = []
+    if analysis_config and isinstance(analysis_config, dict):
+        structure = analysis_config.get("structure", [])
+    
+    # If no structure from config, use document_type defaults
+    if not structure and document_type:
+        document_structures = {
+            "long_read": [
+                "introduction",
+                "context", 
+                "key findings",
+                "deep dive analysis",
+                "implications",
+                "conclusion"
+            ],
+            "technical_report": [
+                "abstract",
+                "introduction",
+                "methodology",
+                "results",
+                "discussion",
+                "conclusion",
+                "references"
+            ],
+            "executive_summary": [
+                "executive summary",
+                "key findings",
+                "recommendations",
+                "appendix"
+            ]
+        }
+        structure = document_structures.get(document_type.lower(), [
+            "introduction",
+            "data overview",
+            "key findings",
+            "methodology",
+            "conclusion"
+        ])
+    
+    # If still no structure, use default
+    if not structure:
+        structure = [
+            "introduction",
+            "data overview",
+            "key findings", 
+            "methodology",
+            "conclusion"
+        ]
+    
     # Build story components
     story_parts = []
     
@@ -121,71 +171,178 @@ def _generate_story_from_template(
     story_parts.append(f"# Analysis: {question}")
     story_parts.append("")
     
-    # Introduction
-    story_parts.append("## Introduction")
-    story_parts.append("")
-    story_parts.append(f"This analysis addresses the question: **{question}**")
-    story_parts.append("")
-    
-    # Data Overview
-    story_parts.append("## Data Overview")
-    story_parts.append("")
-    
-    if result and isinstance(result, dict):
-        # Extract key information from result
-        if "data" in result and isinstance(result["data"], list):
-            story_parts.append(f"- **Records**: {len(result['data'])}")
-        elif "data" in result and isinstance(result["data"], dict):
-            story_parts.append(f"- **Data fields**: {list(result['data'].keys())}")
+    # Generate sections based on structure
+    for section in structure:
+        section_title = section.title() if not section.startswith("#") else section.lstrip("# ").strip()
+        section_level = 2
         
-        if "data_type" in result:
-            story_parts.append(f"- **Data type**: {result['data_type']}")
+        # Count leading # to determine heading level
+        if section.startswith("#"):
+            section_level = len(section.split()[0]) if section.split() else 2
+            section_title = section.lstrip("# ").strip()
         
-        if "question" in result:
-            story_parts.append(f"- **Original question**: {result['question']}")
-    else:
-        story_parts.append("- No data available for detailed analysis")
-    
-    story_parts.append("")
-    
-    # Key Findings
-    story_parts.append("## Key Findings")
-    story_parts.append("")
-    
-    if result and isinstance(result, dict):
-        # Try to extract numerical data
-        if "data" in result:
-            data = result["data"]
-            if isinstance(data, list) and len(data) > 0:
-                story_parts.append("- Data retrieved successfully")
-                story_parts.append(f"- Total entries: {len(data)}")
-                
-                # Show sample of first few items
-                if len(data) > 0:
-                    sample = data[0]
-                    if isinstance(sample, dict):
-                        story_parts.append("- Sample data structure:")
-                        for key, value in list(sample.items())[:5]:
-                            story_parts.append(f"  - {key}: {value}")
-            elif isinstance(data, dict):
-                story_parts.append("- Data structure:")
-                for key, value in list(data.items())[:10]:
-                    story_parts.append(f"  - {key}: {value}")
-    
-    story_parts.append("")
-    
-    # Methodology
-    story_parts.append("## Methodology")
-    story_parts.append("")
-    story_parts.append("- Data sourced from UNHCR official statistics")
-    story_parts.append("- Analysis follows UNHCR methodological guidelines")
-    story_parts.append("- All data is aggregate-level only")
-    story_parts.append("")
-    
-    # Conclusion
-    story_parts.append("## Conclusion")
-    story_parts.append("")
-    story_parts.append(f"This analysis provides insights into {question.lower()}. For more detailed")
-    story_parts.append("analysis, please refine your query or contact a data specialist.")
+        heading = "#" * section_level + " " + section_title
+        story_parts.append(heading)
+        story_parts.append("")
+        
+        # Generate content for each section
+        section_content = _generate_section_content(
+            section=section.lower(),
+            question=question,
+            result=result,
+            audience=audience,
+            document_type=document_type,
+            analysis_config=analysis_config
+        )
+        
+        if section_content:
+            story_parts.append(section_content)
+            story_parts.append("")
     
     return "\n".join(story_parts)
+
+
+def _generate_section_content(
+    section: str,
+    question: str,
+    result: Optional[dict],
+    audience: Optional[str],
+    document_type: Optional[str],
+    analysis_config: Optional[dict]
+) -> str:
+    """
+    Generate content for a specific section based on the section name and available data.
+    
+    Args:
+        section: Section name (lowercase)
+        question: The original question
+        result: Data result
+        audience: Target audience
+        document_type: Document type
+        analysis_config: Analysis configuration
+        
+    Returns:
+        Content for the section
+    """
+    content_lines = []
+    
+    # Handle different section types
+    if "introduction" in section:
+        content_lines.append(f"This analysis addresses the question: **{question}**")
+        if audience:
+            content_lines.append(f"This report is prepared for a {audience} audience.")
+        if document_type:
+            content_lines.append(f"Document type: {document_type}")
+            
+    elif "context" in section:
+        content_lines.append("This section provides contextual background for the analysis.")
+        if result and isinstance(result, dict):
+            if "metadata" in result:
+                metadata = result.get("metadata", {})
+                if "source" in metadata:
+                    content_lines.append(f"Data source: {metadata['source']}")
+                if "timespan" in metadata:
+                    content_lines.append(f"Time period: {metadata['timespan']}")
+        content_lines.append("The analysis is based on official UNHCR statistics and follows established methodological guidelines.")
+        
+    elif "data overview" in section or "data_overview" in section:
+        if result and isinstance(result, dict):
+            if "data" in result and isinstance(result["data"], list):
+                content_lines.append(f"- **Records**: {len(result['data'])}")
+            elif "data" in result and isinstance(result["data"], dict):
+                content_lines.append(f"- **Data fields**: {list(result['data'].keys())}")
+            
+            if "data_type" in result:
+                content_lines.append(f"- **Data type**: {result['data_type']}")
+            
+            if "question" in result:
+                content_lines.append(f"- **Original question**: {result['question']}")
+        else:
+            content_lines.append("- No data available for detailed analysis")
+            
+    elif "key findings" in section or "findings" in section:
+        if result and isinstance(result, dict):
+            if "data" in result:
+                data = result["data"]
+                if isinstance(data, list) and len(data) > 0:
+                    content_lines.append("- Data retrieved successfully")
+                    content_lines.append(f"- Total entries: {len(data)}")
+                    
+                    # Show sample of first few items
+                    if len(data) > 0:
+                        sample = data[0]
+                        if isinstance(sample, dict):
+                            content_lines.append("- Sample data structure:")
+                            for key, value in list(sample.items())[:5]:
+                                content_lines.append(f"  - {key}: {value}")
+                elif isinstance(data, dict):
+                    content_lines.append("- Data structure:")
+                    for key, value in list(data.items())[:10]:
+                        content_lines.append(f"  - {key}: {value}")
+        else:
+            content_lines.append("- No specific findings available from the data")
+            
+    elif "deep dive" in section or "analysis" in section:
+        content_lines.append("This section provides a detailed examination of the data and trends.")
+        if result and isinstance(result, dict):
+            if "data" in result and isinstance(result["data"], list):
+                data = result["data"]
+                if len(data) > 1:
+                    content_lines.append(f"The dataset contains {len(data)} records spanning multiple periods.")
+                    # Try to identify time-based data
+                    if data and isinstance(data[0], dict):
+                        year_cols = [k for k in data[0].keys() if 'year' in k.lower()]
+                        if year_cols:
+                            years = [str(item.get(year_cols[0])) for item in data if item.get(year_cols[0])]
+                            if years:
+                                content_lines.append(f"Time range: {min(years) if years else 'N/A'} to {max(years) if years else 'N/A'}")
+        
+    elif "methodology" in section:
+        content_lines.append("- Data sourced from UNHCR official statistics")
+        content_lines.append("- Analysis follows UNHCR methodological guidelines")
+        content_lines.append("- All data is aggregate-level only")
+        if analysis_config and isinstance(analysis_config, dict):
+            if "tone" in analysis_config:
+                content_lines.append(f"- Analysis tone: {analysis_config['tone']}")
+                
+    elif "implications" in section:
+        content_lines.append("This section explores the implications of the findings.")
+        if result and isinstance(result, dict):
+            data_type = result.get("data_type", "unknown")
+            content_lines.append(f"The {data_type} data suggests several important implications for policy and practice.")
+        content_lines.append("- Humanitarian response may need to be adjusted based on these trends")
+        content_lines.append("- Further analysis is recommended to understand root causes")
+        
+    elif "conclusion" in section:
+        content_lines.append(f"This analysis provides insights into {question.lower()}. For more detailed")
+        content_lines.append("analysis, please refine your query or contact a data specialist.")
+        
+    elif "abstract" in section:
+        content_lines.append(f"**Abstract:** This analysis examines {question.lower()} using UNHCR data.")
+        content_lines.append("The study provides insights into refugee and displacement trends.")
+        
+    elif "executive summary" in section:
+        content_lines.append(f"**Executive Summary:** This report presents key findings from the analysis of {question.lower()}.")
+        
+    elif "recommendations" in section:
+        content_lines.append("Based on the analysis, the following recommendations are proposed:")
+        content_lines.append("- Conduct further investigation into identified trends")
+        content_lines.append("- Share findings with relevant stakeholders")
+        content_lines.append("- Consider policy adjustments based on emerging patterns")
+        
+    elif "discussion" in section:
+        content_lines.append("This section discusses the results in the context of broader refugee and displacement issues.")
+        
+    elif "references" in section:
+        content_lines.append("**References**")
+        content_lines.append("- UNHCR Population Statistics Database")
+        content_lines.append("- UNHCR Methodological Guidelines")
+        
+    elif "appendix" in section:
+        content_lines.append("**Appendix:** Additional technical details and supplementary information can be provided upon request.")
+        
+    else:
+        # Default content for unknown sections
+        content_lines.append(f"This section provides information related to {section}.")
+    
+    return "\n".join(content_lines)

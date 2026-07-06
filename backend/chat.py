@@ -976,7 +976,7 @@ async def generate_comprehensive_quarto_analysis(
         quarto_result = await call_tool_directly(
             "create_quarto_notebook",
             {
-                "story_content": f"## Analysis\n\n{story_content}",
+                "story_content": story_content,
                 "title": f"UNHCR Analysis: {question[:50]}..." if len(question) > 50 else f"UNHCR Analysis: {question}",
                 "include_code_cells": True,
                 "use_unhcr_theme": True,
