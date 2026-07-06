@@ -430,8 +430,7 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
         temperature=0.0,  # Deterministic for same inputs
-        response_format={"type": "json_object"},
-        messages=[
+        input_param=[
             {
                 "role": "system",
                 "content": prompt
@@ -440,7 +439,8 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
                 "role": "user",
                 "content": question
             }
-        ]
+        ],
+        text_format={"type": "json_object"}
     )
     
     try:

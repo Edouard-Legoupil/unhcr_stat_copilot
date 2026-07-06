@@ -97,15 +97,23 @@ class AzureOpenAIResponsesClient:
     async def _responses_create(
         self,
         model: str,
-        messages: list,
+        messages: list | None = None,
+        input_param: list | str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
         max_completion_tokens: int | None = None,
         response_format: dict | None = None,
+        text_format: dict | None = None,
         **kwargs
     ) -> MockResponse:
         """
         Internal implementation for the Responses API.
+        
+        The Azure OpenAI Responses API uses different parameter names:
+        - 'messages' -> 'input' (required parameter change)
+        - 'response_format' -> 'text.format' (required parameter change)
+        
+        This method handles backward compatibility by accepting both old and new names.
         """
         url = f"{base_url}/responses?api-version={self.api_version}"
         
@@ -116,9 +124,26 @@ class AzureOpenAIResponsesClient:
         
         # Build the request payload for Responses API
         payload = {
-            "messages": messages,
             "model": model,
         }
+        
+        # Handle input parameter - Responses API uses 'input' instead of 'messages'
+        if input_param is not None:
+            payload["input"] = input_param
+        elif messages is not None:
+            # Backward compatibility: convert messages to input
+            payload["input"] = messages
+        
+        # Handle text format - Responses API uses 'text.format' instead of 'response_format'
+        if text_format is not None:
+            if "text" not in payload:
+                payload["text"] = {}
+            payload["text"]["format"] = text_format.get("type", "text")
+        elif response_format is not None:
+            # Backward compatibility: convert response_format to text.format
+            if "text" not in payload:
+                payload["text"] = {}
+            payload["text"]["format"] = response_format.get("type", "text")
         
         # Add optional parameters
         if temperature is not None:
@@ -127,8 +152,6 @@ class AzureOpenAIResponsesClient:
             payload["max_tokens"] = max_tokens
         elif max_completion_tokens is not None:
             payload["max_tokens"] = max_completion_tokens
-        if response_format is not None:
-            payload["response_format"] = response_format
         
         # Add any additional kwargs
         for key, value in kwargs.items():
@@ -382,10 +405,7 @@ Return JSON:
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
         temperature=1,
-        response_format={
-            "type": "json_object"
-        },
-        messages=[
+        input_param=[
             {
                 "role": "system",
                 "content": prompt
@@ -394,7 +414,10 @@ Return JSON:
                 "role": "user",
                 "content": question
             }
-        ]
+        ],
+        text_format={
+            "type": "json_object"
+        }
     )
 
     return json.loads(
@@ -418,10 +441,7 @@ async def select_tool_from_prompt(
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
         temperature=1,
-        response_format={
-            "type": "json_object"
-        },
-        messages=[
+        input_param=[
             {
                 "role": "system",
                 "content": system_prompt
@@ -430,7 +450,10 @@ async def select_tool_from_prompt(
                 "role": "user",
                 "content": question
             }
-        ]
+        ],
+        text_format={
+            "type": "json_object"
+        }
     )
 
     return json.loads(
@@ -498,15 +521,15 @@ Return JSON:
     response = await client.chat.completions.create(
         model=AZURE_OPENAI_DEPLOYMENT,
         temperature=1,
-        response_format={
-            "type": "json_object"
-        },
-        messages=[
+        input_param=[
             {
                 "role": "user",
                 "content": prompt
             }
-        ]
+        ],
+        text_format={
+            "type": "json_object"
+        }
     )
 
     return json.loads(
@@ -680,7 +703,7 @@ async def generate_story_from_data(
 
         response = await client.chat.completions.create(
             model=AZURE_OPENAI_DEPLOYMENT,
-            messages=[
+            input_param=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
