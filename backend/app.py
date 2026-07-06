@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -12,6 +13,18 @@ from pydantic import BaseModel
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Observability - imported lazily to avoid circular imports
+# from backend.mcp.observability import (
+#     prometheus_metrics,
+#     monitor_chat,
+#     complete_chat,
+#     monitor_tool,
+#     complete_tool,
+#     tool_error,
+#     configure_logging,
+# )
+# configure_logging(level=os.getenv("LOG_LEVEL", "INFO"))
 
 # Rate limiting
 from slowapi import Limiter
@@ -117,6 +130,9 @@ app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
+
+# ---------------------------------------------------------------------
+
 try:
     # FastMCP HTTP transport
     app.mount(
@@ -183,6 +199,41 @@ async def health():
         "status": "ok",
         "service": "unhcr-copilot"
     }
+
+
+# ---------------------------------------------------------------------
+# Observability - Prometheus Metrics
+# ---------------------------------------------------------------------
+
+@app.get("/metrics",
+         summary="Prometheus Metrics",
+         description="Expose Prometheus metrics for monitoring server health and performance.",
+         response_description="Prometheus-formatted metrics",
+         responses={
+             200: {
+                 "description": "Prometheus metrics in text format",
+                 "content": {
+                     "text/plain": {}
+                 }
+             }
+         })
+async def metrics():
+    """
+    Prometheus metrics endpoint for monitoring the UNHCR Copilot service.
+    
+    Returns Prometheus-formatted metrics for monitoring:
+    - Request counts and error rates
+    - Latency histograms
+    - Active request gauges
+    
+    This endpoint does not require authentication and is available to all users.
+    
+    Returns:
+        Response: Plain text response with Prometheus metrics
+    """
+    from fastapi.responses import Response
+    from backend.mcp.observability import prometheus_metrics
+    return Response(content=prometheus_metrics(), media_type="text/plain")
 
 
 # ---------------------------------------------------------------------
@@ -329,13 +380,22 @@ async def execute_tool(
             }
         }
     """
+    tool_name = tool_request.tool
+    start_time = time.time()
+    
+    # Lazy import to avoid circular imports
+    from backend.mcp.observability import monitor_tool, complete_tool, tool_error
+    monitor_tool(tool_name)
+    
     try:
 
         result = await call_tool(
             tool_request.tool,
             tool_request.arguments
         )
-
+        
+        complete_tool(tool_name, 'success')
+        
         return {
             "tool": tool_request.tool,
             "result": result,
@@ -344,12 +404,16 @@ async def execute_tool(
 
     except MCPConnectionError as e:
         logger.error(f"MCP connection error: {e}")
+        tool_error(tool_name, 'connection_error')
+        complete_tool(tool_name, 'error')
         raise HTTPException(
             status_code=503,
             detail=f"MCP server unavailable: {str(e)}"
         )
     except MCPValidationError as e:
         logger.error(f"Validation error: {e}")
+        tool_error(tool_name, 'validation_error')
+        complete_tool(tool_name, 'error')
         raise HTTPException(
             status_code=400,
             detail=str(e)
@@ -357,6 +421,8 @@ async def execute_tool(
     except Exception as e:
 
         logger.exception(e)
+        tool_error(tool_name, 'internal_error')
+        complete_tool(tool_name, 'error')
 
         raise HTTPException(
             status_code=500,
@@ -444,6 +510,12 @@ async def chat(
             "style": "concise"
         }
     """
+    start_time = time.time()
+    
+    # Lazy import to avoid circular imports
+    from backend.mcp.observability import monitor_chat, complete_chat
+    monitor_chat("/chat")
+    
     try:
 
         result = await process_chat_message(
@@ -468,6 +540,8 @@ async def chat(
         else:
             # Fallback to the original JSON saving for compatibility
             save_analysis(result)
+        
+        complete_chat("/chat", 'success')
 
         return {
             **result,
@@ -477,6 +551,7 @@ async def chat(
     except Exception as e:
 
         logger.exception(e)
+        complete_chat("/chat", 'error')
 
         raise HTTPException(
             status_code=500,
