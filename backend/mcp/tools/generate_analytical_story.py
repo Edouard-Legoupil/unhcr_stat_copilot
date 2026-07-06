@@ -367,9 +367,9 @@ def _generate_section_content(
     elif "deep dive" in section or "analysis" in section:
         content_lines.append("This section provides a detailed examination of the data and trends.")
         if result and isinstance(result, dict):
-            if "data" in result and isinstance(result["data"], list):
+            if "data" in result:
                 data = result["data"]
-                if len(data) > 1:
+                if isinstance(data, list) and len(data) > 1:
                     content_lines.append(f"The dataset contains {len(data)} records spanning multiple periods.")
                     # Try to identify time-based data
                     if data and isinstance(data[0], dict):
@@ -378,6 +378,40 @@ def _generate_section_content(
                             years = [str(item.get(year_cols[0])) for item in data if item.get(year_cols[0])]
                             if years:
                                 content_lines.append(f"Time range: {min(years) if years else 'N/A'} to {max(years) if years else 'N/A'}")
+                elif isinstance(data, dict):
+                    # Check if this is a UNHCR API response with items
+                    if "items" in data and isinstance(data["items"], list) and len(data["items"]) > 1:
+                        items = data["items"]
+                        content_lines.append(f"The dataset contains {len(items)} records spanning multiple periods.")
+                        # Try to identify time-based data
+                        if items and isinstance(items[0], dict):
+                            year_cols = [k for k in items[0].keys() if 'year' in k.lower()]
+                            if year_cols:
+                                years = [str(item.get(year_cols[0])) for item in items if item.get(year_cols[0])]
+                                if years:
+                                    content_lines.append(f"Time range: {min(years)} to {max(years)}")
+                                    
+                            # Analyze trends for numeric fields
+                            numeric_fields = []
+                            for key, value in items[0].items():
+                                if isinstance(value, (int, float)) and not any(skip in key.lower() for skip in ['id', '_id', 'iso']):
+                                    numeric_fields.append(key)
+                            
+                            if numeric_fields:
+                                content_lines.append("Trend analysis:")
+                                for field in numeric_fields:
+                                    values = [item.get(field) for item in items if isinstance(item.get(field), (int, float))]
+                                    if len(values) > 1:
+                                        # Calculate trend direction
+                                        if values[-1] > values[0]:
+                                            trend = "increasing"
+                                        elif values[-1] < values[0]:
+                                            trend = "decreasing"
+                                        else:
+                                            trend = "stable"
+                                        change = values[-1] - values[0]
+                                        pct_change = (change / values[0] * 100) if values[0] != 0 else 0
+                                        content_lines.append(f"  - {field}: {trend} trend ({change:+.0f} total, {pct_change:+.1f}% change)")
         
     elif "methodology" in section:
         content_lines.append("- Data sourced from UNHCR official statistics")
