@@ -426,8 +426,25 @@ def _generate_section_content(
         if result and isinstance(result, dict):
             data_type = result.get("data_type", "unknown")
             content_lines.append(f"The {data_type} data suggests several important implications for policy and practice.")
-        content_lines.append("- Humanitarian response may need to be adjusted based on these trends")
-        content_lines.append("- Further analysis is recommended to understand root causes")
+            
+            # Add data-specific implications
+            if "data" in result:
+                data = result["data"]
+                if isinstance(data, dict) and "items" in data and isinstance(data["items"], list):
+                    items = data["items"]
+                    if len(items) > 0 and isinstance(items[0], dict):
+                        # Check for displacement-related fields
+                        displacement_fields = [k for k in items[0].keys() if k.lower() in ['refugees', 'asylum_seekers', 'idps', 'returned_refugees', 'stateless']]
+                        if displacement_fields:
+                            content_lines.append("- Population trends indicate changing displacement patterns that may require resource reallocation")
+                        
+                        # Check for year field - if time series, add temporal implications
+                        year_fields = [k for k in items[0].keys() if 'year' in k.lower()]
+                        if year_fields and len(items) > 1:
+                            content_lines.append("- Temporal analysis reveals evolving situations that necessitate ongoing monitoring")
+                            
+            content_lines.append("- Humanitarian response may need to be adjusted based on these trends")
+            content_lines.append("- Further analysis is recommended to understand root causes")
         
     elif "conclusion" in section:
         content_lines.append(f"This analysis provides insights into {question.lower()}. For more detailed")
