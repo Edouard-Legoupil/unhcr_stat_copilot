@@ -19,17 +19,20 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _escape_jinja(text: str) -> str:
+def _escape_jinja(text: str | list | Any) -> str:
     """
     Escape Jinja2 special characters in text to prevent template rendering issues.
     
     Args:
-        text: Text that may contain Jinja2 syntax
+        text: Text that may contain Jinja2 syntax, or any object that can be converted to string
         
     Returns:
         Text with Jinja2 syntax escaped
     """
-    return text.replace('{{', '\{{').replace('}}', '\}}').replace('{%', '\{%').replace('%}', '\%}')
+    if text is None:
+        return ""
+    text_str = str(text) if not isinstance(text, str) else text
+    return text_str.replace('{{', '\{{').replace('}}', '\}}').replace('{%', '\{%').replace('%}', '\%}')
 
 
 def _quote_yaml(text: str) -> str:
@@ -314,6 +317,9 @@ async def create_quarto_notebook_tool(
             # Fallback to manual generation if template is not available
             logger.warning("Using manual Quarto generation (Jinja2 template not available)")
             
+            # Escape story_content for safe insertion
+            escaped_story = _escape_jinja(story_content) if story_content else ""
+            
             # Generate notebook content
             yaml_header = {
                 'title': title or 'UNHCR Data Analysis',
@@ -382,7 +388,7 @@ print("UNHCR Data Analysis")
             
             quarto_content += f"""# {title or 'UNHCR Data Analysis'}
 
-{story_content}
+{escaped_story}
 
 """
             
