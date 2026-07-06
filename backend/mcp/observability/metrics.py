@@ -5,7 +5,19 @@ This module provides Prometheus metrics for monitoring server health,
 performance, and error rates.
 """
 
+import os
+from pathlib import Path
+from typing import Optional
+
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
+
+# Configuration for file-based metrics storage
+METRICS_FILE_ENABLED = os.getenv("METRICS_FILE_ENABLED", "false").lower() == "true"
+METRICS_FILE_PATH = Path(os.getenv("METRICS_FILE_PATH", "metrics/prometheus.metrics"))
+
+# Ensure metrics directory exists if file storage is enabled
+if METRICS_FILE_ENABLED:
+    METRICS_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Request counters
 tool_requests_total = Counter(
@@ -109,7 +121,19 @@ def prometheus_metrics() -> bytes:
     """
     Generate Prometheus metrics in the standard format.
     
+    If METRICS_FILE_ENABLED is True, also saves metrics to the configured file path.
+    
     Returns:
         Bytes containing Prometheus-formatted metrics
     """
-    return generate_latest()
+    metrics_bytes = generate_latest()
+    
+    # Save to file if enabled
+    if METRICS_FILE_ENABLED:
+        try:
+            METRICS_FILE_PATH.write_bytes(metrics_bytes)
+        except Exception as e:
+            # Don't fail if we can't write to file
+            pass
+    
+    return metrics_bytes
