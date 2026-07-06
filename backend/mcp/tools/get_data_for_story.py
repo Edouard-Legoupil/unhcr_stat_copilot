@@ -109,6 +109,7 @@ async def get_data_for_story_tool(
             data_type = "population"
         
         # Enrich data with statistical analysis (Phase 1 - Enhanced Pipeline)
+        stats = None
         try:
             from backend.mcp.tools.analyze_data_statistics import analyze_data_statistics_tool
             items = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
@@ -127,7 +128,8 @@ async def get_data_for_story_tool(
                     ]
                     
                     if numeric_cols:
-                        stats = await analyze_data_statistics_tool(
+                        # Note: analyze_data_statistics_tool is synchronous, not async
+                        stats = analyze_data_statistics_tool(
                             data=items,
                             numeric_columns=numeric_cols,
                             categorical_columns=categorical_cols if categorical_cols else None
@@ -138,12 +140,14 @@ async def get_data_for_story_tool(
             # Continue without statistics - non-blocking
         
         # Enrich data with UNHCR compliance validation (Phase 1 - Enhanced Pipeline)
+        guardrails = None
         try:
             from backend.mcp.tools.apply_analysis_guardrails import apply_analysis_guardrails_tool
             items = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
             data_fields = list(items[0].keys()) if items and isinstance(items[0], dict) else []
             
-            guardrails = await apply_analysis_guardrails_tool(
+            # Note: apply_analysis_guardrails_tool is synchronous, not async
+            guardrails = apply_analysis_guardrails_tool(
                 analysis_request={
                     'context': question,
                     'data_fields': data_fields
@@ -155,6 +159,59 @@ async def get_data_for_story_tool(
         except Exception as e:
             logger.debug(f"Could not validate analysis guardrails: {e}")
             # Continue without guardrails - non-blocking
+        
+        # Extract visualization structure (Phase 2 - NEW)
+        visualization_structure = None
+        try:
+            from backend.mcp.tools.extract_visualization_structure import extract_visualization_structure_tool
+            # Auto-detect visualization type and labels from data
+            viz_type = "line_chart"  # Default, can be enhanced
+            viz_title = f"Analysis: {question}"
+            
+            # Try to detect axis labels from data
+            x_label = "Year"
+            y_label = "Count"
+            
+            if items and isinstance(items, list) and len(items) > 0 and isinstance(items[0], dict):
+                # Look for year/time fields
+                for key in items[0].keys():
+                    if 'year' in key.lower():
+                        x_label = key
+                        break
+                # Look for numeric value fields (excluding IDs)
+                for key in items[0].keys():
+                    if isinstance(items[0][key], (int, float)) and 'year' not in key.lower():
+                        if not any(skip in key.lower() for skip in ['id', '_id', 'iso', 'hst', 'ooc', 'oip']):
+                            y_label = key
+                            break
+            
+            visualization_structure = extract_visualization_structure_tool(
+                visualization_type=viz_type,
+                title=viz_title,
+                x_axis_label=x_label,
+                y_axis_label=y_label
+            )
+            data['visualization_structure'] = visualization_structure
+        except Exception as e:
+            logger.debug(f"Could not extract visualization structure: {e}")
+            # Continue without structure - non-blocking
+        
+        # Generate visualization description (Phase 3 - NEW)
+        visualization_description = None
+        try:
+            from backend.mcp.tools.generate_visualization_description import generate_visualization_description_tool
+            if visualization_structure and stats:
+                visualization_description = await generate_visualization_description_tool(
+                    structure=visualization_structure,
+                    statistics=stats,
+                    description_type="detailed",
+                    max_length=500,
+                    focus_areas=["trends", "comparisons", "outliers"]
+                )
+                data['visualization_description'] = visualization_description
+        except Exception as e:
+            logger.debug(f"Could not generate visualization description: {e}")
+            # Continue without description - non-blocking
         
         return {
             'question': question,

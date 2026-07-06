@@ -977,6 +977,43 @@ async def generate_comprehensive_quarto_analysis(
                 # If data_result has data directly
                 notebook_data = data_result
         
+        # Extract visualization and analysis metadata from data_result
+        # These are now added by get_data_for_story
+        visualization_structure = None
+        visualization_description = None
+        stats_data = None
+        guardrails_data = None
+        
+        if isinstance(data_result, dict):
+            # Extract from data field if nested
+            data_field = data_result.get('data', data_result)
+            if isinstance(data_field, dict):
+                visualization_structure = data_field.get('visualization_structure')
+                visualization_description = data_field.get('visualization_description')
+                stats_data = data_field.get('statistics')
+                guardrails_data = data_field.get('guardrails')
+        
+        # Build comprehensive metadata for Quarto notebook
+        quarto_metadata = {
+            "audience": audience,
+            "document_type": document_type,
+            "analysis_config": {
+                "tone": config["tone"],
+                "length": config["length"],
+                "structure": config["structure"]
+            }
+        }
+        
+        # Add analysis metadata if available
+        if stats_data:
+            quarto_metadata["statistics"] = stats_data
+        if guardrails_data:
+            quarto_metadata["guardrails"] = guardrails_data
+        if visualization_structure:
+            quarto_metadata["visualization_structure"] = visualization_structure
+        if visualization_description:
+            quarto_metadata["visualization_description"] = visualization_description
+        
         quarto_result = await call_tool_directly(
             "create_quarto_notebook",
             {
@@ -985,15 +1022,7 @@ async def generate_comprehensive_quarto_analysis(
                 "include_code_cells": True,
                 "use_unhcr_theme": True,
                 "use_unhcr_style": True,
-                "metadata": {
-                    "audience": audience,
-                    "document_type": document_type,
-                    "analysis_config": {
-                        "tone": config["tone"],
-                        "length": config["length"],
-                        "structure": config["structure"]
-                    }
-                },
+                "metadata": quarto_metadata,
                 "data": notebook_data
             }
         )

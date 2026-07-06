@@ -5,6 +5,7 @@ Create Quarto notebooks from data stories.
 
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -19,6 +20,105 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _extract_text_from_message(content: Any) -> str:
+    """
+    Extract text content from various message formats.
+    
+    Handles:
+    - Plain strings
+    - Lists of message objects (LLM response format)
+    - Dicts with 'content' or 'text' keys
+    - Nested structures
+    - Azure OpenAI format with content as list of dicts
+    
+    Args:
+        content: The content to extract text from
+        
+    Returns:
+        Extracted text as a string
+    """
+    if content is None:
+        return ""
+    
+    if isinstance(content, str):
+        # Clean up any JSON artifacts at the edges
+        cleaned = content.strip()
+        if cleaned.startswith('[') and cleaned.endswith(']'):
+            try:
+                parsed = json.loads(cleaned)
+                return _extract_text_from_message(parsed)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if cleaned.startswith('{') and cleaned.endswith('}'):
+            try:
+                parsed = json.loads(cleaned)
+                return _extract_text_from_message(parsed)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return cleaned
+    
+    if isinstance(content, list):
+        # Handle list of message objects (LLM response format)
+        texts = []
+        for item in content:
+            if isinstance(item, dict):
+                # Azure OpenAI format: {'type': 'output_text', 'text': 'actual text'}
+                if 'text' in item:
+                    texts.append(item['text'])
+                # Also try content field
+                elif 'content' in item:
+                    text = _extract_text_from_message(item['content'])
+                    if text:
+                        texts.append(text)
+                else:
+                    # Try to extract text from message object
+                    text = _extract_text_from_message(item)
+                    if text:
+                        texts.append(text)
+            elif isinstance(item, str):
+                texts.append(item)
+            else:
+                # Try string conversion as fallback
+                text = _extract_text_from_message(item)
+                if text:
+                    texts.append(text)
+        return "\n\n".join(texts)
+    
+    if isinstance(content, dict):
+        # Azure OpenAI message format: {'type': 'message', 'content': [...]}
+        if 'content' in content and isinstance(content['content'], list):
+            # Extract text from each content item
+            texts = []
+            for citem in content['content']:
+                if isinstance(citem, dict) and 'text' in citem:
+                    texts.append(citem['text'])
+                elif isinstance(citem, str):
+                    texts.append(citem)
+                else:
+                    text = _extract_text_from_message(citem)
+                    if text:
+                        texts.append(text)
+            if texts:
+                return '\n\n'.join(texts)
+        
+        # Try common text fields
+        for key in ['content', 'text', 'message', 'story', 'raw_text']:
+            if key in content:
+                text = _extract_text_from_message(content[key])
+                if text:
+                    return text
+        
+        # If no text field found, try to extract from nested content
+        if 'content' in content:
+            return _extract_text_from_message(content['content'])
+        
+        # Return string representation as fallback
+        return str(content)
+    
+    # Fallback: convert to string
+    return str(content)
+
+
 def _escape_jinja(text: str | list | Any) -> str:
     """
     Escape Jinja2 special characters in text to prevent template rendering issues.
@@ -31,7 +131,7 @@ def _escape_jinja(text: str | list | Any) -> str:
     """
     if text is None:
         return ""
-    text_str = str(text) if not isinstance(text, str) else text
+    text_str = _extract_text_from_message(text) if not isinstance(text, str) else text
     return text_str.replace('{{', '\{{').replace('}}', '\}}').replace('{%', '\{%').replace('%}', '\%}')
 
 
@@ -276,6 +376,9 @@ async def create_quarto_notebook_tool(
         Generated notebook content and metadata
     """
     try:
+        # Clean and extract story content from various formats (message objects, dicts, etc.)
+        cleaned_story = _extract_text_from_message(story_content) if story_content else ""
+        
         # Try to use Jinja2 template first
         template = _load_template("quarto_notebook.j2")
         
@@ -289,7 +392,7 @@ async def create_quarto_notebook_tool(
             timestamp = date or datetime.now().isoformat()
             
             # Escape story_content for Jinja2 to prevent template rendering issues
-            escaped_story = _escape_jinja(story_content) if story_content else ""
+            escaped_story = _escape_jinja(cleaned_story) if cleaned_story else ""
             
             # Build metadata for template
             template_metadata = metadata or {}
@@ -317,8 +420,8 @@ async def create_quarto_notebook_tool(
             # Fallback to manual generation if template is not available
             logger.warning("Using manual Quarto generation (Jinja2 template not available)")
             
-            # Escape story_content for safe insertion
-            escaped_story = _escape_jinja(story_content) if story_content else ""
+            # Use cleaned story content
+            escaped_story = _escape_jinja(cleaned_story) if cleaned_story else ""
             
             # Generate notebook content
             yaml_header = {
