@@ -142,13 +142,46 @@ class AzureOpenAIResponsesClient:
                     
                     # Extract content from response
                     content = ""
-                    if "choices" in response_data:
-                        content = response_data["choices"][0]["message"]["content"]
-                    elif "output" in response_data:
-                        content = response_data["output"]
-                    else:
-                        content = response_data.get("text", "") or response_data.get("content", "")
-                        if not content:
+                    
+                    # Handle list response format (Azure Responses API can return list of messages)
+                    if isinstance(response_data, list) and len(response_data) > 0:
+                        first_item = response_data[0]
+                        if isinstance(first_item, dict):
+                            # Try to extract text from message object
+                            # Format: [{'id': '...', 'type': 'message', 'content': [{'type': 'output_text', 'text': '...'}], ...}]
+                            msg_content = first_item.get("content", [])
+                            if isinstance(msg_content, list) and len(msg_content) > 0:
+                                # Extract text from content items
+                                for content_item in msg_content:
+                                    if isinstance(content_item, dict):
+                                        content = content_item.get("text", "")
+                                        if content:
+                                            break
+                                    elif isinstance(content_item, str):
+                                        content = content_item
+                                        break
+                            
+                            # If content extraction failed, try direct text field
+                            if not content:
+                                content = first_item.get("text", "")
+                            
+                            # Try output field
+                            if not content:
+                                content = first_item.get("output", "")
+                        elif isinstance(first_item, str):
+                            content = first_item
+                    # Handle dict response format
+                    elif isinstance(response_data, dict):
+                        if "choices" in response_data:
+                            content = response_data["choices"][0]["message"]["content"]
+                        elif "output" in response_data:
+                            content = response_data["output"]
+                        elif "text" in response_data:
+                            content = response_data["text"]
+                        elif "content" in response_data:
+                            content = response_data["content"]
+                        else:
+                            # Fallback: search through all keys
                             for key, value in response_data.items():
                                 if isinstance(value, str) and value:
                                     content = value
