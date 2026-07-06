@@ -309,9 +309,53 @@ def _generate_section_content(
                             for key, value in list(sample.items())[:5]:
                                 content_lines.append(f"  - {key}: {value}")
                 elif isinstance(data, dict):
-                    content_lines.append("- Data structure:")
-                    for key, value in list(data.items())[:10]:
-                        content_lines.append(f"  - {key}: {value}")
+                    # Check if this is a UNHCR API response with items
+                    if "items" in data and isinstance(data["items"], list):
+                        items = data["items"]
+                        content_lines.append(f"- Data retrieved: {len(items)} records")
+                        
+                        # Extract meaningful statistics from items
+                        if len(items) > 0 and isinstance(items[0], dict):
+                            # Try to find numeric fields for analysis
+                            numeric_fields = []
+                            year_field = None
+                            for key, value in items[0].items():
+                                if isinstance(value, (int, float)) and not any(skip in key.lower() for skip in ['id', '_id', 'iso']):
+                                    numeric_fields.append(key)
+                                if 'year' in key.lower():
+                                    year_field = key
+                            
+                            if numeric_fields:
+                                content_lines.append(f"- Key metrics available: {', '.join(numeric_fields)}")
+                            
+                            if year_field:
+                                years = [str(item.get(year_field)) for item in items if item.get(year_field)]
+                                if years:
+                                    content_lines.append(f"- Time range: {min(years)} to {max(years)}")
+                        
+                        # Show summary statistics for numeric fields
+                        if len(items) > 0 and isinstance(items[0], dict):
+                            numeric_data = {}
+                            for item in items:
+                                for key in numeric_fields:
+                                    val = item.get(key)
+                                    if isinstance(val, (int, float)):
+                                        if key not in numeric_data:
+                                            numeric_data[key] = []
+                                        numeric_data[key].append(val)
+                            
+                            for field, values in numeric_data.items():
+                                if values:
+                                    content_lines.append(f"- {field}: min={min(values)}, max={max(values)}, avg={sum(values)/len(values):.1f}")
+                    else:
+                        # Generic dict handling - but exclude large values
+                        content_lines.append("- Data structure:")
+                        for key, value in list(data.items())[:10]:
+                            # Don't include large lists or dicts
+                            if isinstance(value, (list, dict)) and len(str(value)) > 200:
+                                content_lines.append(f"  - {key}: [{len(value) if isinstance(value, (list, dict)) else type(value).__name__} items]")
+                            else:
+                                content_lines.append(f"  - {key}: {value}")
         else:
             content_lines.append("- No specific findings available from the data")
             
