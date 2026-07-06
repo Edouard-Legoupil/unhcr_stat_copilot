@@ -290,12 +290,16 @@ def get_quarto_analyses() -> List[Dict]:
                             if os.path.exists(quarto_filepath):
                                 analyses.append({
                                     "id": analysis_data["id"],
-                                    "question": analysis_data.get("question", "Unknown"),
+                                    "question": analysis_data.get("question", ""),
                                     "tool": analysis_data.get("analysis_type", "quarto"),
                                     "timestamp": analysis_data["timestamp"],
                                     "filepath": analysis_data["filepath"],
                                     "quarto_filename": analysis_data["quarto_filename"],
-                                    "analysis_type": "quarto"
+                                    "analysis_type": analysis_data.get("analysis_type", "quarto"),
+                                    "audience": analysis_data.get("audience", ""),
+                                    "document_type": analysis_data.get("document_type", ""),
+                                    "origin": analysis_data.get("origin", ""),
+                                    "destination": analysis_data.get("destination", "")
                                 })
                             else:
                                 # This is a JSON analysis with Quarto metadata, not a true Quarto analysis

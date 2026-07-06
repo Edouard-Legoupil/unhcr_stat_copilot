@@ -1265,10 +1265,7 @@ async def generate_comprehensive_quarto_analysis(
             metadata["pdf_path"] = quarto_result.get("pdf_path")
             metadata["rendered"] = quarto_result.get("rendered", {})
         
-        # Save analysis to history
-        from backend.history import save_analysis
-        metadata["quarto_content"] = quarto_content
-        save_analysis(metadata)
+        # NOTE: history saving is delegated to the /chat handler; skip duplicate save here
         
         # Ensure metadata is serializable for API response
         from backend.history import _make_serializable

@@ -23,33 +23,30 @@ export default function QuartoViewer({ quartoContent, quartoRawContent, metadata
     useEffect(() => {
         try {
             // If the content is already pre-rendered HTML from the server
-            if (rendered) {
-                // Check if it looks like HTML (starts with < or contains <html>)
-                const isHtml = quartoContent.trim().startsWith('<') || 
-                              quartoContent.includes('<html>') ||
-                              quartoContent.includes('<!DOCTYPE');
-                
-                if (isHtml) {
-                    setDisplayContent(quartoContent);
-                    setIsRendered(true);
-                } else {
-                    // Fall back to client-side rendering if it's actually raw markdown
-                    const htmlContent = simpleMarkdownToHtml(quartoContent);
-                    setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
+        if (isRendered && analysisId) {
+            // fetch pre-rendered HTML via API endpoint
+            fetch(`/quarto/${analysisId}/rendered`)
+                .then(res => res.text())
+                .then(html => setDisplayContent(html))
+                .catch(err => {
+                    console.warn('Failed to load server-rendered HTML', err);
+                    // fallback to client-side markdown render
+                    const htmlFallback = simpleMarkdownToHtml(quartoContent);
+                    setDisplayContent(`<div class="quarto-rendered">${htmlFallback}</div>`);
                     setIsRendered(false);
-                }
-            } else {
-                // Client-side rendering for raw markdown (fallback)
-                const htmlContent = simpleMarkdownToHtml(quartoContent);
-                setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
-                setIsRendered(false);
-            }
+                });
+        } else {
+            // client-side rendering of markdown
+            const htmlContent = simpleMarkdownToHtml(quartoContent);
+            setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
+            setIsRendered(false);
+        }
         } catch (error) {
             console.error("Error rendering Quarto content:", error);
             setDisplayContent('<p>Error rendering content. Showing raw format.</p>');
             setIsRendered(false);
         }
-    }, [quartoContent, rendered]);
+    }, [quartoContent, isRendered, analysisId]);
 
     // Simple markdown to HTML conversion for fallback rendering
     // Only used when server-side rendering is not available
@@ -87,16 +84,27 @@ export default function QuartoViewer({ quartoContent, quartoRawContent, metadata
                                 ✅ Pre-rendered
                             </span>
                         )}
+                        {isRendered && analysisId && (
+                            <a
+                                className="quarto-tools-toggle"
+                                href={`/quarto/${analysisId}/rendered`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="View HTML"
+                            >
+                                🌐 HTML
+                            </a>
+                        )}
                         {analysisId && (
-                            <button
+                            <a
                                 className="pdf-download-button"
-                                onClick={() => {
-                                    window.location.href = `/quarto/${analysisId}/pdf`;
-                                }}
+                                href={`/quarto/${analysisId}/pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 title="Download as PDF"
                             >
                                 📥 PDF
-                            </button>
+                            </a>
                         )}
                         {hasTools && (
                             <button

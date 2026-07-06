@@ -52,10 +52,10 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
             const filterQuestion = filters.question.toLowerCase();
 
             return (!filters.question || question.includes(filterQuestion)) &&
-                (!filters.document_type || metadata.document_type === filters.document_type) &&
-                (!filters.audience || metadata.audience === filters.audience) &&
-                (!filters.origin || metadata.origin === filters.origin) &&
-                (!filters.destination || metadata.destination === filters.destination);
+                (!filters.document_type || analysis.document_type === filters.document_type) &&
+                (!filters.audience || analysis.audience === filters.audience) &&
+                (!filters.origin || analysis.origin === filters.origin) &&
+                (!filters.destination || analysis.destination === filters.destination);
         });
         setFilteredAnalyses(result);
     };
@@ -82,10 +82,10 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
         
         switch (key) {
             case 'question': return (analysis.question || '').toLowerCase();
-            case 'document_type': return (metadata.document_type || '').toLowerCase();
-            case 'audience': return (metadata.audience || '').toLowerCase();
-            case 'origin': return (metadata.origin || '').toLowerCase();
-            case 'destination': return (metadata.destination || '').toLowerCase();
+            case 'document_type': return (analysis.document_type || metadata.document_type || '').toLowerCase();
+            case 'audience': return (analysis.audience || metadata.audience || '').toLowerCase();
+            case 'origin': return (analysis.origin || metadata.origin || '').toLowerCase();
+            case 'destination': return (analysis.destination || metadata.destination || '').toLowerCase();
             case 'timestamp': 
                 const date = new Date(analysis.timestamp || metadata.generated_at);
                 return date.getTime();
@@ -115,9 +115,11 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
     const getUniqueValues = (field) => {
         const values = new Set();
         analyses.forEach(analysis => {
-            const metadata = analysis.metadata || {};
-            if (metadata[field]) {
-                values.add(metadata[field]);
+            // Use flattened fields from analysis, fallback to metadata
+            if (analysis[field]) {
+                values.add(analysis[field]);
+            } else if (analysis.metadata?.[field]) {
+                values.add(analysis.metadata[field]);
             }
         });
         return Array.from(values).sort();
@@ -252,16 +254,16 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     </TableCell>
                                     
                                     {/* Report Type Cell */}
-                                    <TableCell>{metadata.document_type || ''}</TableCell>
+                                    <TableCell>{analysis.document_type || metadata.document_type || ''}</TableCell>
                                     
                                     {/* Audience Cell */}
-                                    <TableCell>{metadata.audience || ''}</TableCell>
+                                    <TableCell>{analysis.audience || metadata.audience || ''}</TableCell>
                                     
                                     {/* Origin Cell */}
-                                    <TableCell>{metadata.origin || ''}</TableCell>
+                                    <TableCell>{analysis.origin || metadata.origin || ''}</TableCell>
                                     
                                     {/* Destination Cell */}
-                                    <TableCell>{metadata.destination || ''}</TableCell>
+                                    <TableCell>{analysis.destination || metadata.destination || ''}</TableCell>
                                     
                                     {/* Empty cell for spacing */}
                                     <TableCell></TableCell>

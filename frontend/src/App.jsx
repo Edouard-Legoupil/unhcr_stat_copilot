@@ -299,9 +299,22 @@ export default function App() {
                 localStorage.setItem(`analysis_${json.id}`, JSON.stringify(json));
             }
 
-            // Switch to content mode to show the generated analysis
+            // Switch to content mode and update history
             setMode("content");
             await fetchPreviousAnalyses();
+
+            // Wait for server-side HTML rendering to complete before hiding spinner
+            if (json.analysis_type?.startsWith('quarto') && json.id) {
+                try {
+                    const renderRes = await fetch(`/quarto/${json.id}/rendered`);
+                    if (!renderRes.ok) {
+                        throw new Error(`Render endpoint returned ${renderRes.status}`);
+                    }
+                    await renderRes.text();
+                } catch (renderErr) {
+                    console.warn('HTML rendering check failed:', renderErr);
+                }
+            }
 
         } catch (err) {
 

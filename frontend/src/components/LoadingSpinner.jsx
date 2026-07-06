@@ -53,7 +53,7 @@ export default function LoadingSpinner() {
           <g transform="translate(0 290) scale(1 -1)">
 
             {/* Left hand */}
-            <g transform-origin="262px 144px">
+            <g transformOrigin="262px 144px">
               <animateTransform
                 attributeName="transform"
                 type="scale"
@@ -68,7 +68,7 @@ export default function LoadingSpinner() {
             </g>
 
             {/* Right hand */}
-            <g transform-origin="272px 144px">
+            <g transformOrigin="272px 144px">
               <animateTransform
                 attributeName="transform"
                 type="scale"
@@ -83,11 +83,11 @@ export default function LoadingSpinner() {
             </g>
 
             {/* Person */}
-            <g transform-origin="267px 141px">
+            <g transformOrigin="267px 141px">
               <animateTransform
                 attributeName="transform"
                 type="scale"
-                values="1;1.25;1"
+                values="1;1.15;1"
                 dur="1.8s"
                 repeatCount="indefinite"
               />

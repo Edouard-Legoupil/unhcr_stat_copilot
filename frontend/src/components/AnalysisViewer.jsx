@@ -180,36 +180,6 @@ export default function AnalysisViewer({ quartoContent, quartoRawContent, metada
                 )}
             </div>
 
-            {/* Analysis Metadata Section */}
-            <div className="analysis-metadata">
-                <h4>📋 Analysis Details</h4>
-                <div className="metadata-grid">
-                    <div className="metadata-item">
-                        <span className="metadata-label">Audience:</span>
-                        <span className="metadata-value">{audience}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Document Type:</span>
-                        <span className="metadata-value">{documentType}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Tone:</span>
-                        <span className="metadata-value">{analysisConfig.tone || 'N/A'}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Length:</span>
-                        <span className="metadata-value">{analysisConfig.length?.wordRange || 'N/A'}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Reading Time:</span>
-                        <span className="metadata-value">{analysisConfig.length?.readingTime || 'N/A'}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Generated:</span>
-                        <span className="metadata-value">{formatTimestamp(metadata?.generated_at)}</span>
-                    </div>
-                </div>
-            </div>
 
             {/* Debug Panel - Collapsible */}
             {showDebug && (
@@ -313,6 +283,30 @@ export default function AnalysisViewer({ quartoContent, quartoRawContent, metada
                             </div>
                         </div>
                     </div>
+
+                    {/* Observability Summary from metadata */}
+                    {metadata?.observability && (
+                        <div className="debug-card">
+                            <h5>🔎 Observability Summary</h5>
+                            <div className="observability-item">
+                                <strong>Methodology:</strong> {metadata.observability.analysis_methodology}
+                            </div>
+                            <div className="observability-item">
+                                <strong>Data Sources:</strong> {metadata.observability.data_sources.join(', ')}
+                            </div>
+                            <div className="observability-item">
+                                <strong>Processing Steps:</strong> {metadata.observability.processing_steps.join(' → ')}
+                            </div>
+                            <div className="observability-item">
+                                <strong>Quality Assurance:</strong>
+                                <ul>
+                                    {Object.entries(metadata.observability.quality_assurance || {}).map(([k, v]) => (
+                                        <li key={k}><strong>{k.replace(/([A-Z])/g, ' $1')}:</strong> {String(v)}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Raw Response Data */}
                     <div className="debug-card">
