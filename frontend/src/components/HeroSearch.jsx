@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import CompactAnalysisTable from "./CompactAnalysisTable";
 import AnalysisRequestForm from "./AnalysisRequestForm";
+import IntegratedAnalysisViewer from "./IntegratedAnalysisViewer";
 
 export default function HeroSearch({
 
@@ -20,7 +21,9 @@ export default function HeroSearch({
 
     setMode,
 
-    AboutSectionComponent = null
+    AboutSectionComponent = null,
+
+    response = null
 
 }) {
 
@@ -60,6 +63,8 @@ export default function HeroSearch({
         if (loadPreviousAnalysis) {
             loadPreviousAnalysis(analysis.id);
         }
+        // Switch to content mode when an analysis is selected
+        setMode("content");
     };
 
     return (
@@ -73,6 +78,13 @@ export default function HeroSearch({
                     disabled={loading}
                 >
                     Available Insights
+                </button>
+                <button
+                    className={`tab-button ${mode === "content" ? "active" : ""}`}
+                    onClick={() => setMode("content")}
+                    disabled={loading}
+                >
+                    Analysis Content
                 </button>
                 <button
                     className={`tab-button ${mode === "new" ? "active" : ""}`}
@@ -91,7 +103,26 @@ export default function HeroSearch({
             </div>
 
             <div className="tab-content">
-                {mode === "new" ? (
+                {mode === "content" ? (
+                    response && ([
+                        "quarto_notebook",
+                        "comprehensive_quarto",
+                        "basic_quarto_fallback"
+                    ].includes(response.analysis_type) && 
+                    (response.quarto_rendered_html || response.quarto_content)) ? (
+                        <IntegratedAnalysisViewer
+                            quartoContent={response.quarto_rendered_html || response.quarto_content}
+                            quartoRawContent={response.quarto_content}
+                            metadata={response.metadata || response.quarto_metadata}
+                            response={response}
+                            rendered={response.rendered || false}
+                        />
+                    ) : (
+                        <div className="tab-content-empty">
+                            <p>No analysis content available. Please select an analysis from "Available Insights" or generate a new one.</p>
+                        </div>
+                    )
+                ) : mode === "new" ? (
                     <AnalysisRequestForm
                         onSubmit={askQuestion}
                         loading={loading}

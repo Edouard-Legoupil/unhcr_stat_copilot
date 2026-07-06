@@ -10,7 +10,6 @@ import HeroSearch from "./components/HeroSearch";
 
 import LoadingSpinner from "./components/LoadingSpinner";
 import ErrorPanel from "./components/ErrorPanel";
-import IntegratedAnalysisViewer from "./components/IntegratedAnalysisViewer";
 import AboutSection from "./components/AboutSection";
 
 export default function App() {
@@ -291,8 +290,8 @@ export default function App() {
                 localStorage.setItem(`analysis_${json.id}`, JSON.stringify(json));
             }
 
-            // Switch to previous analyses mode and refresh the list
-            setMode("previous");
+            // Switch to content mode to show the generated analysis
+            setMode("content");
             await fetchPreviousAnalyses();
 
         } catch (err) {
@@ -367,6 +366,7 @@ export default function App() {
                 mode={mode}
                 setMode={setMode}
                 AboutSectionComponent={AboutSection}
+                response={response}
             />
 
             <ErrorPanel
@@ -376,25 +376,6 @@ export default function App() {
             {loading && (
                 <LoadingSpinner />
             )}
-
-            {!loading &&
-                response && (
-                    <>
-
-                        {/* Simplified Interface - Quarto Notebook Viewer */}
-
-                        {(["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"].includes(response.analysis_type) && (response.quarto_rendered_html || response.quarto_content)) && (
-                            <IntegratedAnalysisViewer
-                                quartoContent={response.quarto_rendered_html || response.quarto_content}
-                                quartoRawContent={response.quarto_content}
-                                metadata={response.metadata || response.quarto_metadata}
-                                response={response}
-                                rendered={response.rendered || false}
-                            />
-                        )}
-
-                    </>
-                )}
 
         </Layout>
 
