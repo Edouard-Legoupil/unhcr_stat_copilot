@@ -29,7 +29,9 @@ def _make_serializable(obj: Any, visited: Optional[set] = None) -> Any:
     
     visited = visited | {obj_id}  # Create a new set to avoid mutating the parent's set
     
-    if obj is None or isinstance(obj, (bool, int, float, str)):
+    if obj is None or obj is Ellipsis:
+        return None
+    elif isinstance(obj, (bool, int, float, str)):
         return obj
     elif isinstance(obj, (list, tuple)):
         return [_make_serializable(item, visited) for item in obj]

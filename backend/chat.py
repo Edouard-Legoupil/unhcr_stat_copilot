@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import json
 import logging
 import time
@@ -1269,13 +1270,17 @@ async def generate_comprehensive_quarto_analysis(
         metadata["quarto_content"] = quarto_content
         save_analysis(metadata)
         
+        # Ensure metadata is serializable for API response
+        from backend.history import _make_serializable
+        serializable_metadata = _make_serializable(metadata)
+        
         return {
             "quarto_content": quarto_content,
             "html_path": quarto_result.get("html_path") if isinstance(quarto_result, dict) else None,
             "pdf_path": quarto_result.get("pdf_path") if isinstance(quarto_result, dict) else None,
             "filepath": quarto_path,
             "analysis_id": analysis_id,
-            "metadata": metadata
+            "metadata": serializable_metadata
         }
 
     except Exception as e:
