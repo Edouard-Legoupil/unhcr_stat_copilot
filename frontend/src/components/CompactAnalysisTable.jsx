@@ -16,16 +16,18 @@ import {
 } from "@mui/material";
 
 /**
- * CompactAnalysisTable - Simplified table with filters in header using Material-UI
- * More compact design with direct links instead of view buttons
+ * CompactAnalysisTable - Simplified table with filters and sorting in headers
+ * Column order: Question (with timestamp), Report Type, Audience, Origin, Destination
+ * Clicking a row selects the analysis (no separate View button)
+ * Headers provide both sorting and filtering capabilities
  */
 export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
     const [filters, setFilters] = useState({
-        audience: "",
+        question: "",
         document_type: "",
+        audience: "",
         origin: "",
-        destination: "",
-        timespan: ""
+        destination: ""
     });
 
     const [filteredAnalyses, setFilteredAnalyses] = useState(analyses);
@@ -46,12 +48,14 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
     const applyFilters = () => {
         const result = analyses.filter(analysis => {
             const metadata = analysis.metadata || {};
+            const question = (analysis.question || '').toLowerCase();
+            const filterQuestion = filters.question.toLowerCase();
 
-            return (!filters.audience || metadata.audience === filters.audience) &&
+            return (!filters.question || question.includes(filterQuestion)) &&
                 (!filters.document_type || metadata.document_type === filters.document_type) &&
+                (!filters.audience || metadata.audience === filters.audience) &&
                 (!filters.origin || metadata.origin === filters.origin) &&
-                (!filters.destination || metadata.destination === filters.destination) &&
-                (!filters.timespan || metadata.timespan === filters.timespan);
+                (!filters.destination || metadata.destination === filters.destination);
         });
         setFilteredAnalyses(result);
     };
@@ -77,11 +81,11 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
         const metadata = analysis.metadata || {};
         
         switch (key) {
-            case 'question': return analysis.question || '';
-            case 'document_type': return metadata.document_type || '';
-            case 'origin': return metadata.origin || '';
-            case 'destination': return metadata.destination || '';
-            case 'timespan': return metadata.timespan || '';
+            case 'question': return (analysis.question || '').toLowerCase();
+            case 'document_type': return (metadata.document_type || '').toLowerCase();
+            case 'audience': return (metadata.audience || '').toLowerCase();
+            case 'origin': return (metadata.origin || '').toLowerCase();
+            case 'destination': return (metadata.destination || '').toLowerCase();
             case 'timestamp': 
                 const date = new Date(analysis.timestamp || metadata.generated_at);
                 return date.getTime();
@@ -99,23 +103,24 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
 
     const resetFilters = () => {
         setFilters({
-            audience: "",
+            question: "",
             document_type: "",
+            audience: "",
             origin: "",
-            destination: "",
-            timespan: ""
+            destination: ""
         });
     };
 
-    // Extract unique values for filter dropdowns
+    // Extract unique values for filter dropdowns from metadata
     const getUniqueValues = (field) => {
         const values = new Set();
         analyses.forEach(analysis => {
-            if (analysis.metadata?.[field]) {
-                values.add(analysis.metadata[field]);
+            const metadata = analysis.metadata || {};
+            if (metadata[field]) {
+                values.add(metadata[field]);
             }
         });
-        return Array.from(values);
+        return Array.from(values).sort();
     };
 
     if (!analyses || analyses.length === 0) {
@@ -132,20 +137,7 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                 <Table aria-label="analyses table" size="small">
                     <TableHead>
                         <TableRow>
-                            <TableCell>
-                                <Select
-                                    value={filters.audience}
-                                    onChange={(e) => setFilters({ ...filters, audience: e.target.value })}
-                                    displayEmpty
-                                    size="small"
-                                    sx={{ minWidth: 120, fontSize: '0.85rem' }}
-                                >
-                                    <MenuItem value="">All Audiences</MenuItem>
-                                    {getUniqueValues('audience').map(audience => (
-                                        <MenuItem key={audience} value={audience}>{audience}</MenuItem>
-                                    ))}
-                                </Select>
-                            </TableCell>
+                            {/* Question Column - Sortable */}
                             <TableCell>
                                 <TableSortLabel
                                     active={sortConfig.key === 'question'}
@@ -156,6 +148,8 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     Question
                                 </TableSortLabel>
                             </TableCell>
+                            
+                            {/* Report Type Column - Filterable */}
                             <TableCell>
                                 <Select
                                     value={filters.document_type}
@@ -170,6 +164,24 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     ))}
                                 </Select>
                             </TableCell>
+                            
+                            {/* Audience Column - Filterable */}
+                            <TableCell>
+                                <Select
+                                    value={filters.audience}
+                                    onChange={(e) => setFilters({ ...filters, audience: e.target.value })}
+                                    displayEmpty
+                                    size="small"
+                                    sx={{ minWidth: 120, fontSize: '0.85rem' }}
+                                >
+                                    <MenuItem value="">All Audiences</MenuItem>
+                                    {getUniqueValues('audience').map(audience => (
+                                        <MenuItem key={audience} value={audience}>{audience}</MenuItem>
+                                    ))}
+                                </Select>
+                            </TableCell>
+                            
+                            {/* Origin Column - Filterable */}
                             <TableCell>
                                 <Select
                                     value={filters.origin}
@@ -184,6 +196,8 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     ))}
                                 </Select>
                             </TableCell>
+                            
+                            {/* Destination Column - Filterable */}
                             <TableCell>
                                 <Select
                                     value={filters.destination}
@@ -198,40 +212,8 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     ))}
                                 </Select>
                             </TableCell>
-                            <TableCell>
-                                <TableSortLabel
-                                    active={sortConfig.key === 'destination'}
-                                    direction={sortConfig.key === 'destination' ? sortConfig.direction : 'asc'}
-                                    onClick={() => requestSort('destination')}
-                                    sx={{ fontWeight: 'bold', fontSize: '0.85rem' }}
-                                >
-                                    Destination
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <Select
-                                    value={filters.timespan}
-                                    onChange={(e) => setFilters({ ...filters, timespan: e.target.value })}
-                                    displayEmpty
-                                    size="small"
-                                    sx={{ minWidth: 120, fontSize: '0.85rem' }}
-                                >
-                                    <MenuItem value="">All Timespans</MenuItem>
-                                    {getUniqueValues('timespan').map(timespan => (
-                                        <MenuItem key={timespan} value={timespan}>{timespan}</MenuItem>
-                                    ))}
-                                </Select>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel
-                                    active={sortConfig.key === 'timestamp'}
-                                    direction={sortConfig.key === 'timestamp' ? sortConfig.direction : 'asc'}
-                                    onClick={() => requestSort('timestamp')}
-                                    sx={{ fontWeight: 'bold', fontSize: '0.85rem' }}
-                                >
-                                    Date
-                                </TableSortLabel>
-                            </TableCell>
+                            
+                            {/* Reset Button */}
                             <TableCell>
                                 <Button
                                     onClick={resetFilters}
@@ -239,7 +221,7 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     variant="outlined"
                                     sx={{ fontSize: '0.75rem', minWidth: 'auto' }}
                                 >
-                                    ✕ Reset
+                                    x Reset
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -248,6 +230,7 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                         {filteredAnalyses.map((analysis) => {
                             const metadata = analysis.metadata || {};
                             const generatedAt = new Date(analysis.timestamp || metadata.generated_at).toLocaleString();
+                            const question = analysis.question || metadata.question || '';
 
                             return (
                                 <TableRow
@@ -256,48 +239,32 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
                                     sx={{ cursor: 'pointer' }}
                                     onClick={() => onSelectAnalysis(analysis)}
                                 >
-                                    <TableCell>
-                                        <Box>
-                                            <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'primary.main' }}>
-                                                {metadata.audience || 'General'}
-                                            </Typography>
-                                        </Box>
-                                    </TableCell>
+                                    {/* Question Cell with Timestamp */}
                                     <TableCell>
                                         <Box>
                                             <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                                {analysis.question}
+                                                {question}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
-                                                {metadata.analysis_type || 'unknown'}
+                                                {generatedAt}
                                             </Typography>
                                         </Box>
                                     </TableCell>
-                                    <TableCell>{metadata.document_type || 'N/A'}</TableCell>
-                                    <TableCell>
-                                        {metadata.origin ? (
-                                            <>
-                                                <span style={{ fontWeight: 'medium' }}>{metadata.origin}</span>
-                                                {metadata.destination && ' → '}
-                                                <span style={{ color: '#6b7280' }}>{metadata.destination}</span>
-                                            </>
-                                        ) : 'All Regions'}
-                                    </TableCell>
-                                    <TableCell>{metadata.destination || 'N/A'}</TableCell>
-                                    <TableCell>{metadata.timespan || 'N/A'}</TableCell>
-                                    <TableCell>{generatedAt}</TableCell>
-                                    <TableCell>
-                                        <Button
-                                            variant="contained"
-                                            size="small"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onSelectAnalysis(analysis);
-                                            }}
-                                        >
-                                            View
-                                        </Button>
-                                    </TableCell>
+                                    
+                                    {/* Report Type Cell */}
+                                    <TableCell>{metadata.document_type || ''}</TableCell>
+                                    
+                                    {/* Audience Cell */}
+                                    <TableCell>{metadata.audience || ''}</TableCell>
+                                    
+                                    {/* Origin Cell */}
+                                    <TableCell>{metadata.origin || ''}</TableCell>
+                                    
+                                    {/* Destination Cell */}
+                                    <TableCell>{metadata.destination || ''}</TableCell>
+                                    
+                                    {/* Empty cell for spacing */}
+                                    <TableCell></TableCell>
                                 </TableRow>
                             );
                         })}
@@ -308,8 +275,8 @@ export default function CompactAnalysisTable({ analyses, onSelectAnalysis }) {
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                 <Typography variant="body2" color="text.secondary">
                     Showing {filteredAnalyses.length} of {analyses.length} analyses
-                    {filters.audience || filters.document_type || filters.origin ||
-                        filters.destination || filters.timespan ?
+                    {filters.question || filters.document_type || filters.audience ||
+                        filters.origin || filters.destination ?
                         <span style={{ backgroundColor: '#0072BC', color: 'white', 
                                      padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', fontSize: '0.75rem' }}>
                             (filtered)
