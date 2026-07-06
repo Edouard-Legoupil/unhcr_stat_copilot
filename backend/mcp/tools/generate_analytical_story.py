@@ -300,6 +300,57 @@ def _generate_section_content(
             
     elif "key findings" in section or "findings" in section:
         if result and isinstance(result, dict):
+            # Use enriched statistics if available from get_data_for_story
+            if "statistics" in result and result["statistics"]:
+                stats = result["statistics"].get("statistics", {})
+                if stats:
+                    content_lines.append("- **Statistical Analysis:**")
+                    for field, stat_data in stats.items():
+                        mean_val = stat_data.get('mean')
+                        median_val = stat_data.get('median')
+                        min_val = stat_data.get('min')
+                        max_val = stat_data.get('max')
+                        std_val = stat_data.get('std_dev')
+                        count_val = stat_data.get('count')
+                        
+                        parts = []
+                        if count_val is not None:
+                            parts.append(f"n={count_val}")
+                        if mean_val is not None:
+                            parts.append(f"mean={mean_val:.2f}")
+                        if median_val is not None:
+                            parts.append(f"median={median_val:.2f}")
+                        if min_val is not None and max_val is not None:
+                            parts.append(f"range=[{min_val}, {max_val}]")
+                        if std_val is not None:
+                            parts.append(f"std={std_val:.2f}")
+                        
+                        if parts:
+                            content_lines.append(f"  - **{field}**: {', '.join(parts)}")
+                    
+                    # Add correlations if available
+                    correlations = result["statistics"].get("correlations", {})
+                    if correlations:
+                        content_lines.append("- **Correlations:**")
+                        for corr_key, corr_data in correlations.items():
+                            if isinstance(corr_data, dict):
+                                content_lines.append(f"  - {corr_key}: r={corr_data.get('pearson_correlation', 0):.3f}, "
+                                                   f"p={corr_data.get('p_value', 0):.4f}")
+            
+            # Use guardrails compliance if available
+            if "guardrails" in result and result["guardrails"]:
+                guardrails = result["guardrails"]
+                overall_compliant = guardrails.get("overall_compliant", False)
+                compliance_pct = guardrails.get("compliance_percentage", 0)
+                compliance_level = guardrails.get("compliance_level", "UNKNOWN")
+                
+                status_icon = "✓" if overall_compliant else "✗"
+                content_lines.append(f"- **UNHCR Compliance**: {status_icon} {compliance_pct:.0f}% ({compliance_level})")
+                
+                # Add specific compliance details
+                if not overall_compliant:
+                    content_lines.append("  - *Recommendations available for improvement*")
+            
             if "data" in result:
                 data = result["data"]
                 if isinstance(data, list) and len(data) > 0:
@@ -420,6 +471,42 @@ def _generate_section_content(
         if analysis_config and isinstance(analysis_config, dict):
             if "tone" in analysis_config:
                 content_lines.append(f"- Analysis tone: {analysis_config['tone']}")
+        
+        # Add guardrails compliance details if available
+        if result and isinstance(result, dict) and "guardrails" in result and result["guardrails"]:
+            guardrails = result["guardrails"]
+            content_lines.append("")
+            content_lines.append("- **Compliance Details:**")
+            
+            # Population definition compliance
+            if 'population_definition' in guardrails:
+                pop_comp = guardrails['population_definition']
+                content_lines.append(f"  - Population definition: {'✓ Compliant' if pop_comp.get('compliant') else '✗ Non-compliant'}")
+            
+            # Country code validation
+            if 'country_code' in guardrails:
+                country_comp = guardrails['country_code']
+                content_lines.append(f"  - Country code: {'✓ Valid' if country_comp.get('compliant') else '✗ Invalid'}")
+            
+            # Data disaggregation
+            if 'data_disaggregation' in guardrails:
+                disagg_comp = guardrails['data_disaggregation']
+                content_lines.append(f"  - Data disaggregation: {'✓ Compliant' if disagg_comp.get('compliant') else '✗ Needs improvement'}")
+            
+            # Data completeness
+            if 'data_completeness' in guardrails:
+                complete_comp = guardrails['data_completeness']
+                content_lines.append(f"  - Data completeness: {'✓ Complete' if complete_comp.get('compliant') else '✗ Incomplete'}")
+            
+            # Data consistency
+            if 'data_consistency' in guardrails:
+                consistent_comp = guardrails['data_consistency']
+                content_lines.append(f"  - Data consistency: {'✓ Consistent' if consistent_comp.get('compliant') else '✗ Inconsistent'}")
+            
+            # Storytelling guardrails
+            if 'storytelling_guardrails' in guardrails:
+                story_comp = guardrails['storytelling_guardrails']
+                content_lines.append(f"  - Terminology: {'✓ Compliant' if story_comp.get('compliant') else '✗ Needs review'}")
                 
     elif "implications" in section:
         content_lines.append("This section explores the implications of the findings.")

@@ -3,8 +3,11 @@ Tool: get_data_for_story
 Get appropriate data for story generation.
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 async def get_data_for_story_tool(
@@ -104,6 +107,54 @@ async def get_data_for_story_tool(
             data_type = "rsd_decisions"
         else:
             data_type = "population"
+        
+        # Enrich data with statistical analysis (Phase 1 - Enhanced Pipeline)
+        try:
+            from backend.mcp.tools.analyze_data_statistics import analyze_data_statistics_tool
+            items = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
+            if items and isinstance(items, list) and len(items) > 0:
+                # Extract numeric columns (exclude IDs and codes)
+                first_item = items[0]
+                if isinstance(first_item, dict):
+                    numeric_cols = [
+                        k for k, v in first_item.items()
+                        if isinstance(v, (int, float))
+                        and not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'hst', 'ooc', 'oip'])
+                    ]
+                    categorical_cols = [
+                        k for k, v in first_item.items()
+                        if isinstance(v, str) and any(cat in k.lower() for cat in ['year', 'coo', 'coa', 'name'])
+                    ]
+                    
+                    if numeric_cols:
+                        stats = await analyze_data_statistics_tool(
+                            data=items,
+                            numeric_columns=numeric_cols,
+                            categorical_columns=categorical_cols if categorical_cols else None
+                        )
+                        data['statistics'] = stats
+        except Exception as e:
+            logger.debug(f"Could not add statistical analysis: {e}")
+            # Continue without statistics - non-blocking
+        
+        # Enrich data with UNHCR compliance validation (Phase 1 - Enhanced Pipeline)
+        try:
+            from backend.mcp.tools.apply_analysis_guardrails import apply_analysis_guardrails_tool
+            items = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
+            data_fields = list(items[0].keys()) if items and isinstance(items[0], dict) else []
+            
+            guardrails = await apply_analysis_guardrails_tool(
+                analysis_request={
+                    'context': question,
+                    'data_fields': data_fields
+                },
+                population_type=data_type,
+                country_iso=coo
+            )
+            data['guardrails'] = guardrails
+        except Exception as e:
+            logger.debug(f"Could not validate analysis guardrails: {e}")
+            # Continue without guardrails - non-blocking
         
         return {
             'question': question,
