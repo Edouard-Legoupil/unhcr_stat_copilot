@@ -940,10 +940,13 @@ async def generate_comprehensive_quarto_analysis(
                     if story_response.get("error") or (story_response.get("raw_text") and "Error executing tool" in story_response.get("raw_text", "")):
                         logger.error(f"Story generation failed: {story_response}")
                         story_content = f"Story generation error: {story_response.get('raw_text', 'Unknown error')}"
+                        story_title = f"UNHCR Analysis: {question}"
                     else:
                         story_content = story_response.get("story", "") if isinstance(story_response, dict) else str(story_response)
+                        story_title = story_response.get("title", f"UNHCR Analysis: {question}")
                 else:
                     story_content = str(story_response) if story_response else "Story generation returned empty result."
+                    story_title = f"UNHCR Analysis: {question}"
         else:
             story_content = "Could not fetch sufficient data to generate the analysis."
             
@@ -977,7 +980,7 @@ async def generate_comprehensive_quarto_analysis(
             "create_quarto_notebook",
             {
                 "story_content": story_content,
-                "title": f"UNHCR Analysis: {question}",
+                "title": story_title,
                 "include_code_cells": True,
                 "use_unhcr_theme": True,
                 "use_unhcr_style": True,

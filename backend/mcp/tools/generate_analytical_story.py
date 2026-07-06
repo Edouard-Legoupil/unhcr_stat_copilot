@@ -72,8 +72,41 @@ async def generate_analytical_story_tool(
             # If somehow we still don't have content, use template
             story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
         
+        # Generate a better title from the question
+        # Remove "Generate an analysis of" or similar prefixes
+        clean_question = question
+        for prefix in ["Generate an analysis of ", "Generate analysis of ", "Analyze ", "Analysis of ", "Generate ", "Create "]:
+            if clean_question.startswith(prefix):
+                clean_question = clean_question[len(prefix):]
+        
+        # Capitalize properly - title case with exceptions for small words
+        words = clean_question.split()
+        if words:
+            # Small words to keep lowercase (unless first or last word)
+            small_words = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'as', 'at', 
+                          'by', 'for', 'in', 'of', 'on', 'per', 'to', 'from', 'with'}
+            title_words = []
+            for i, word in enumerate(words):
+                if i == 0 or i == len(words) - 1:
+                    # Always capitalize first and last word
+                    title_words.append(word[0].upper() + word[1:].lower())
+                elif word.lower() in small_words:
+                    # Keep small words lowercase
+                    title_words.append(word.lower())
+                else:
+                    # Capitalize other words
+                    title_words.append(word[0].upper() + word[1:].lower())
+            title = ' '.join(title_words)
+        else:
+            title = clean_question
+        
+        # Ensure title has context - add prefix if it doesn't start with a proper noun
+        first_word_lower = title.split()[0].lower() if title.split() else ""
+        if first_word_lower not in ['refugees', 'refugee', 'displaced', 'asylum', 'migration', 'population', 'trends', 'data', 'analysis', 'unhcr']:
+            title = f"UNHCR Analysis: {title}"
+        
         return {
-            "title": f"Analytical Story: {question[:50]}...",
+            "title": title,
             "story": story_content,
             "story_type": "analytical",
             "metadata": {
