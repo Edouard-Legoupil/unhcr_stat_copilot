@@ -174,7 +174,7 @@ def delete_analysis(analysis_id: str) -> bool:
         logger.error(f"Failed to delete analysis {analysis_id}: {e}")
         return False
 
-def save_quarto_analysis(quarto_content: str, metadata: dict) -> str:
+def save_quarto_analysis(quarto_content: str, metadata: dict) -> dict:
     """
     Save an analysis directly as a Quarto file (.qmd).
     
@@ -183,7 +183,11 @@ def save_quarto_analysis(quarto_content: str, metadata: dict) -> str:
         metadata: Metadata about the analysis
         
     Returns:
-        The filename of the saved Quarto file
+        A dictionary containing:
+        - filename: The filename of the saved Quarto file
+        - filepath: The full path to the saved file
+        - id: The generated analysis ID
+        - metadata: The updated metadata with ID and filepath
     """
     try:
         # Generate a unique ID for this analysis
@@ -235,6 +239,7 @@ theme: unhcr
         metadata["timestamp"] = datetime.now().isoformat()
         metadata["quarto_filename"] = filename
         metadata["filepath"] = filepath
+        metadata["analysis_type"] = metadata.get("analysis_type", "comprehensive_quarto")
         
         # Save metadata to history directory for indexing
         # Use _make_serializable to handle any circular references
@@ -243,7 +248,13 @@ theme: unhcr
         with open(history_filepath, "w", encoding="utf-8") as f:
             json.dump(serializable_metadata, f, indent=2, ensure_ascii=False)
         
-        return filename
+        # Return a dict with both the filename and the updated metadata
+        return {
+            "filename": filename,
+            "filepath": filepath,
+            "id": analysis_id,
+            "metadata": metadata
+        }
         
     except Exception as e:
         logger.error(f"Failed to save Quarto analysis: {e}")

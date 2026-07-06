@@ -533,10 +533,19 @@ async def chat(
         quarto_types = ["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"]
         if result.get("analysis_type") in quarto_types:
             # Save the Quarto file directly
-            save_quarto_analysis(
+            quarto_metadata = result.get("quarto_metadata", result.get("metadata", {}))
+            save_result = save_quarto_analysis(
                 result["quarto_content"],
-                result["quarto_metadata"]
+                quarto_metadata
             )
+            # Update result with the ID and filepath from the saved file
+            result["id"] = save_result.get("id")
+            result["filepath"] = save_result.get("filepath")
+            result["quarto_filename"] = save_result.get("filename")
+            # Also update metadata with the saved metadata which includes ID and filepath
+            if "metadata" in save_result:
+                result["quarto_metadata"] = save_result["metadata"]
+                result["metadata"] = save_result["metadata"]
         else:
             # Fallback to the original JSON saving for compatibility
             save_analysis(result)
