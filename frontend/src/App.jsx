@@ -78,7 +78,7 @@ export default function App() {
         }
     }
 
-    async function loadPreviousAnalysis(analysisId) {
+    async function loadPreviousAnalysis(analysisId, switchToContent = true) {
         if (!analysisId) return;
 
         try {
@@ -134,6 +134,11 @@ export default function App() {
             );
 
             setResponse(analysisData);
+            
+            // Switch to content mode after setting the response
+            if (switchToContent) {
+                setMode("content");
+            }
 
         } catch (err) {
             console.error("Failed to load analysis:", err);
@@ -148,8 +153,12 @@ export default function App() {
                         // Try to load the full analysis from local storage
                         const fullAnalysis = localStorage.getItem(`analysis_${analysisId}`);
                         if (fullAnalysis) {
-                            setResponse(JSON.parse(fullAnalysis));
+                            const responseData = JSON.parse(fullAnalysis);
+                            setResponse(responseData);
                             console.log("Loaded analysis from local storage fallback");
+                            if (switchToContent) {
+                                setMode("content");
+                            }
                             setLoading(false);
                             return;
                         }

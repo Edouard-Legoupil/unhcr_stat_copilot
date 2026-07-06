@@ -39,7 +39,7 @@ export default function HeroSearch({
     const lastLoadedAnalysisId = useRef(null);
     const lastSelectedAnalysisId = useRef(null);
 
-    // When mode changes to "previous", select the most recent analysis
+    // When mode changes to "previous", select and auto-load the most recent analysis
     useEffect(() => {
         if (mode === "previous" && previousAnalysesRef.current.length > 0) {
             const latestAnalysis = previousAnalysesRef.current[0];
@@ -50,21 +50,21 @@ export default function HeroSearch({
                 setSelectedAnalysis(latestAnalysis);
 
                 // Load the most recent analysis by default, but only if it's different from last time
+                // Don't switch mode when auto-loading - user explicitly clicked "Available Insights"
                 if (loadPreviousAnalysis && latestAnalysis.id !== lastLoadedAnalysisId.current) {
                     lastLoadedAnalysisId.current = latestAnalysis.id;
-                    loadPreviousAnalysis(latestAnalysis.id);
+                    loadPreviousAnalysis(latestAnalysis.id, false); // false = don't switch to content mode
                 }
             }
         }
-    }, [mode, loadPreviousAnalysis]); // Only depend on mode and loadPreviousAnalysis to prevent infinite loops
+    }, [mode, loadPreviousAnalysis, previousAnalyses]); // Depend on all needed values
 
     const handleAnalysisSelect = (analysis) => {
         setSelectedAnalysis(analysis);
         if (loadPreviousAnalysis) {
-            loadPreviousAnalysis(analysis.id);
+            // loadPreviousAnalysis will switch to content mode after loading (switchToContent=true)
+            loadPreviousAnalysis(analysis.id, true);
         }
-        // Switch to content mode when an analysis is selected
-        setMode("content");
     };
 
     return (
