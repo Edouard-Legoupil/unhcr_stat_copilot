@@ -309,7 +309,7 @@ def create_server() -> FastMCP:
     )
     async def generate_visualization_description_wrapper(
         structure: dict[str, Any],
-        statistics: dict[str, Any],
+        statistics: dict[str, Any] | None = None,
         description_type: str = "both",
         max_length: int = 300,
         focus_areas: list[str] | None = None

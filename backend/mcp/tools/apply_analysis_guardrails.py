@@ -26,6 +26,21 @@ def apply_analysis_guardrails_tool(
     Returns:
         Compliance validation results and recommendations
     """
+    # Extract data for validation - handle nested data structures
+    raw_data = analysis_request.get('data', [])
+    # If data is a dict with a nested 'data' field, use that
+    if isinstance(raw_data, dict) and 'data' in raw_data:
+        data_items = raw_data.get('data', [])
+        if isinstance(data_items, dict) and 'items' in data_items:
+            data_items = data_items.get('items', [])
+        elif not isinstance(data_items, list):
+            data_items = []
+    elif isinstance(raw_data, dict):
+        # If data is a dict but not nested, treat it as a single item
+        data_items = [raw_data] if raw_data else []
+    else:
+        data_items = raw_data if isinstance(raw_data, list) else []
+    
     # Check population definition compliance
     compliance_results = {
         'population_definition': _check_population_definition_compliance(population_type or ''),
@@ -34,10 +49,10 @@ def apply_analysis_guardrails_tool(
             analysis_request.get('data_fields', []),
             population_type
         ),
-        'data_completeness': _check_data_completeness(analysis_request.get('data', [])),
-        'data_consistency': _check_data_consistency(analysis_request.get('data', [])),
+        'data_completeness': _check_data_completeness(data_items),
+        'data_consistency': _check_data_consistency(data_items),
         'storytelling_guardrails': _check_storytelling_guardrails(
-            analysis_request.get('context', ''),
+            analysis_request.get('context', analysis_request.get('storytelling_context', '')),
             population_type
         )
     }
