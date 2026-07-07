@@ -30,10 +30,6 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
         }
     }, [quartoContent, rendered]);
 
-    // Extract tools used from metadata
-    const toolsUsed = metadata?.tools_used || metadata?.mcp_tools || [];
-    const hasTools = Array.isArray(toolsUsed) && toolsUsed.length > 0;
-
     // Extract tool sequence from metadata
     const toolSequence = metadata?.tool_sequence || [];
     const successfulTools = toolSequence.filter(tool => tool.success);
@@ -41,22 +37,11 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
 
     // Extract analysis configuration
     const analysisConfig = metadata?.analysis_config || {};
-    const audience = metadata?.audience || "unknown";
-    const documentType = metadata?.document_type || "unknown";
 
     // Format tool duration for display
     const formatDuration = (ms) => {
         if (ms < 1000) return `${ms.toFixed(0)}ms`;
         return `${(ms / 1000).toFixed(2)}s`;
-    };
-
-    // Format timestamp for display
-    const formatTimestamp = (isoString) => {
-        try {
-            return new Date(isoString).toLocaleString();
-        } catch (e) {
-            return isoString;
-        }
     };
 
     return (
@@ -141,25 +126,6 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                     />
                 </div>
             )}
-
-            {/* Metadata Section */}
-            <div className="viewer-metadata">
-                <h4>📋 Analysis Metadata</h4>
-                <div className="metadata-grid">
-                    <div className="metadata-item">
-                        <span className="metadata-label">Audience:</span>
-                        <span className="metadata-value">{audience}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Document Type:</span>
-                        <span className="metadata-value">{documentType}</span>
-                    </div>
-                    <div className="metadata-item">
-                        <span className="metadata-label">Generated:</span>
-                        <span className="metadata-value">{formatTimestamp(metadata?.generated_at)}</span>
-                    </div>
-                </div>
-            </div>
 
             {/* Debug Panel - Integrated within same box with triangle toggle */}
             <div className="debug-integration">
