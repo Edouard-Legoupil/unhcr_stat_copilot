@@ -573,7 +573,7 @@ class ToolRequest(BaseModel):
 
 @app.get("/health", 
          summary="Health Check",
-         description="Check the health status of the UNHCR Copilot service.",
+         description="Check the health status of the UNHCR Stat Copilot service.",
          response_description="Service health status",
          responses={
              200: {
@@ -587,7 +587,7 @@ class ToolRequest(BaseModel):
          })
 async def health():
     """
-    Health check endpoint for the UNHCR Copilot service.
+    Health check endpoint for the UNHCR Stat Copilot service.
     
     Returns a simple status response to verify the service is running.
     This endpoint does not require authentication and is available to all users.
@@ -621,7 +621,7 @@ async def health():
          })
 async def metrics():
     """
-    Prometheus metrics endpoint for monitoring the UNHCR Copilot service.
+    Prometheus metrics endpoint for monitoring the UNHCR Stat Copilot service.
     
     Returns Prometheus-formatted metrics for monitoring:
     - Request counts and error rates
@@ -838,7 +838,7 @@ async def execute_tool(
 
 @app.post("/chat",
           summary="Process Chat Message",
-          description="Send a chat message to the UNHCR Copilot for analysis and response generation.",
+          description="Send a chat message to the UNHCR Stat Copilot for analysis and response generation.",
           response_description="Chat response with analysis results",
           responses={
               200: {
@@ -868,7 +868,7 @@ async def chat(
     """
     Process a chat message and generate an analysis response.
     
-    This is the main endpoint for interacting with the UNHCR Copilot. It accepts
+    This is the main endpoint for interacting with the UNHCR Stat Copilot. It accepts
     natural language queries and returns comprehensive analyses using UNHCR data
     through MCP tools. The response may include data, visualizations, and Quarto notebooks.
     
@@ -2032,7 +2032,7 @@ async def suggestions(
     Get suggested analysis questions.
     
     This endpoint returns a list of suggested questions that users can ask the
-    UNHCR Copilot. These questions are designed to help users discover the types
+    UNHCR Stat Copilot. These questions are designed to help users discover the types
     of analyses that can be performed with the available data and tools.
     
     This endpoint supports optional authentication. If the user is authenticated,
@@ -2078,7 +2078,7 @@ async def suggestions(
 
 @app.get("/guidance",
          summary="Get Usage Guidance",
-         description="Retrieve usage instructions and guidance for the UNHCR Copilot.",
+         description="Retrieve usage instructions and guidance for the UNHCR Stat Copilot.",
          response_description="Usage guidance and instructions",
          responses={
              200: {
@@ -2086,7 +2086,7 @@ async def suggestions(
                  "content": {
                      "application/json": {
                          "example": {
-                             "guidance": "Welcome to UNHCR Copilot...",
+                             "guidance": "Welcome to UNHCR Stat Copilot...",
                              "features": [],
                              "examples": [],
                              "user": {"name": "user@example.com"}
@@ -2100,10 +2100,10 @@ async def guidance(
     user: UserInfo = Depends(get_optional_user)
 ):
     """
-    Get usage guidance for the UNHCR Copilot.
+    Get usage guidance for the UNHCR Stat Copilot.
     
     This endpoint returns comprehensive usage instructions, feature descriptions,
-    and examples to help users understand how to effectively use the UNHCR Copilot
+    and examples to help users understand how to effectively use the UNHCR Stat Copilot
     for data analysis and reporting.
     
     This endpoint supports optional authentication. If the user is authenticated,
@@ -2403,7 +2403,7 @@ async def rate_analysis(rating_data: RatingRequest):
 
 @app.get("/",
          summary="API Root",
-         description="Root endpoint providing an overview of the UNHCR Copilot API.",
+         description="Root endpoint providing an overview of the UNHCR Stat Copilot API.",
          response_description="API overview and available endpoints",
          responses={
              200: {
@@ -2411,7 +2411,7 @@ async def rate_analysis(rating_data: RatingRequest):
                  "content": {
                      "application/json": {
                          "example": {
-                             "application": "UNHCR Copilot",
+                             "application": "UNHCR Stat Copilot ",
                              "version": "1.0.0",
                              "mcp": "/mcp",
                              "chat": "/chat",
@@ -2425,14 +2425,14 @@ async def root():
     """
     API root endpoint.
     
-    This is the base endpoint for the UNHCR Copilot API. It provides a simple overview
+    This is the base endpoint for the UNHCR Stat Copilot  API. It provides a simple overview
     of the application and links to the main endpoints and documentation.
     
     This endpoint does not require authentication and is available to all users.
     
     Returns:
         dict: A dictionary containing:
-            - application (str): The application name ("UNHCR Copilot")
+            - application (str): The application name ("UNHCR Stat Copilot ")
             - version (str): The current API version
             - mcp (str): Path to the MCP endpoint for Model Context Protocol access
             - chat (str): Path to the chat endpoint for natural language queries
@@ -2443,7 +2443,7 @@ async def root():
         for the OpenAPI specification.
     """
     return {
-        "application": "UNHCR Copilot",
+        "application": "UNHCR Stat Copilot ",
         "version": "1.0.0",
         "mcp": "/mcp",
         "chat": "/chat",

@@ -74,7 +74,7 @@ original_root = app.routes[-1]  # Get the original root endpoint
 
 @app.get("/",
          summary="API Root with Frontend Info",
-         description="Root endpoint providing an overview of the UNHCR Copilot API with frontend availability information.")
+         description="Root endpoint providing an overview of the UNHCR Stat Copilot  API with frontend availability information.")
 async def read_root():
     """
     API root endpoint with frontend information.
@@ -87,7 +87,7 @@ async def read_root():
     
     Returns:
         dict: A dictionary containing:
-            - application (str): The application name ("UNHCR Copilot")
+            - application (str): The application name ("UNHCR Stat Copilot ")
             - version (str): The current API version
             - mcp (str): Path to the MCP endpoint
             - chat (str): Path to the chat endpoint
