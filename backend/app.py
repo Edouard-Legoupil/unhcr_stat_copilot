@@ -141,16 +141,27 @@ app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 try:
     # FastMCP HTTP transport
-    # Mount at /mcp/ to avoid redirect issues
-    app.mount(
-        "/mcp",
-        mcp_app
-    )
+    # Mount at /mcp - the mcp_app has streamable_http_path="/" so it handles /mcp requests
+    from starlette.routing import Mount
+    app.routes.append(Mount("/mcp", mcp_app))
 except Exception as e:
     logger.warning(
         "Could not mount MCP endpoint: %s",
         e
     )
+
+# Add a simple health check endpoint at /mcp that responds to GET and POST
+# This helps with Azure health checks which might POST to /mcp
+# This endpoint takes precedence over the mount for exact /mcp path
+@app.post("/mcp", include_in_schema=False)
+async def mcp_health_check():
+    """Health check for /mcp endpoint to prevent 405 errors from Azure health checks."""
+    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
+
+@app.get("/mcp", include_in_schema=False)
+async def mcp_health_check_get():
+    """Health check for /mcp endpoint to prevent 404 errors."""
+    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
 
 
 # ---------------------------------------------------------------------
