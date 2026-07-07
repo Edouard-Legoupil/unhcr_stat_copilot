@@ -6,29 +6,13 @@ import RatingComponent from "./RatingComponent";
  * Features a subtle triangle toggle to fold/unfold debug content within the same box
  */
 export default function IntegratedAnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false, analysisId = null }) {
+    const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
-    const [isRendered, setIsRendered] = useState(rendered);
     const htmlRef = useRef(null);
     
     // Use quartoRawContent if provided, otherwise fall back to quartoContent
     const rawContent = quartoRawContent || quartoContent;
-
-    // Handle content display - only show HTML or raw source, no markdown conversion
-    useEffect(() => {
-        try {
-            if (rendered && quartoContent) {
-                // Content is pre-rendered HTML - display it directly
-                setIsRendered(true);
-            } else {
-                // Content is raw source code (quarto markdown)
-                setIsRendered(false);
-            }
-        } catch (error) {
-            console.error("Error handling Quarto content:", error);
-            setIsRendered(false);
-        }
-    }, [quartoContent, rendered]);
 
     // Extract tool sequence from metadata
     const toolSequence = metadata?.tool_sequence || [];
@@ -50,11 +34,6 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             <div className="viewer-header">
                 <h2 className="card-title">Analysis Content</h2>
                 <div className="viewer-actions">
-                    {isRendered && (
-                        <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
-                            ✅ Pre-rendered
-                        </span>
-                    )}
                     {analysisId && (
                         <button
                             className="pdf-download-button"
@@ -66,7 +45,21 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                             📥 PDF
                         </button>
                     )}
-                    {!isRendered && (
+                    <button
+                        className="viewer-toggle"
+                        onClick={() => setShowRaw(!showRaw)}
+                        title={showRaw ? 'Show rendered HTML' : 'Show source code'}
+                    >
+                        {showRaw ? '📄 Rendered' : 'Source Code'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="viewer-content">
+                {showRaw ? (
+                    <div className="viewer-source">
+                        <pre className="viewer-raw">{rawContent}</pre>
                         <div className="source-actions">
                             <button
                                 className="copy-button"
@@ -74,7 +67,6 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                     navigator.clipboard.writeText(rawContent);
                                     alert('Quarto source copied to clipboard!');
                                 }}
-                                title="Copy Source Code"
                             >
                                 📋 Copy Source
                             </button>
@@ -91,27 +83,17 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                     document.body.removeChild(a);
                                     URL.revokeObjectURL(url);
                                 }}
-                                title="Download Source Code"
                             >
                                 💾 Download .qmd
                             </button>
                         </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="viewer-content">
-                {isRendered ? (
+                    </div>
+                ) : (
                     <div
                         className="viewer-rendered"
                         ref={htmlRef}
                         dangerouslySetInnerHTML={{ __html: quartoContent }}
                     />
-                ) : (
-                    <div className="viewer-source">
-                        <pre className="viewer-raw">{rawContent}</pre>
-                    </div>
                 )}
             </div>
 
