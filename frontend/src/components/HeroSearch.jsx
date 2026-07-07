@@ -63,7 +63,8 @@ export default function HeroSearch({
         setSelectedAnalysis(analysis);
         if (loadPreviousAnalysis) {
             // loadPreviousAnalysis will switch to content mode after loading (switchToContent=true)
-            loadPreviousAnalysis(analysis.id, true);
+            // It will also update the URL with the analysis ID
+            loadPreviousAnalysis(analysis.id, true, true);
         }
     };
 

@@ -61,17 +61,25 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
     const rawContent = rawSource || quartoRawContent || initialRawContent;
 
     // Sanitize the Quarto HTML to prevent global CSS conflicts
-    // Remove <style> tags that could affect the header and other components
+    // We now keep all styles but wrap the content to isolate it
     const sanitizeQuartoHtml = (html) => {
         if (!html) return html;
 
-        // Remove <style> tags that contain global CSS
-        let sanitized = html.replace(/<style[^>]*>.*?<\/style>/gmis, '');
-
+        // Remove only the most problematic global styles
+        // Keep Quarto's formatting styles (code blocks, tables, etc.)
+        let sanitized = html;
+        
+        // Remove inline styles that would affect our header
+        // Quarto adds some inline styles for body that conflict with our layout
+        sanitized = sanitized.replace(/<style[^>]*>\s*[\s\S]*?body[\s\S]*?\{[\s\S]*?\}[\s\S]*?<\/style>/gmi, '');
+        
         return sanitized;
     };
 
     const sanitizedQuartoContent = sanitizeQuartoHtml(quartoContent);
+    
+    // Create a unique key based on analysis ID and content to force re-render when content changes
+    const contentKey = `quarto-${analysisId}-${quartoContent ? quartoContent.substring(0, 50) : 'empty'}`;
 
     // Extract tool sequence from metadata or response
     // Handle both array and string (JSON string) formats
@@ -184,6 +192,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                     </div>
                 ) : (
                     <div
+                        key={contentKey}
                         className="viewer-rendered"
                         ref={htmlRef}
                         dangerouslySetInnerHTML={{ __html: sanitizedQuartoContent }}

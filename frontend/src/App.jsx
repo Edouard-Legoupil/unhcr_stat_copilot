@@ -12,6 +12,23 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import ErrorPanel from "./components/ErrorPanel";
 import AboutSection from "./components/AboutSection";
 
+// Helper function to get URL parameters
+function getUrlAnalysisId() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('analysis_id') || null;
+}
+
+// Helper function to update URL with analysis ID
+function updateUrlAnalysisId(analysisId) {
+    const url = new URL(window.location);
+    if (analysisId) {
+        url.searchParams.set('analysis_id', analysisId);
+    } else {
+        url.searchParams.delete('analysis_id');
+    }
+    window.history.replaceState({}, '', url);
+}
+
 export default function App() {
 
     const [message, setMessage] = useState("");
@@ -27,6 +44,7 @@ export default function App() {
     const [mode, setMode] = useState("previous"); // "previous" or "new" or "about"
 
     const [initialLoad, setInitialLoad] = useState(true);
+    const [urlAnalysisId, setUrlAnalysisId] = useState(getUrlAnalysisId());
 
     async function fetchPreviousAnalyses() {
         try {
@@ -78,12 +96,18 @@ export default function App() {
         }
     }
 
-    async function loadPreviousAnalysis(analysisId, switchToContent = true) {
+    async function loadPreviousAnalysis(analysisId, switchToContent = true, updateUrl = true) {
         if (!analysisId) return;
 
         try {
             setLoading(true);
             setError(null);
+            
+            // Update URL with analysis ID for permalinking
+            if (updateUrl) {
+                updateUrlAnalysisId(analysisId);
+                setUrlAnalysisId(analysisId);
+            }
 
             // Try to fetch from backend first
             const result = await fetch(`/history/${analysisId}`);
@@ -354,6 +378,27 @@ export default function App() {
             setInitialLoad(false);
         }
     }, [initialLoad]);
+
+    // Load analysis from URL when history is loaded and URL has analysis_id
+    useEffect(() => {
+        if (urlAnalysisId && previousAnalyses.length > 0 && mode === "previous") {
+            // Check if this analysis exists in our history
+            const analysisExists = previousAnalyses.some(a => a.id === urlAnalysisId);
+            if (analysisExists) {
+                // Load the analysis from URL
+                loadPreviousAnalysis(urlAnalysisId, true, false); // Don't update URL again
+            }
+        }
+    }, [urlAnalysisId, previousAnalyses, mode]);
+
+    // Update URL when mode changes away from content
+    useEffect(() => {
+        if (mode !== "content") {
+            // Clear the analysis_id from URL when not viewing content
+            updateUrlAnalysisId(null);
+            setUrlAnalysisId(null);
+        }
+    }, [mode]);
 
 
 
