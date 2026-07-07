@@ -6,70 +6,29 @@ import RatingComponent from "./RatingComponent";
  * Features a subtle triangle toggle to fold/unfold debug content within the same box
  */
 export default function IntegratedAnalysisViewer({ quartoContent, quartoRawContent, metadata, response, rendered = false, analysisId = null }) {
-    const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
-    const [displayContent, setDisplayContent] = useState('');
     const [isRendered, setIsRendered] = useState(rendered);
     const htmlRef = useRef(null);
     
     // Use quartoRawContent if provided, otherwise fall back to quartoContent
     const rawContent = quartoRawContent || quartoContent;
 
-    if (!quartoContent) {
-        return (
-            <div className="card integrated-viewer">
-                <h2 className="card-title">Analysis Ready</h2>
-                <p>No Quarto content available.</p>
-            </div>
-        );
-    }
-
-    // Handle content display based on whether it's already rendered
+    // Handle content display - only show HTML or raw source, no markdown conversion
     useEffect(() => {
         try {
-            // If the content is already pre-rendered HTML from the server
-            if (rendered) {
-                // Check if it looks like HTML (starts with < or contains <html>)
-                const isHtml = quartoContent.trim().startsWith('<') || 
-                              quartoContent.includes('<html>') ||
-                              quartoContent.includes('<!DOCTYPE');
-                
-                if (isHtml) {
-                    setDisplayContent(quartoContent);
-                    setIsRendered(true);
-                } else {
-                    // Fall back to client-side rendering if it's actually raw markdown
-                    const htmlContent = simpleMarkdownToHtml(quartoContent);
-                    setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
-                    setIsRendered(false);
-                }
+            if (rendered && quartoContent) {
+                // Content is pre-rendered HTML - display it directly
+                setIsRendered(true);
             } else {
-                // Client-side rendering for raw markdown (fallback)
-                const htmlContent = simpleMarkdownToHtml(quartoContent);
-                setDisplayContent(`<div class="quarto-rendered">${htmlContent}</div>`);
+                // Content is raw source code (quarto markdown)
                 setIsRendered(false);
             }
         } catch (error) {
-            console.error("Error rendering Quarto content:", error);
-            setDisplayContent('<p>Error rendering content. Showing raw format.</p>');
+            console.error("Error handling Quarto content:", error);
             setIsRendered(false);
         }
     }, [quartoContent, rendered]);
-
-    // Simple markdown to HTML conversion for fallback rendering
-    // Only used when server-side rendering is not available
-    const simpleMarkdownToHtml = (markdown) => {
-        return markdown
-            .replace(/^#\s+(.*)$/gm, '<h2>$1</h2>')
-            .replace(/^##\s+(.*)$/gm, '<h3>$1</h3>')
-            .replace(/^###\s+(.*)$/gm, '<h4>$1</h4>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>');
-    };
 
     // Extract tools used from metadata
     const toolsUsed = metadata?.tools_used || metadata?.mcp_tools || [];
@@ -106,13 +65,6 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             <div className="viewer-header">
                 <h2 className="card-title">Analysis Content</h2>
                 <div className="viewer-actions">
-                    <button
-                        className="viewer-toggle"
-                        onClick={() => setShowRaw(!showRaw)}
-                        title={showRaw ? 'Show rendered HTML' : 'Show source code'}
-                    >
-                        {showRaw ? '📄 Rendered' : 'Source Code'}
-                    </button>
                     {isRendered && (
                         <span className="quarto-rendered-badge" title="This content is pre-rendered with Quarto CLI">
                             ✅ Pre-rendered
@@ -129,14 +81,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                             📥 PDF
                         </button>
                     )}
-                </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="viewer-content">
-                {showRaw ? (
-                    <div className="viewer-source">
-                        <pre className="viewer-raw">{rawContent}</pre>
+                    {!isRendered && (
                         <div className="source-actions">
                             <button
                                 className="copy-button"
@@ -144,6 +89,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                     navigator.clipboard.writeText(rawContent);
                                     alert('Quarto source copied to clipboard!');
                                 }}
+                                title="Copy Source Code"
                             >
                                 📋 Copy Source
                             </button>
@@ -160,17 +106,27 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                     document.body.removeChild(a);
                                     URL.revokeObjectURL(url);
                                 }}
+                                title="Download Source Code"
                             >
                                 💾 Download .qmd
                             </button>
                         </div>
-                    </div>
-                ) : (
+                    )}
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="viewer-content">
+                {isRendered ? (
                     <div
                         className="viewer-rendered"
                         ref={htmlRef}
-                        dangerouslySetInnerHTML={{ __html: displayContent }}
+                        dangerouslySetInnerHTML={{ __html: quartoContent }}
                     />
+                ) : (
+                    <div className="viewer-source">
+                        <pre className="viewer-raw">{rawContent}</pre>
+                    </div>
                 )}
             </div>
 
