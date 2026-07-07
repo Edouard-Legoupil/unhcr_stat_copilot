@@ -102,7 +102,7 @@ export default function App() {
                 // For Quarto analyses, fetch the pre-rendered HTML
                 // Try the rendered endpoint first, fall back to raw .qmd if needed
                 let quartoContent = null;
-                
+
                 // First, try to get pre-rendered HTML
                 try {
                     const renderedResult = await fetch(`/quarto/${analysisId}/rendered`);
@@ -114,7 +114,7 @@ export default function App() {
                 } catch (renderErr) {
                     console.warn("Failed to fetch rendered HTML, falling back to raw .qmd:", renderErr);
                 }
-                
+
                 // If rendered HTML not available, fall back to raw .qmd
                 if (!quartoContent) {
                     const rawResult = await fetch(`/quarto/${analysisId}`);
@@ -129,12 +129,12 @@ export default function App() {
             // Always log raw response for debugging
             // Use JSON.stringify to capture full content without truncation
             console.log(
-                "[UNHCR Copilot] Loaded analysis:",
+                "[UNHCR Stat Copilot ] Loaded analysis:",
                 JSON.stringify(analysisData, null, 2)
             );
 
             setResponse(analysisData);
-            
+
             // Switch to content mode after setting the response
             if (switchToContent) {
                 setMode("content");
@@ -177,23 +177,23 @@ export default function App() {
     // Function to infer basic parameters from the prompt for metadata
     function inferParametersFromPrompt(prompt) {
         const inferred = {};
-        
+
         // Try to extract locations (origin/destination)
         const locationKeywords = ['from', 'to', 'between', 'in', 'at'];
         const locationPattern = new RegExp(`(${locationKeywords.join('|')})\\s+([A-Za-z\\s]+)`, 'i');
         const locationMatch = prompt.match(locationPattern);
-        
+
         if (locationMatch) {
             const keyword = locationMatch[1].toLowerCase();
             const location = locationMatch[2].trim();
-            
+
             if (keyword === 'from') {
                 inferred.origin = location;
             } else if (keyword === 'to') {
                 inferred.destination = location;
             }
         }
-        
+
         // Try to extract time periods
         const timePatterns = [
             { pattern: /last\\s+(\\d+)\\s+(year|years|month|months|week|weeks)/i, type: 'recent' },
@@ -201,7 +201,7 @@ export default function App() {
             { pattern: /since\\s+(\\d{4})/i, type: 'since' },
             { pattern: /in\\s+(\\d{4})/i, type: 'year' }
         ];
-        
+
         for (const { pattern, type } of timePatterns) {
             const timeMatch = prompt.match(pattern);
             if (timeMatch) {
@@ -217,7 +217,7 @@ export default function App() {
                 break;
             }
         }
-        
+
         // Try to extract topics/themes
         const topicKeywords = ['trends', 'patterns', 'analysis', 'impact', 'changes', 'comparison'];
         for (const keyword of topicKeywords) {
@@ -226,7 +226,7 @@ export default function App() {
                 break;
             }
         }
-        
+
         return inferred;
     }
 
@@ -254,7 +254,7 @@ export default function App() {
                 // Include inferred parameters as metadata for the agent
                 inferred_parameters: inferredParams
             };
-            
+
             // Log what was inferred for debugging
             console.log('Inferred parameters from prompt:', inferredParams);
 
@@ -281,7 +281,7 @@ export default function App() {
             // Always log raw response for debugging
             // Use JSON.stringify to capture full content without truncation
             console.log(
-                "[UNHCR Copilot] Raw API response:",
+                "[UNHCR Stat Copilot ] Raw API response:",
                 JSON.stringify(json, null, 2)
             );
 
@@ -319,7 +319,7 @@ export default function App() {
         } catch (err) {
 
             console.error(
-                "[UNHCR Copilot] Error:",
+                "[UNHCR Stat Copilot ] Error:",
                 err
             );
 

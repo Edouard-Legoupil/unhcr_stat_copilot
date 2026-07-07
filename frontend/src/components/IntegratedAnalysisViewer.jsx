@@ -13,10 +13,10 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
     const [loadingRaw, setLoadingRaw] = useState(false);
     const [analysisMetadata, setAnalysisMetadata] = useState(null);
     const htmlRef = useRef(null);
-    
+
     // Use quartoRawContent if provided, otherwise fall back to quartoContent
     const initialRawContent = quartoRawContent || quartoContent;
-    
+
     // Fetch full analysis metadata when component mounts or analysisId changes
     useEffect(() => {
         if (analysisId) {
@@ -34,7 +34,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             fetchMetadata();
         }
     }, [analysisId]);
-    
+
     // When user toggles to source view, fetch the raw .qmd file
     useEffect(() => {
         if (showRaw && analysisId && !quartoRawContent) {
@@ -56,36 +56,36 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             fetchRawContent();
         }
     }, [showRaw, analysisId, quartoRawContent]);
-    
+
     // Determine which raw content to display
     const rawContent = rawSource || quartoRawContent || initialRawContent;
-    
+
     // Sanitize the Quarto HTML to prevent global CSS conflicts
     // Remove <style> tags that could affect the header and other components
     const sanitizeQuartoHtml = (html) => {
         if (!html) return html;
-        
+
         // Remove <style> tags that contain global CSS
         let sanitized = html.replace(/<style[^>]*>.*?<\/style>/gmis, '');
-        
+
         return sanitized;
     };
-    
+
     const sanitizedQuartoContent = sanitizeQuartoHtml(quartoContent);
 
     // Extract tool sequence from metadata or response
     // Handle both array and string (JSON string) formats
     let toolSequence = [];
     if (metadata?.tool_sequence) {
-        toolSequence = Array.isArray(metadata.tool_sequence) 
-            ? metadata.tool_sequence 
+        toolSequence = Array.isArray(metadata.tool_sequence)
+            ? metadata.tool_sequence
             : [];
     } else if (response?.tool_sequence) {
-        toolSequence = Array.isArray(response.tool_sequence) 
-            ? response.tool_sequence 
+        toolSequence = Array.isArray(response.tool_sequence)
+            ? response.tool_sequence
             : [];
     }
-    
+
     // Also try to parse from response.tools_used if it's a string
     if (toolSequence.length === 0 && response?.tools_used) {
         try {
@@ -98,13 +98,13 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             console.warn('Failed to parse tools_used:', e);
         }
     }
-    
+
     const successfulTools = toolSequence.filter(tool => tool?.success);
     const failedTools = toolSequence.filter(tool => tool && !tool.success);
 
     // Extract analysis configuration
     const analysisConfig = metadata?.analysis_config || response?.analysis_config || {};
-    
+
     // Get ratings from analysis metadata
     const ratings = analysisMetadata?.ratings || response?.ratings || [];
     const averageRating = analysisMetadata?.average_rating || response?.average_rating;
@@ -130,7 +130,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                             }}
                             title="Download as Word document"
                         >
-                            📥 Word
+                            Download as Word
                         </button>
                     )}
                     <button
@@ -138,7 +138,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                         onClick={() => setShowRaw(!showRaw)}
                         title={showRaw ? 'Show rendered HTML' : 'Show source code'}
                     >
-                        {showRaw ? '📄 Rendered' : 'Source Code'}
+                        {showRaw ? ' Rendered' : 'Source Code'}
                     </button>
                 </div>
             </div>
@@ -160,7 +160,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                             alert('Quarto source copied to clipboard!');
                                         }}
                                     >
-                                        📋 Copy Source
+                                        Copy Source
                                     </button>
                                     <button
                                         className="download-button"
@@ -176,7 +176,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                             URL.revokeObjectURL(url);
                                         }}
                                     >
-                                        💾 Download .qmd
+                                        Download Quarto notebook
                                     </button>
                                 </div>
                             </>
@@ -287,7 +287,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                                         const duration = tool?.duration_ms || 0;
                                         const error = tool?.error || tool?.error_message;
                                         const resultSummary = tool?.result_summary || tool?.result || '';
-                                        
+
                                         return (
                                             <div key={index} className={`tool-execution ${success ? 'success' : 'failed'}`}>
                                                 <div className="tool-header">
