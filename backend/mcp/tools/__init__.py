@@ -26,6 +26,7 @@ from backend.mcp.tools.create_quarto_notebook import create_quarto_notebook_tool
 from backend.mcp.tools.safe_tool_selection import safe_tool_selection_tool
 from backend.mcp.tools.get_data_for_story import get_data_for_story_tool
 from backend.mcp.tools.generate_analytical_story import generate_analytical_story_tool
+from backend.mcp.tools.analysis_pipeline import run_enhanced_analysis_pipeline, run_conditional_analysis_pipeline
 
 __all__ = [
     'retrieve_report_context_tool',
@@ -48,4 +49,6 @@ __all__ = [
     'safe_tool_selection_tool',
     'get_data_for_story_tool',
     'generate_analytical_story_tool',
+    'run_enhanced_analysis_pipeline',
+    'run_conditional_analysis_pipeline',
 ]

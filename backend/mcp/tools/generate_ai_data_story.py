@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_ai_data_story_tool(
-    rag_retriever: Any,
     visualization_data: dict[str, Any],
     context: Optional[str] = None,
     story_type: str = "analytical",
     max_tokens: int = 500,
     apply_guardrails: bool = True,
     use_report_context: bool = True,
+    rag_retriever: Any = None,
     rag_top_k: int = DEFAULT_RAG_TOP_K,
     rag_fetch_k: int = DEFAULT_RAG_FETCH_K,
     rag_rerank: bool = False,
@@ -28,45 +28,52 @@ async def generate_ai_data_story_tool(
     rag_exclude_figures_tables: bool = False
 ) -> dict[str, Any]:
     """
-    Generate AI data stories from visualization data with RAG enrichment.
+    Generate AI data stories from visualization data with optional RAG enrichment.
     
-    Uses either LLM-based generation or a fallback template approach.
+    Uses either LLM-based generation (if RAG retriever is available) or a fallback template approach.
     
     Args:
-        rag_retriever: UNHCRVectorRetriever instance
         visualization_data: Data to generate story from
         context: Additional context for story generation
         story_type: Type of story
         max_tokens: Maximum tokens for story generation
         apply_guardrails: Whether to apply UNHCR methodology guardrails
-        use_report_context: Whether to enrich with RAG context
-        rag_*: RAG retrieval parameters
+        use_report_context: Whether to enrich with RAG context (requires rag_retriever)
+        rag_retriever: Optional UNHCRVectorRetriever instance for RAG enrichment
+        rag_*: RAG retrieval parameters (only used if rag_retriever is provided)
     
     Returns:
         Generated data story with metadata
     """
     try:
-        # Try LLM-based generation first
-        try:
-            from backend.llm import generate_data_story_with_rag
-            story = await generate_data_story_with_rag(
-                visualization_data=visualization_data,
-                context=context,
-                story_type=story_type,
-                max_tokens=max_tokens,
-                apply_guardrails=apply_guardrails,
-                use_report_context=use_report_context,
-                rag_top_k=rag_top_k,
-                rag_fetch_k=rag_fetch_k,
-                rag_rerank=rag_rerank,
-                rag_year=rag_year,
-                rag_report_type=rag_report_type,
-                rag_section_contains=rag_section_contains,
-                rag_exclude_figures_tables=rag_exclude_figures_tables
-            )
-        except Exception as e:
-            logger.debug(f"LLM data story generation failed: {e}, falling back to template")
-            # Fallback to template-based story generation
+        # Try LLM-based generation first (only if RAG retriever is available)
+        if use_report_context and rag_retriever is not None:
+            try:
+                from backend.llm import generate_data_story_with_rag
+                story = await generate_data_story_with_rag(
+                    visualization_data=visualization_data,
+                    context=context,
+                    story_type=story_type,
+                    max_tokens=max_tokens,
+                    apply_guardrails=apply_guardrails,
+                    use_report_context=use_report_context,
+                    rag_top_k=rag_top_k,
+                    rag_fetch_k=rag_fetch_k,
+                    rag_rerank=rag_rerank,
+                    rag_year=rag_year,
+                    rag_report_type=rag_report_type,
+                    rag_section_contains=rag_section_contains,
+                    rag_exclude_figures_tables=rag_exclude_figures_tables
+                )
+            except Exception as e:
+                logger.debug(f"LLM data story generation failed: {e}, falling back to template")
+                # Fallback to template-based story generation
+                story = _generate_data_story_from_template(
+                    visualization_data, context, story_type, apply_guardrails
+                )
+        else:
+            # No RAG retriever available, use template-based generation
+            logger.debug("No RAG retriever available, using template-based story generation")
             story = _generate_data_story_from_template(
                 visualization_data, context, story_type, apply_guardrails
             )

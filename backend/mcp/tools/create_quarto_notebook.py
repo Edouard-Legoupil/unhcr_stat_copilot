@@ -381,13 +381,20 @@ def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2
         return None
 
 
-def _generate_data_visualization_code(data: Any, data_name: str = "data") -> str:
+def _generate_data_visualization_code(
+    data: Any, 
+    data_name: str = "data",
+    visualization_description: Optional[dict] = None,
+    statistics: Optional[dict] = None
+) -> str:
     """
     Generate Python code for data visualization based on the data structure.
     
     Args:
         data: The data to visualize (dict or list)
         data_name: Variable name for the data
+        visualization_description: Optional visualization description dict
+        statistics: Optional statistics dict for enhanced comments
         
     Returns:
         Python code string with data loading and visualization
@@ -395,6 +402,20 @@ def _generate_data_visualization_code(data: Any, data_name: str = "data") -> str
         will handle indentation within the code cell.
     """
     code_lines = []
+    
+    # Add visualization description as comments if available
+    if visualization_description and isinstance(visualization_description, dict):
+        desc = visualization_description.get('description', '')
+        if desc:
+            code_lines.append(f"# Visualization Description: {desc[:200]}")
+            code_lines.append("")
+    
+    # Add statistics summary as comments if available
+    if statistics and isinstance(statistics, dict):
+        stats_summary = statistics.get('summary', '')
+        if stats_summary:
+            code_lines.append(f"# Statistics Summary: {stats_summary[:200]}")
+            code_lines.append("")
     
     # Import statements - NO leading indentation
     code_lines.append("import pandas as pd")
@@ -572,7 +593,24 @@ async def create_quarto_notebook_tool(
             # Generate Python code if data is provided and code cells are requested
             python_code = ""
             if include_code_cells and data is not None:
-                python_code = _generate_data_visualization_code(data)
+                # Extract visualization description from metadata if available
+                viz_description = None
+                viz_structure = None
+                stats_data = None
+                guardrails_data = None
+                
+                if metadata:
+                    viz_description = metadata.get('visualization_description')
+                    viz_structure = metadata.get('visualization_structure')
+                    stats_data = metadata.get('statistics')
+                    guardrails_data = metadata.get('guardrails')
+                
+                # Generate code with optional visualization description
+                python_code = _generate_data_visualization_code(
+                    data, 
+                    visualization_description=viz_description,
+                    statistics=stats_data
+                )
             
             # Prepare template variables
             timestamp = date or datetime.now().isoformat()
@@ -584,6 +622,12 @@ async def create_quarto_notebook_tool(
             template_metadata = metadata or {}
             if 'tool_sequence' not in template_metadata:
                 template_metadata['tool_sequence'] = []
+            
+            # Extract visualization description for potential use in template
+            viz_description = metadata.get('visualization_description') if metadata else None
+            viz_structure = metadata.get('visualization_structure') if metadata else None
+            stats_data = metadata.get('statistics') if metadata else None
+            guardrails_data = metadata.get('guardrails') if metadata else None
             
             # Render the template
             quarto_content = template.render(
@@ -600,7 +644,12 @@ async def create_quarto_notebook_tool(
                 document_type=metadata.get('document_type') if metadata else None,
                 analysis_config=metadata.get('analysis_config') if metadata else None,
                 original_query=original_query,
-                metadata=template_metadata
+                metadata=template_metadata,
+                # NEW: Pass visualization metadata for template use
+                visualization_description=viz_description,
+                visualization_structure=viz_structure,
+                statistics=stats_data,
+                guardrails=guardrails_data
             )
         else:
             # Fallback to manual generation if template is not available
@@ -655,8 +704,19 @@ async def create_quarto_notebook_tool(
             
             if include_code_cells:
                 if data is not None:
-                    # Generate actual visualization code from data
-                    viz_code = _generate_data_visualization_code(data)
+                    # Extract visualization metadata from metadata if available
+                    viz_description = None
+                    stats_data = None
+                    if metadata:
+                        viz_description = metadata.get('visualization_description')
+                        stats_data = metadata.get('statistics')
+                    
+                    # Generate actual visualization code from data with enriched info
+                    viz_code = _generate_data_visualization_code(
+                        data,
+                        visualization_description=viz_description,
+                        statistics=stats_data
+                    )
                     quarto_content += f"""```{{python}}
 #| echo: false
 # Data Analysis Code
