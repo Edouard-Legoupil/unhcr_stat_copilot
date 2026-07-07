@@ -59,6 +59,19 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
     
     // Determine which raw content to display
     const rawContent = rawSource || quartoRawContent || initialRawContent;
+    
+    // Sanitize the Quarto HTML to prevent global CSS conflicts
+    // Remove <style> tags that could affect the header and other components
+    const sanitizeQuartoHtml = (html) => {
+        if (!html) return html;
+        
+        // Remove <style> tags that contain global CSS
+        let sanitized = html.replace(/<style[^>]*>.*?<\/style>/gmis, '');
+        
+        return sanitized;
+    };
+    
+    const sanitizedQuartoContent = sanitizeQuartoHtml(quartoContent);
 
     // Extract tool sequence from metadata or response
     // Handle both array and string (JSON string) formats
@@ -173,7 +186,7 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                     <div
                         className="viewer-rendered"
                         ref={htmlRef}
-                        dangerouslySetInnerHTML={{ __html: quartoContent }}
+                        dangerouslySetInnerHTML={{ __html: sanitizedQuartoContent }}
                     />
                 )}
             </div>
