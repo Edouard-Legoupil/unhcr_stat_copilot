@@ -1165,6 +1165,200 @@ async def get_rendered_quarto_analysis_pdf(analysis_id: str):
         )
 
 
+@app.get("/quarto/{analysis_id}/word",
+         summary="Get Rendered Quarto Analysis as Word",
+         description="Get the pre-rendered Word document version of a Quarto analysis using the quarto render CLI.",
+         response_description="Rendered Word document file",
+         responses={
+             200: {
+                 "description": "Successfully rendered Word document",
+                 "content": {
+                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                         "example": "Word document binary data"
+                     }
+                 }
+             },
+             404: {"description": "Quarto analysis or file not found"},
+             500: {"description": "Internal server error during rendering"}
+         })
+async def get_rendered_quarto_analysis_word(analysis_id: str):
+    """
+    Get the pre-rendered Word document version of a Quarto analysis.
+    
+    This endpoint first tries to serve pre-rendered Word files (if available),
+    falling back to on-demand rendering using the Quarto CLI if necessary.
+    
+    This is the recommended way to get Word versions of Quarto analyses, as it properly handles:
+    - YAML front matter (title, author, theme, etc.)
+    - All markdown features (tables, lists, blockquotes, etc.)
+    - Quarto-specific extensions
+    - Code cells and outputs (if present)
+    - LaTeX/math rendering
+    - UNHCR theme application
+    
+    This endpoint does not require authentication.
+    
+    Args:
+        analysis_id (str): The unique identifier of the Quarto analysis
+    
+    Returns:
+        Response: A Response object containing:
+            - Word document binary content
+            - media_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            - headers with filename for download
+    
+    Raises:
+        HTTPException 404: If the analysis or Quarto file is not found
+        HTTPException 500: If the Quarto CLI is not available or rendering fails
+    
+    Note:
+        This endpoint first checks for pre-rendered Word files in data/quarto_analyses/.
+        If not found, it falls back to on-demand rendering using Quarto CLI.
+        
+        The Word document will be rendered with the format settings from the Quarto file's
+        YAML header (docx: options).
+    """
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    
+    try:
+        # First, check if we have pre-rendered Word in the quarto_analyses directory
+        from backend.history import QUARTO_DIR
+        
+        # Try to find the analysis metadata to get the Word path
+        metadata_file = os.path.join("./data/analysis_history", f"{analysis_id}.json")
+        
+        if os.path.exists(metadata_file):
+            with open(metadata_file, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            
+            # Check if we have a pre-rendered Word path
+            word_path = metadata.get("word_path")
+            if word_path and os.path.exists(word_path):
+                # Serve the pre-rendered Word directly
+                with open(word_path, "rb") as f:
+                    rendered_word = f.read()
+                
+                # Get a nice filename for the download
+                qmd_filename = os.path.basename(metadata.get("filepath", "analysis.qmd"))
+                word_filename = qmd_filename.replace('.qmd', '.docx')
+                
+                return Response(
+                    content=rendered_word,
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={
+                        "Content-Disposition": f"attachment; filename={word_filename}"
+                    }
+                )
+        
+        # Fallback: on-demand rendering
+        if not os.path.exists(metadata_file):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto analysis not found"
+            )
+        
+        # Read metadata to find the Quarto file
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+        
+        quarto_filepath = metadata.get("filepath")
+        
+        if not quarto_filepath or not os.path.exists(quarto_filepath):
+            raise HTTPException(
+                status_code=404,
+                detail="Quarto file not found"
+            )
+        
+        # Create a temporary directory for rendering
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Copy the .qmd file to temp dir with a simple filename
+            temp_qmd = os.path.join(temp_dir, "analysis.qmd")
+            with open(temp_qmd, "w", encoding="utf-8") as f:
+                with open(quarto_filepath, "r", encoding="utf-8") as src:
+                    f.write(src.read())
+            
+            # Run quarto render command for Word
+            # Quarto will create the Word file in the same directory with the same name
+            result = subprocess.run(
+                ["quarto", "render", temp_qmd, "--to", "docx"],
+                capture_output=True,
+                text=True,
+                cwd=temp_dir
+            )
+            
+            if result.returncode != 0:
+                logger.error(f"Quarto Word render failed for {analysis_id}: {result.stderr}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Quarto Word rendering failed: {result.stderr}"
+                )
+            
+            # Find the generated Word file
+            # Quarto creates: analysis.docx (same name as qmd but with .docx extension)
+            temp_word = os.path.join(temp_dir, "analysis.docx")
+            
+            if not os.path.exists(temp_word):
+                # List all files in temp dir to find the Word file
+                files = os.listdir(temp_dir)
+                word_files = [f for f in files if f.lower().endswith('.docx')]
+                if word_files:
+                    temp_word = os.path.join(temp_dir, word_files[0])
+                else:
+                    logger.error(f"No Word files found in temp dir. Files: {files}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Quarto did not produce Word output. Files created: {files}"
+                    )
+            
+            # Read and return the rendered Word document
+            with open(temp_word, "rb") as f:
+                rendered_word = f.read()
+            
+            # Save the Word file for future requests
+            word_filename = f"{Path(quarto_filepath).stem}.docx"
+            word_save_path = os.path.join(QUARTO_DIR, word_filename)
+            with open(word_save_path, "wb") as f:
+                f.write(rendered_word)
+            
+            # Update metadata
+            metadata["word_path"] = word_save_path
+            with open(metadata_file, "w", encoding="utf-8") as f:
+                json.dump(metadata, f)
+            
+            # Get a nice filename for the download
+            qmd_filename = os.path.basename(quarto_filepath)
+            word_filename = qmd_filename.replace('.qmd', '.docx')
+            
+            return Response(
+                content=rendered_word,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={
+                    "Content-Disposition": f"attachment; filename={word_filename}"
+                }
+            )
+        
+    except subprocess.CalledProcessError as e:
+        logger.exception(f"Quarto CLI error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Quarto CLI error: {str(e)}"
+        )
+    except FileNotFoundError as e:
+        logger.exception(f"Quarto CLI not found: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Quarto CLI is not installed on the server. Please install Quarto to use this feature."
+        )
+    except Exception as e:
+        logger.exception(e)
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
 # ---------------------------------------------------------------------
 # AI Story Endpoint
 # ---------------------------------------------------------------------

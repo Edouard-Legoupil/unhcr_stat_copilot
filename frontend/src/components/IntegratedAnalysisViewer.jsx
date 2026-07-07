@@ -38,11 +38,11 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
                         <button
                             className="pdf-download-button"
                             onClick={() => {
-                                window.location.href = `/quarto/${analysisId}/pdf`;
+                                window.location.href = `/quarto/${analysisId}/word`;
                             }}
-                            title="Download as PDF"
+                            title="Download as Word document"
                         >
-                            📥 PDF
+                            📥 Word
                         </button>
                     )}
                     <button

@@ -224,6 +224,8 @@ format:
   pdf:
     documentclass: article
     papersize: a4
+  docx:
+    reference-doc: unhcr-reference.docx
 error: visual
 engine: jupyter
 ---
