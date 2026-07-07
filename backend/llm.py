@@ -53,7 +53,9 @@ if not AZURE_OPENAI_DEPLOYMENT:
 # Custom Azure OpenAI client for Responses API
 # Azure OpenAI Responses API uses /responses endpoint
 # Correct format: /openai/deployments/{deployment-name}/responses?api-version={version}
-base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}"
+# base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/responses?api-version={OPENAI_API_VERSION}"
+base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai"
+# base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}"
 
 
 class MockResponse:
