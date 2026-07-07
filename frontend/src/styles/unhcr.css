@@ -1595,3 +1595,11 @@ debug-panel {
 .rating-component .rating-star.filled {
     animation: pulse 0.3s ease;
 }
+
+/* Loading message for source code */
+.loading-raw {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+}

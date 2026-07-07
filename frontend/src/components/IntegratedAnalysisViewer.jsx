@@ -9,10 +9,37 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
     const [showRaw, setShowRaw] = useState(false);
     const [showDebug, setShowDebug] = useState(false);
     const [showTools, setShowTools] = useState(false);
+    const [rawSource, setRawSource] = useState(null);
+    const [loadingRaw, setLoadingRaw] = useState(false);
     const htmlRef = useRef(null);
     
     // Use quartoRawContent if provided, otherwise fall back to quartoContent
-    const rawContent = quartoRawContent || quartoContent;
+    const initialRawContent = quartoRawContent || quartoContent;
+    
+    // When user toggles to source view, fetch the raw .qmd file
+    useEffect(() => {
+        if (showRaw && analysisId && !quartoRawContent) {
+            // If we don't have raw content and user wants to see source, fetch it
+            const fetchRawContent = async () => {
+                setLoadingRaw(true);
+                try {
+                    const result = await fetch(`/quarto/${analysisId}`);
+                    if (result.ok) {
+                        const rawQmd = await result.text();
+                        setRawSource(rawQmd);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch raw content:', error);
+                } finally {
+                    setLoadingRaw(false);
+                }
+            };
+            fetchRawContent();
+        }
+    }, [showRaw, analysisId, quartoRawContent]);
+    
+    // Determine which raw content to display
+    const rawContent = rawSource || quartoRawContent || initialRawContent;
 
     // Extract tool sequence from metadata
     const toolSequence = metadata?.tool_sequence || [];
@@ -59,34 +86,40 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
             <div className="viewer-content">
                 {showRaw ? (
                     <div className="viewer-source">
-                        <pre className="viewer-raw">{rawContent}</pre>
-                        <div className="source-actions">
-                            <button
-                                className="copy-button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(rawContent);
-                                    alert('Quarto source copied to clipboard!');
-                                }}
-                            >
-                                📋 Copy Source
-                            </button>
-                            <button
-                                className="download-button"
-                                onClick={() => {
-                                    const blob = new Blob([rawContent], { type: 'text/markdown' });
-                                    const url = URL.createObjectURL(blob);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = `analysis_${new Date().toISOString().split('T')[0]}.qmd`;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }}
-                            >
-                                💾 Download .qmd
-                            </button>
-                        </div>
+                        {loadingRaw ? (
+                            <p className="loading-raw">Loading source code...</p>
+                        ) : (
+                            <>
+                                <pre className="viewer-raw">{rawContent}</pre>
+                                <div className="source-actions">
+                                    <button
+                                        className="copy-button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(rawContent);
+                                            alert('Quarto source copied to clipboard!');
+                                        }}
+                                    >
+                                        📋 Copy Source
+                                    </button>
+                                    <button
+                                        className="download-button"
+                                        onClick={() => {
+                                            const blob = new Blob([rawContent], { type: 'text/markdown' });
+                                            const url = URL.createObjectURL(blob);
+                                            const a = document.createElement('a');
+                                            a.href = url;
+                                            a.download = `analysis_${new Date().toISOString().split('T')[0]}.qmd`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                            URL.revokeObjectURL(url);
+                                        }}
+                                    >
+                                        💾 Download .qmd
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div
