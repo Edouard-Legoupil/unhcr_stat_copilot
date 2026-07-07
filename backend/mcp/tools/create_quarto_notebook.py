@@ -424,6 +424,19 @@ def _generate_data_visualization_code(
     code_lines.append("import unhcrpyplotstyle  # noqa: F401")
     code_lines.append("")
     
+    # Configure matplotlib for SVG output in Quarto
+    code_lines.append("# Configure matplotlib to generate SVG images for responsive rendering in Quarto")
+    code_lines.append("# This ensures charts are vector-based and scale properly on all devices")
+    code_lines.append("plt.rcParams['figure.facecolor'] = 'white'  # Ensure white background for SVG")
+    code_lines.append("plt.rcParams['svg.fonttype'] = 'none'  # Use system fonts for better text rendering")
+    code_lines.append("")
+    code_lines.append("# Set SVG as the default format for Quarto/Jupyter inline rendering")
+    code_lines.append("try:")
+    code_lines.append("    %config InlineBackend.figure_format = 'svg'")
+    code_lines.append("except:")
+    code_lines.append("    pass  # Ignore if not in IPython/Jupyter environment")
+    code_lines.append("")
+    
     # Add data validation helper functions
     code_lines.append("# Data validation helpers to prevent matplotlib errors")
     code_lines.append("def has_valid_data(df, numeric_cols, year_col=None, x_col=None, y_cols=None):")
