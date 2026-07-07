@@ -43,10 +43,17 @@ if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_API_KEY:
         "Azure OpenAI is required. Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in your environment."
     )
 
+# Also validate deployment name for Responses API
+if not AZURE_OPENAI_DEPLOYMENT:
+    raise RuntimeError(
+        "Azure OpenAI deployment name is required. Please set AZURE_OPENAI_DEPLOYMENT in your environment."
+    )
+
 
 # Custom Azure OpenAI client for Responses API
-# Azure OpenAI Responses API uses /responses endpoint instead of /deployments/{name}/chat/completions
-base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai"
+# Azure OpenAI Responses API uses /responses endpoint
+# Correct format: /openai/deployments/{deployment-name}/responses?api-version={version}
+base_url = f"{AZURE_OPENAI_ENDPOINT.rstrip('/')}/openai/deployments/{AZURE_OPENAI_DEPLOYMENT}"
 
 
 class MockResponse:
