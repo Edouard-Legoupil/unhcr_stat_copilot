@@ -284,6 +284,35 @@ async def full_analysis_workflow_tool(
             if isinstance(notebook_data, dict):
                 notebook_data = notebook_data.get("items", notebook_data)
             
+            # Extract enriched metadata from data_result if available
+            # These are added by get_data_for_story
+            enriched_metadata = {
+                "workflow": "full_analysis",
+                "question": question,
+                "audience": audience or "internal",
+                "document_type": document_type or "long_read",
+                "style": style or "formal",
+                "parameters": {
+                    "origin": final_origin,
+                    "destination": final_destination,
+                    "topic": final_topic,
+                    "timespan": final_timespan
+                }
+            }
+            
+            # Add enriched data from data_result to metadata for notebook
+            if isinstance(data_result, dict) and "data" in data_result:
+                data_field = data_result["data"]
+                if isinstance(data_field, dict):
+                    if "statistics" in data_field:
+                        enriched_metadata["statistics"] = data_field["statistics"]
+                    if "guardrails" in data_field:
+                        enriched_metadata["guardrails"] = data_field["guardrails"]
+                    if "visualization_structure" in data_field:
+                        enriched_metadata["visualization_structure"] = data_field["visualization_structure"]
+                    if "visualization_description" in data_field:
+                        enriched_metadata["visualization_description"] = data_field["visualization_description"]
+            
             # Create notebook with all metadata
             notebook_result = await create_quarto_notebook_tool(
                 story_content=story_result.get("story", ""),
@@ -294,19 +323,7 @@ async def full_analysis_workflow_tool(
                 use_unhcr_theme=True,
                 use_unhcr_style=True,
                 original_query=question,
-                metadata={
-                    "workflow": "full_analysis",
-                    "question": question,
-                    "audience": audience or "internal",
-                    "document_type": document_type or "long_read",
-                    "style": style or "formal",
-                    "parameters": {
-                        "origin": final_origin,
-                        "destination": final_destination,
-                        "topic": final_topic,
-                        "timespan": final_timespan
-                    }
-                },
+                metadata=enriched_metadata,
                 data=notebook_data,
                 render_html=include_html,
                 render_pdf=include_pdf
