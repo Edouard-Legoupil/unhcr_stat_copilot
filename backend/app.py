@@ -10,6 +10,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 # Load environment variables from .env file
@@ -248,6 +249,156 @@ def convert_types_to_strings(types_dict: dict) -> dict:
     return result
 
 
+def generate_html_documentation(data: dict, title: str = "MCP Documentation") -> str:
+    """
+    Generate HTML documentation from a dictionary.
+    
+    Args:
+        data: Dictionary containing documentation data
+        title: HTML page title
+        
+    Returns:
+        HTML string
+    """
+    import json
+    
+    # Generate JSON for the data
+    json_data = json.dumps(data, indent=2, default=str)
+    
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }}
+        h2 {{
+            color: #2c3e50;
+            margin-top: 25px;
+        }}
+        h3 {{
+            color: #7f8c8d;
+            margin-top: 20px;
+        }}
+        .tool-card {{
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        .tool-name {{
+            font-weight: bold;
+            color: #3498db;
+            font-size: 1.1em;
+        }}
+        .param-list {{
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }}
+        .code-block {{
+            background: #2d3436;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }}
+        .json-section {{
+            background: #2d3436;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }}
+        a {{
+            color: #3498db;
+            text-decoration: none;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
+        .endpoints {{
+            background: #e8f4fc;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }}
+        .endpoints a {{
+            display: block;
+            margin: 5px 0;
+        }}
+        .copy-btn {{
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }}
+        .copy-btn:hover {{
+            background: #2980b9;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{title}</h1>
+        <p>MCP (Model Context Protocol) Server Documentation</p>
+        
+        <div class="endpoints">
+            <h3>📚 Endpoints</h3>
+            <a href="/api/mcp/docs">/api/mcp/docs - Full Documentation (JSON)</a>
+            <a href="/api/mcp/info">/api/mcp/info - Server Info (JSON)</a>
+            <a href="/tools">/tools - Tool List (JSON)</a>
+            <a href="/mcp">/mcp - MCP Protocol Endpoint</a>
+            <a href="/docs">/docs - Swagger UI</a>
+            <a href="/redoc">/redoc - ReDoc</a>
+        </div>
+        
+        <div class="json-section">
+            <h3>📄 JSON Documentation</h3>
+            <p>Full documentation in JSON format:</p>
+            <pre id="json-data">{json_data}</pre>
+            <button class="copy-btn" onclick="copyToClipboard()">Copy JSON</button>
+        </div>
+        
+        <script>
+            function copyToClipboard() {{
+                const json = document.getElementById('json-data').textContent;
+                navigator.clipboard.writeText(json).then(() => {{
+                    alert('Copied to clipboard!');
+                }});
+            }}
+        </script>
+    </div>
+</body>
+</html>"""
+    return html
+
+
 # ---------------------------------------------------------------------
 # MCP Documentation Endpoints
 # ---------------------------------------------------------------------
@@ -256,8 +407,26 @@ def convert_types_to_strings(types_dict: dict) -> dict:
          summary="MCP Server Documentation",
          description="Get complete documentation for the MCP server including all tools, descriptions, and parameters.",
          response_description="MCP server documentation",
-         tags=["MCP", "Documentation"])
-async def mcp_docs():
+         tags=["MCP", "Documentation"],
+         responses={
+             200: {
+                 "description": "MCP server documentation",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "server": {"name": "...", "description": "...", "version": "1.0.0"},
+                             "tools": {},
+                             "endpoints": {},
+                             "total_tools": 0
+                         }
+                     },
+                     "text/html": {
+                         "example": "<html>...</html>"
+                     }
+                 }
+             }
+         })
+async def mcp_docs(request: Request):
     """
     Returns comprehensive documentation for the MCP server.
     
@@ -268,7 +437,8 @@ async def mcp_docs():
     - Usage examples
     
     Returns:
-        dict: Documentation containing server info, tools, and endpoints
+        JSON or HTML: Documentation containing server info, tools, and endpoints.
+        Returns HTML when Accept header includes text/html, JSON otherwise.
     """
     # Get server info
     server_info = {
@@ -290,7 +460,7 @@ async def mcp_docs():
             "example": generate_example_usage(tool_name, schema)
         }
     
-    return {
+    data = {
         "server": server_info,
         "tools": tools_docs,
         "endpoints": {
@@ -310,14 +480,38 @@ async def mcp_docs():
             "redoc": "/redoc"
         }
     }
+    
+    # Return HTML if the client accepts it, otherwise JSON
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(content=generate_html_documentation(data, "MCP Documentation"))
+    return data
 
 
 @app.get("/api/mcp/info",
          summary="MCP Server Info",
          description="Get metadata and basic information about the MCP server.",
          response_description="MCP server metadata",
-         tags=["MCP", "Info"])
-async def mcp_info():
+         tags=["MCP", "Info"],
+         responses={
+             200: {
+                 "description": "MCP server metadata",
+                 "content": {
+                     "application/json": {
+                         "example": {
+                             "server": {"name": "...", "description": "...", "version": "1.0.0"},
+                             "endpoint": "/mcp",
+                             "tools_count": 0,
+                             "tool_names": [],
+                             "status": "running"
+                         }
+                     },
+                     "text/html": {
+                         "example": "<html>...</html>"
+                     }
+                 }
+             }
+         })
+async def mcp_info(request: Request):
     """
     Get basic information about the MCP server.
     
@@ -325,11 +519,12 @@ async def mcp_info():
     the full tool documentation.
     
     Returns:
-        dict: Server metadata and summary information
+        JSON or HTML: Server metadata and summary information.
+        Returns HTML when Accept header includes text/html, JSON otherwise.
     """
     tool_names = list(MCP_TOOL_SCHEMAS.keys())
     
-    return {
+    data = {
         "server": {
             "name": mcp_server.name,
             "description": mcp_server.instructions,
@@ -345,6 +540,11 @@ async def mcp_info():
         },
         "timestamp": datetime.now().isoformat()
     }
+    
+    # Return HTML if the client accepts it, otherwise JSON
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(content=generate_html_documentation(data, "MCP Server Info"))
+    return data
 
 
 # ---------------------------------------------------------------------
@@ -465,11 +665,14 @@ async def metrics():
                              "total": 1,
                              "server": "UNHCR Forcibly Displaced Populations MCP Server"
                          }
+                     },
+                     "text/html": {
+                         "example": "<html>...</html>"
                      }
                  }
              }
          })
-async def tools():
+async def tools(request: Request):
     """
     List all available MCP tools with detailed metadata.
     
@@ -480,11 +683,8 @@ async def tools():
     This endpoint does not require authentication.
     
     Returns:
-        dict: A dictionary containing:
-            - tools (list[dict]): Array of tool objects with metadata
-            - total (int): Total number of available tools
-            - server (str): MCP server name
-            - endpoint (str): Base endpoint for tool execution
+        JSON or HTML: Dictionary containing tool list with metadata.
+        Returns HTML when Accept header includes text/html, JSON otherwise.
     """
     tool_list = []
     
@@ -501,7 +701,7 @@ async def tools():
             "execution_endpoint": "/tool"
         })
     
-    return {
+    data = {
         "tools": tool_list,
         "total": len(tool_list),
         "server": mcp_server.name,
@@ -509,6 +709,11 @@ async def tools():
         "full_documentation": "/api/mcp/docs",
         "server_info": "/api/mcp/info"
     }
+    
+    # Return HTML if the client accepts it, otherwise JSON
+    if "text/html" in request.headers.get("accept", ""):
+        return HTMLResponse(content=generate_html_documentation(data, "Available Tools"))
+    return data
 
 
 # ---------------------------------------------------------------------
