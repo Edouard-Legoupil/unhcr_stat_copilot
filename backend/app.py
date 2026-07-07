@@ -252,7 +252,7 @@ def convert_types_to_strings(types_dict: dict) -> dict:
 # MCP Documentation Endpoints
 # ---------------------------------------------------------------------
 
-@app.get("/mcp/docs",
+@app.get("/api/mcp/docs",
          summary="MCP Server Documentation",
          description="Get complete documentation for the MCP server including all tools, descriptions, and parameters.",
          response_description="MCP server documentation",
@@ -272,8 +272,8 @@ async def mcp_docs():
     """
     # Get server info
     server_info = {
-        "name": mcp_server.settings.name,
-        "description": mcp_server.settings.instructions,
+        "name": mcp_server.name,
+        "description": mcp_server.instructions,
         "version": "1.0.0"
     }
     
@@ -295,8 +295,8 @@ async def mcp_docs():
         "tools": tools_docs,
         "endpoints": {
             "mcp_base": "/mcp",
-            "mcp_docs": "/mcp/docs",
-            "mcp_info": "/mcp/info",
+            "mcp_docs": "/api/mcp/docs",
+            "mcp_info": "/api/mcp/info",
             "tools_list": "/tools",
             "execute_tool": "/tool",
             "chat": "/chat",
@@ -312,7 +312,7 @@ async def mcp_docs():
     }
 
 
-@app.get("/mcp/info",
+@app.get("/api/mcp/info",
          summary="MCP Server Info",
          description="Get metadata and basic information about the MCP server.",
          response_description="MCP server metadata",
@@ -331,8 +331,8 @@ async def mcp_info():
     
     return {
         "server": {
-            "name": mcp_server.settings.name,
-            "description": mcp_server.settings.instructions,
+            "name": mcp_server.name,
+            "description": mcp_server.instructions,
             "version": "1.0.0"
         },
         "endpoint": "/mcp",
@@ -340,7 +340,7 @@ async def mcp_info():
         "tool_names": tool_names,
         "status": "running",
         "documentation_endpoints": {
-            "full_docs": "/mcp/docs",
+            "full_docs": "/api/mcp/docs",
             "tool_list": "/tools"
         },
         "timestamp": datetime.now().isoformat()
@@ -504,10 +504,10 @@ async def tools():
     return {
         "tools": tool_list,
         "total": len(tool_list),
-        "server": mcp_server.settings.name,
+        "server": mcp_server.name,
         "mcp_endpoint": "/mcp",
-        "full_documentation": "/mcp/docs",
-        "server_info": "/mcp/info"
+        "full_documentation": "/api/mcp/docs",
+        "server_info": "/api/mcp/info"
     }
 
 
