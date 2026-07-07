@@ -1667,6 +1667,50 @@ debug-panel {
 }
 
 /* ============================================
+   Header Protection Styles
+   Ensure header component is not affected by Quarto CSS
+   ============================================ */
+
+/* Protect header from any global CSS conflicts */
+header {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif !important;
+    all: initial;
+    display: block;
+}
+
+header h1 {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif !important;
+    font-size: 2rem !important;
+    font-weight: 600 !important;
+    color: #0072BC !important;
+    margin: 0 !important;
+    display: block !important;
+}
+
+header h3 {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif !important;
+    font-size: 1.2rem !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important;
+    margin: 8px 0 !important;
+    display: block !important;
+}
+
+header p {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif !important;
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+    color: var(--text-primary) !important;
+    margin: 8px 0 !important;
+    display: block !important;
+}
+
+header a {
+    color: var(--unhcr-blue) !important;
+    text-decoration: underline !important;
+}
+
+/* ============================================
    Integrated Analysis Viewer Styles
    Prevent CSS conflicts with rendered Quarto content
    ============================================ */

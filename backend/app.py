@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI):
         yield
 
 app = FastAPI(
-    title="UNHCR Copilot",
+    title="UNHCR Stat Copilot",
     description="UNHCR MCP-powered analytics assistant",
     version="1.0.0",
     lifespan=lifespan
