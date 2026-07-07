@@ -1710,7 +1710,7 @@ class RatingRequest(BaseModel):
     feedback: Optional[str] = None
 
 
-@app.post("/analysis/{analysis_id}/rate",
+@app.post("/analysis/rate",
           summary="Rate an Analysis",
           description="Submit a rating and optional feedback for a specific analysis. Users can rate analyses with 1-5 stars. For ratings less than 4 stars, users are encouraged to provide feedback.",
           response_description="Confirmation of rating submission",

@@ -70,7 +70,7 @@ export default function RatingComponent({ analysisId, onRatingSubmitted }) {
         setError(null);
 
         try {
-            const response = await fetch(`/analysis/${analysisId}/rate`, {
+            const response = await fetch('/analysis/rate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,11 +83,28 @@ export default function RatingComponent({ analysisId, onRatingSubmitted }) {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to submit rating');
+                let errorMessage = 'Failed to submit rating';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || errorMessage;
+                } catch (e) {
+                    // If response is not JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
 
-            const result = await response.json();
+            // Try to parse JSON response, but don't fail if it's empty
+            let result;
+            try {
+                const text = await response.text();
+                if (text) {
+                    result = JSON.parse(text);
+                }
+            } catch (e) {
+                // If response is not JSON, that's okay - rating was still submitted
+                result = { status: 'success' };
+            }
             
             // Save to local storage to prevent multiple ratings
             localStorage.setItem(`rating_${analysisId}`, JSON.stringify({
