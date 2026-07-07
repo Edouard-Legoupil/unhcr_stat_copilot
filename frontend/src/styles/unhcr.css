@@ -1354,3 +1354,257 @@ debug-panel {
 .analysis-table-container .view-button:hover {
     background: #005a9e;
 }
+
+/* ============================================
+   Rating Component Styles
+   ============================================ */
+
+/* Base rating component container */
+.rating-component {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+}
+
+.rating-component.submitted {
+    background: #f8f9fa;
+    border-color: #e9ecef;
+}
+
+/* Rating header */
+.rating-component .rating-header {
+    margin-bottom: 12px;
+}
+
+.rating-component .rating-header h4 {
+    margin: 0 0 4px 0;
+    color: var(--text-primary);
+    font-size: 16px;
+}
+
+.rating-component .rating-header .rating-description {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* Stars container */
+.rating-component .stars-container {
+    display: flex;
+    gap: 4px;
+    margin: 12px 0;
+    justify-content: center;
+}
+
+/* Individual star styling */
+.rating-component .rating-star {
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.2s, color 0.2s;
+    color: #ccc;
+}
+
+.rating-component .rating-star.filled {
+    color: #ffc107;
+    text-shadow: 0 0 2px rgba(255, 193, 7, 0.3);
+}
+
+.rating-component .rating-star:hover {
+    transform: scale(1.2);
+}
+
+/* Rating selection info */
+.rating-component .rating-selection-info {
+    margin: 12px 0;
+    text-align: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.rating-component .rating-selection-info p {
+    margin: 4px 0;
+    color: var(--text-primary);
+}
+
+.rating-component .rating-message {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Feedback section */
+.rating-component .feedback-section {
+    margin: 12px 0;
+}
+
+.rating-component .feedback-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.rating-component .feedback-textarea:focus {
+    outline: none;
+    border-color: var(--unhcr-blue);
+    box-shadow: 0 0 0 2px rgba(0, 114, 188, 0.1);
+}
+
+.rating-component .feedback-textarea::placeholder {
+    color: #999;
+}
+
+/* Rating actions */
+.rating-component .rating-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.rating-component .submit-button,
+.rating-component .cancel-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.rating-component .submit-button {
+    background: var(--unhcr-blue);
+    color: white;
+}
+
+.rating-component .submit-button:hover:not(:disabled) {
+    background: #005a9e;
+}
+
+.rating-component .submit-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.rating-component .cancel-button {
+    background: #6c757d;
+    color: white;
+}
+
+.rating-component .cancel-button:hover:not(:disabled) {
+    background: #5a6268;
+}
+
+.rating-component .cancel-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Error display */
+.rating-component .rating-error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.rating-component .error-icon {
+    font-size: 16px;
+}
+
+/* Submitted rating display */
+.rating-component.submitted .rating-summary {
+    text-align: center;
+    padding: 8px;
+}
+
+.rating-component.submitted .rating-text {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-right: 8px;
+}
+
+.rating-component.submitted .stars-display {
+    display: inline-flex;
+    gap: 2px;
+    margin: 8px 0;
+}
+
+.rating-component.submitted .stars-display .rating-star {
+    font-size: 20px;
+    cursor: default;
+}
+
+.rating-component.submitted .rating-feedback-display {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.rating-component.submitted .rating-feedback-display strong {
+    color: var(--text-secondary);
+}
+
+.rating-component.submitted .thank-you {
+    color: var(--success);
+    text-align: center;
+    margin: 8px 0 0 0;
+    font-size: 14px;
+}
+
+/* Analysis rating container (in AnalysisViewer) */
+.analysis-rating,
+.viewer-rating {
+    margin: 16px 0;
+    padding: 0 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .rating-component .stars-container {
+        gap: 2px;
+    }
+    
+    .rating-component .rating-star {
+        font-size: 20px;
+    }
+    
+    .rating-component .rating-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .rating-component .submit-button,
+    .rating-component .cancel-button {
+        width: 100%;
+    }
+}
+
+/* Animation for star rating */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.rating-component .rating-star.filled {
+    animation: pulse 0.3s ease;
+}

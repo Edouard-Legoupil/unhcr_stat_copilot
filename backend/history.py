@@ -344,3 +344,65 @@ def cleanup_old_analyses(max_analyses: int = 100) -> int:
     except Exception as e:
         logger.error(f"Failed to cleanup old analyses: {e}")
         return 0
+
+
+def save_rating(analysis_id: str, rating: int, feedback: Optional[str] = None) -> bool:
+    """
+    Save a user rating and optional feedback for an analysis.
+    
+    Args:
+        analysis_id: The ID of the analysis being rated
+        rating: The rating score (1-5 stars)
+        feedback: Optional feedback text for ratings less than 4 stars
+        
+    Returns:
+        True if the rating was saved successfully, False otherwise
+    """
+    try:
+        # Validate rating range
+        if rating < 1 or rating > 5:
+            logger.error(f"Invalid rating value: {rating}. Must be between 1 and 5.")
+            return False
+        
+        # Find the analysis file
+        filepath = os.path.join(HISTORY_DIR, f"{analysis_id}.json")
+        
+        if not os.path.exists(filepath):
+            logger.error(f"Analysis file not found for ID: {analysis_id}")
+            return False
+        
+        # Load the existing analysis data
+        with open(filepath, "r", encoding="utf-8") as f:
+            analysis_data = json.load(f)
+        
+        # Initialize ratings array if it doesn't exist
+        if "ratings" not in analysis_data:
+            analysis_data["ratings"] = []
+        
+        # Create rating entry
+        rating_entry = {
+            "rating": rating,
+            "feedback": feedback,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Add the new rating
+        analysis_data["ratings"].append(rating_entry)
+        
+        # Update average rating and count
+        all_ratings = [r["rating"] for r in analysis_data["ratings"]]
+        analysis_data["average_rating"] = sum(all_ratings) / len(all_ratings)
+        analysis_data["rating_count"] = len(all_ratings)
+        
+        # Save the updated analysis data
+        # Use _make_serializable to handle any circular references
+        serializable_data = _make_serializable(analysis_data)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(serializable_data, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"Saved rating {rating} for analysis {analysis_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to save rating for analysis {analysis_id}: {e}")
+        return False

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import RatingComponent from "./RatingComponent";
 
 /**
  * AnalysisViewer - Integrated viewer for Quarto content with debug information
@@ -180,6 +181,17 @@ export default function AnalysisViewer({ quartoContent, quartoRawContent, metada
                 )}
             </div>
 
+            {/* Rating Component - Allow users to rate the analysis */}
+            {analysisId && (
+                <div className="analysis-rating">
+                    <RatingComponent
+                        analysisId={analysisId}
+                        onRatingSubmitted={(data) => {
+                            console.log('Rating submitted:', data);
+                        }}
+                    />
+                </div>
+            )}
 
             {/* Debug Panel - Collapsible */}
             {showDebug && (

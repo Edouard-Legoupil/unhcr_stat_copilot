@@ -34,7 +34,7 @@ from backend.mcp.server import create_server
 from backend.chat import process_chat_message
 from backend.charts import generate_chart   
 from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError
-from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses
+from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses, save_rating
 from backend.auth import (
     UserInfo,
     verify_azure_auth,
@@ -1697,6 +1697,108 @@ async def get_audience_config(audience: str):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid audience: {audience}"
+        )
+
+
+# ---------------------------------------------------------------------
+# Analysis Rating
+# ---------------------------------------------------------------------
+
+class RatingRequest(BaseModel):
+    analysis_id: str
+    rating: int
+    feedback: Optional[str] = None
+
+
+@app.post("/analysis/{analysis_id}/rate",
+          summary="Rate an Analysis",
+          description="Submit a rating and optional feedback for a specific analysis. Users can rate analyses with 1-5 stars. For ratings less than 4 stars, users are encouraged to provide feedback.",
+          response_description="Confirmation of rating submission",
+          responses={
+              200: {
+                  "description": "Rating submitted successfully",
+                  "content": {
+                      "application/json": {
+                          "example": {
+                              "status": "success",
+                              "message": "Rating saved successfully",
+                              "analysis_id": "abc123",
+                              "rating": 4,
+                              "feedback": "Great analysis!"
+                          }
+                      }
+                  }
+              },
+              400: {"description": "Invalid rating value or missing analysis_id"},
+              404: {"description": "Analysis not found"},
+              500: {"description": "Internal server error"}
+          })
+async def rate_analysis(rating_data: RatingRequest):
+    """
+    Submit a rating for an analysis.
+    
+    This endpoint allows users to rate analyses with a 1-5 star rating.
+    When users give less than 4 stars, they should provide feedback explaining
+    why the rating is low. The rating and feedback are automatically saved
+    in the analysis log for quality improvement.
+    
+    Args:
+        rating_data (RatingRequest): The rating data containing:
+            - analysis_id (str, required): The unique identifier of the analysis being rated
+            - rating (int, required): The rating score (1-5)
+            - feedback (str, optional): Feedback text for ratings less than 4 stars
+    
+    Returns:
+        dict: A confirmation message with the submitted rating details
+    
+    Raises:
+        HTTPException 400: If rating is not between 1 and 5, or analysis_id is missing
+        HTTPException 404: If the analysis with the given ID is not found
+        HTTPException 500: If there's an internal server error saving the rating
+    """
+    try:
+        # Validate the rating data
+        if not rating_data.analysis_id:
+            raise HTTPException(
+                status_code=400,
+                detail="analysis_id is required"
+            )
+        
+        if rating_data.rating < 1 or rating_data.rating > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="Rating must be between 1 and 5 stars"
+            )
+        
+        # Save the rating to the analysis log
+        success = save_rating(
+            rating_data.analysis_id,
+            rating_data.rating,
+            rating_data.feedback
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Analysis with ID {rating_data.analysis_id} not found"
+            )
+        
+        return {
+            "status": "success",
+            "message": "Rating saved successfully",
+            "analysis_id": rating_data.analysis_id,
+            "rating": rating_data.rating,
+            "feedback": rating_data.feedback,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to save rating: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
         )
 
 
