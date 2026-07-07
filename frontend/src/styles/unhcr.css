@@ -1665,3 +1665,335 @@ debug-panel {
     color: var(--text-secondary);
     margin-right: 4px;
 }
+
+/* ============================================
+   Integrated Analysis Viewer Styles
+   Prevent CSS conflicts with rendered Quarto content
+   ============================================ */
+
+/* Integrated viewer container - isolation from parent styles */
+.integrated-viewer {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Viewer header - prevent font size inheritance issues */
+.viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.viewer-header .card-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+/* Viewer actions */
+.viewer-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.viewer-toggle {
+    background: var(--unhcr-blue);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.viewer-toggle:hover {
+    background: #005a9e;
+}
+
+/* Viewer content area */
+.viewer-content {
+    margin-top: 16px;
+}
+
+/* Viewer source - for raw content display */
+.viewer-source {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.viewer-raw {
+    margin: 0;
+    padding: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Viewer rendered content - CRITICAL for preventing CSS conflicts */
+.viewer-rendered {
+    /* Reset font family to ensure consistency */
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+    
+    /* Explicitly set base font size to prevent scaling */
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    
+    /* Prevent unwanted inheritance */
+    font-weight: normal;
+    font-style: normal;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+/* Reset heading styles within rendered content */
+.viewer-rendered h1,
+.viewer-rendered h2,
+.viewer-rendered h3,
+.viewer-rendered h4,
+.viewer-rendered h5,
+.viewer-rendered h6 {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+    font-weight: 600;
+    color: var(--unhcr-blue);
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
+    line-height: 1.3;
+}
+
+/* Specific heading sizes */
+.viewer-rendered h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid var(--unhcr-blue);
+    padding-bottom: 0.5em;
+}
+
+.viewer-rendered h2 {
+    font-size: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.3em;
+}
+
+.viewer-rendered h3 {
+    font-size: 1.25rem;
+}
+
+.viewer-rendered h4 {
+    font-size: 1.1rem;
+}
+
+.viewer-rendered h5,
+.viewer-rendered h6 {
+    font-size: 1rem;
+}
+
+/* Reset paragraph and text styles */
+.viewer-rendered p {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin: 1em 0;
+}
+
+/* Reset list styles */
+.viewer-rendered ul,
+.viewer-rendered ol {
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    padding-left: 2em;
+    margin: 1em 0;
+}
+
+.viewer-rendered li {
+    margin: 0.5em 0;
+}
+
+/* Reset link styles */
+.viewer-rendered a {
+    color: var(--unhcr-blue);
+    text-decoration: underline;
+}
+
+.viewer-rendered a:hover {
+    color: #005a9e;
+}
+
+/* Reset blockquote styles */
+.viewer-rendered blockquote {
+    border-left: 4px solid var(--unhcr-blue);
+    padding-left: 1em;
+    margin-left: 0;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Reset code styles */
+.viewer-rendered code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    background: #f3f6f8;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+}
+
+/* Reset pre styles */
+.viewer-rendered pre {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    background: #f3f6f8;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+/* Reset table styles */
+.viewer-rendered table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+    font-size: 1rem;
+}
+
+.viewer-rendered th,
+.viewer-rendered td {
+    padding: 0.75em;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.viewer-rendered th {
+    background: var(--background);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.viewer-rendered td {
+    background: white;
+}
+
+/* Reset horizontal rule */
+.viewer-rendered hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+}
+
+/* Viewer rating section */
+.viewer-rating {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+/* Debug content integrated */
+.debug-content-integrated {
+    margin-top: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.debug-section {
+    margin-bottom: 16px;
+}
+
+.debug-section h5 {
+    color: var(--unhcr-blue);
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.debug-section h4 {
+    color: var(--unhcr-blue);
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+}
+
+.debug-triangle-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    color: var(--unhcr-blue);
+    font-size: 14px;
+    width: 100%;
+    text-align: left;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.debug-triangle-toggle:hover {
+    background: var(--background);
+}
+
+.triangle-icon {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.toggle-text {
+    font-weight: 500;
+}
+
+.copy-json-button,
+.copy-button {
+    background: var(--unhcr-blue);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 12px;
+    transition: all 0.2s ease;
+}
+
+.copy-json-button:hover,
+.copy-button:hover {
+    background: #005a9e;
+}
+
+.source-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.pdf-download-button {
+    background: var(--success);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.pdf-download-button:hover {
+    background: #28a745;
+}

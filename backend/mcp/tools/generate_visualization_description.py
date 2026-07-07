@@ -292,7 +292,7 @@ def _build_style_code_snippet(structure: dict[str, Any]) -> str:
 
 async def generate_visualization_description_tool(
     structure: dict[str, Any],
-    statistics: dict[str, Any],
+    statistics: Optional[dict[str, Any]] = None,
     description_type: str = "both",
     max_length: int = 300,
     focus_areas: Optional[list[str]] = None,
@@ -307,6 +307,10 @@ async def generate_visualization_description_tool(
       - approved UNHCR palettes and chart-element recommendations.
     """
     try:
+        # Handle None statistics by using empty dict
+        if statistics is None:
+            statistics = {}
+        
         compliance = _validate_guideline_compliance(structure)
 
         try:

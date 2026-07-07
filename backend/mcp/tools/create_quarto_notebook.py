@@ -700,6 +700,9 @@ async def create_quarto_notebook_tool(
             else:
                 yaml_header['format']['html']['theme'] = 'cosmo'
             
+            # Disable alternate format links (Other Formats section)
+            yaml_header['format']['html']['format-links'] = False
+            
             # Add PDF format
             yaml_header['format']['pdf'] = {
                 'documentclass': 'article',
