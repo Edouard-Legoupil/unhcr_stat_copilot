@@ -829,16 +829,43 @@ async def create_quarto_notebook_tool(
             # Escape story_content for Jinja2 to prevent template rendering issues
             escaped_story = _escape_jinja(cleaned_story) if cleaned_story else ""
             
-            # Build metadata for template
+            # Build metadata for template - sanitize error messages
             template_metadata = metadata or {}
             if 'tool_sequence' not in template_metadata:
                 template_metadata['tool_sequence'] = []
             
-            # Extract visualization description for potential use in template
-            viz_description = metadata.get('visualization_description') if metadata else None
-            viz_structure = metadata.get('visualization_structure') if metadata else None
-            stats_data = metadata.get('statistics') if metadata else None
-            guardrails_data = metadata.get('guardrails') if metadata else None
+            # Helper function to clean up error messages from metadata fields
+            def sanitize_metadata_value(value):
+                """Remove error messages from metadata values to prevent them appearing in YAML."""
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    # Check if this is an error message from a failed tool
+                    error_patterns = [
+                        "Error executing tool",
+                        "validation error",
+                        "pydantic.dev",
+                        "Input should be a valid",
+                    ]
+                    if any(pattern in value for pattern in error_patterns):
+                        return None
+                return value
+            
+            # Extract and sanitize visualization metadata for template
+            viz_description = sanitize_metadata_value(metadata.get('visualization_description')) if metadata else None
+            viz_structure = sanitize_metadata_value(metadata.get('visualization_structure')) if metadata else None
+            stats_data = sanitize_metadata_value(metadata.get('statistics')) if metadata else None
+            guardrails_data = sanitize_metadata_value(metadata.get('guardrails')) if metadata else None
+            
+            # Also sanitize in template_metadata to prevent error messages in YAML
+            if 'visualization_description' in template_metadata and isinstance(template_metadata['visualization_description'], str):
+                template_metadata['visualization_description'] = sanitize_metadata_value(template_metadata['visualization_description'])
+            if 'visualization_structure' in template_metadata and isinstance(template_metadata['visualization_structure'], str):
+                template_metadata['visualization_structure'] = sanitize_metadata_value(template_metadata['visualization_structure'])
+            if 'statistics' in template_metadata and isinstance(template_metadata['statistics'], str):
+                template_metadata['statistics'] = sanitize_metadata_value(template_metadata['statistics'])
+            if 'guardrails' in template_metadata and isinstance(template_metadata['guardrails'], str):
+                template_metadata['guardrails'] = sanitize_metadata_value(template_metadata['guardrails'])
             
             # Render the template
             quarto_content = template.render(

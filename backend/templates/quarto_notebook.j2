@@ -29,33 +29,33 @@ format:
 {# Store all metadata in YAML header - ONLY visible in source file, NOT in rendered output #}
 {%- if metadata %}
 unhcr_metadata:
-  {%- if metadata.get('audience') %}
+  {%- if metadata.get('audience') and metadata.audience is not none %}
   audience: {{ metadata.audience|quote_yaml }}
   {%- endif %}
-  {%- if metadata.get('document_type') %}
+  {%- if metadata.get('document_type') and metadata.document_type is not none %}
   document_type: {{ metadata.document_type|quote_yaml }}
   {%- endif %}
-  {%- if metadata.get('analysis_config') %}
+  {%- if metadata.get('analysis_config') and metadata.analysis_config is not none %}
   analysis_config: |
     {{ metadata.analysis_config|tojson|indent(4, first=false) }}
   {%- endif %}
-  {%- if metadata.get('tool_sequence') %}
+  {%- if metadata.get('tool_sequence') and metadata.tool_sequence is not none %}
   tool_sequence: |
     {{ metadata.tool_sequence|tojson|indent(4, first=false) }}
   {%- endif %}
-  {%- if metadata.get('statistics') %}
+  {%- if metadata.get('statistics') and metadata.statistics is not none %}
   statistics: |
     {{ metadata.statistics|tojson|indent(4, first=false) }}
   {%- endif %}
-  {%- if metadata.get('guardrails') %}
+  {%- if metadata.get('guardrails') and metadata.guardrails is not none %}
   guardrails: |
     {{ metadata.guardrails|tojson|indent(4, first=false) }}
   {%- endif %}
-  {%- if metadata.get('visualization_structure') %}
+  {%- if metadata.get('visualization_structure') and metadata.visualization_structure is not none %}
   visualization_structure: |
     {{ metadata.visualization_structure|tojson|indent(4, first=false) }}
   {%- endif %}
-  {%- if metadata.get('visualization_description') %}
+  {%- if metadata.get('visualization_description') and metadata.visualization_description is not none %}
   visualization_description: |
     {{ metadata.visualization_description|tojson|indent(4, first=false) }}
   {%- endif %}
