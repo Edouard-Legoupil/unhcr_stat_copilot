@@ -603,10 +603,11 @@ def _generate_data_visualization_code(
                 # Plot each valid numeric column using matplotlib
                 code_lines.append("        # Plot only columns with valid data")
                 code_lines.append("        plotted_cols = []")
+                # Generate loop for each numeric column
                 for col in numeric_cols:
-                    if col != year_col and col in valid_numeric_cols:
+                    if col != year_col:
                         code_lines.append(f"        # Check if {col} has variation for plotting")
-                        code_lines.append(f"        if is_numeric_column_valid(df, '{col}'):")
+                        code_lines.append(f"        if is_numeric_column_valid(df, '{col}') and '{col}' in valid_numeric_cols:")
                         code_lines.append(f"            ax.plot(df['{year_col}'], df['{col}'], label='{col}', marker='o')")
                         code_lines.append(f"            plotted_cols.append('{col}')")
                 
