@@ -42,6 +42,7 @@ limits
 quarto
 plotly
 matplotlib
+unhcrpyplotstyle
 seaborn
 
 structlog
