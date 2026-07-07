@@ -87,6 +87,15 @@ def create_server() -> FastMCP:
         get_data_for_story_tool,
         generate_analytical_story_tool,
     )
+    from backend.mcp.tools.analysis_pipeline import (
+        run_enhanced_analysis_pipeline,
+        run_conditional_analysis_pipeline,
+    )
+    from backend.mcp.tools.workflows import (
+        full_analysis_workflow_tool,
+        quick_analysis_tool,
+        compare_analysis_tool,
+    )
 
     rag_retriever = UNHCRVectorRetriever()
     api_client = UNHCRAPIClient()
@@ -468,6 +477,121 @@ def create_server() -> FastMCP:
         return await generate_analytical_story_tool(
             result, data, question, audience, document_type, analysis_config
         )
+
+    @server.tool(
+        name="run_enhanced_analysis",
+        description=(
+            "Run the complete enhanced analysis pipeline with statistical analysis, "
+            "compliance validation, visualization structure extraction, and description generation. "
+            "Use this for comprehensive, in-depth analysis requests that require rich insights."
+        ),
+    )
+    async def run_enhanced_analysis_wrapper(
+        question: str,
+        data: dict[str, Any],
+        audience: str | None = None,
+        document_type: str | None = None,
+        analysis_config: dict | None = None,
+        use_rag: bool = False,
+    ) -> dict[str, Any]:
+        if use_rag:
+            return await run_enhanced_analysis_pipeline(
+                question, data, audience, document_type, analysis_config,
+                use_rag=True, rag_retriever=rag_retriever
+            )
+        else:
+            return await run_enhanced_analysis_pipeline(
+                question, data, audience, document_type, analysis_config,
+                use_rag=False
+            )
+
+    @server.tool(
+        name="run_conditional_analysis",
+        description=(
+            "Run conditional analysis pipeline that auto-detects whether to use enhanced "
+            "(for complex queries) or simple (for basic queries) workflow. "
+            "Complex queries contain keywords like 'analyze', 'trends', 'correlation', etc."
+        ),
+    )
+    async def run_conditional_analysis_wrapper(
+        question: str,
+        data: dict[str, Any],
+        audience: str | None = None,
+        document_type: str | None = None,
+        analysis_config: dict | None = None,
+        use_enhanced: bool | None = None,
+    ) -> dict[str, Any]:
+        return await run_conditional_analysis_pipeline(
+            question, data, audience, document_type, analysis_config,
+            use_enhanced=use_enhanced, rag_retriever=rag_retriever
+        )
+
+    @server.tool(
+        name="full_analysis_workflow",
+        description=(
+            "Complete end-to-end analysis workflow: question → data → enrichment → story → notebook. "
+            "This is the highest-level tool that orchestrates all steps of analysis. "
+            "Use this for comprehensive analysis requests. "
+            "Optionally uses RAG (Retrieval-Augmented Generation) for enriched stories."
+        ),
+    )
+    async def full_analysis_workflow_wrapper(
+        question: str,
+        origin: str | None = None,
+        destination: str | None = None,
+        topic: str | None = None,
+        timespan: str | None = None,
+        year: str | int | None = None,
+        years: str | None = None,
+        population_types: list[str] | None = None,
+        coo_all: bool = False,
+        coa_all: bool = False,
+        audience: str | None = None,
+        document_type: str | None = None,
+        style: str | None = None,
+        use_enhanced: bool = True,
+        use_rag: bool = False,
+        include_notebook: bool = True,
+        include_html: bool = True,
+        include_pdf: bool = True,
+        output_path: str | None = None,
+    ) -> dict[str, Any]:
+        return await full_analysis_workflow_tool(
+            question, origin, destination, topic, timespan, year, years,
+            population_types, coo_all, coa_all, audience, document_type, style,
+            use_enhanced, use_rag, rag_retriever if use_rag else None,
+            include_notebook, include_html, include_pdf, output_path
+        )
+
+    @server.tool(
+        name="quick_analysis",
+        description=(
+            "Quick analysis workflow: question → data → simple story (no notebook). "
+            "Use this for lightweight, fast analysis requests that don't require "
+            "notebook generation."
+        ),
+    )
+    async def quick_analysis_wrapper(
+        question: str,
+        audience: str | None = None,
+        document_type: str | None = None,
+    ) -> dict[str, Any]:
+        return await quick_analysis_tool(question, audience, document_type)
+
+    @server.tool(
+        name="compare_analysis",
+        description=(
+            "Comparative analysis workflow: Run the same analysis for multiple scenarios. "
+            "Use this when asked to compare data across different countries, years, "
+            "or other dimensions."
+        ),
+    )
+    async def compare_analysis_wrapper(
+        question_template: str,
+        comparisons: list[dict[str, Any]],
+        audience: str | None = None,
+    ) -> dict[str, Any]:
+        return await compare_analysis_tool(question_template, comparisons, audience)
 
     return server
 

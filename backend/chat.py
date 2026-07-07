@@ -346,7 +346,9 @@ async def process_chat_message(
     audience: Optional[str] = None,
     document_type: Optional[str] = None,
     style: Optional[str] = None,
-    use_enhanced: Optional[bool] = None
+    use_enhanced: Optional[bool] = None,
+    use_rag: Optional[bool] = None,
+    rag_retriever: Any = None
 ) -> dict:
 
     try:
@@ -380,6 +382,9 @@ async def process_chat_message(
         logger.info("Processing question for Quarto generation: %s", message)
 
         # Generate a comprehensive Quarto notebook with the analysis
+        # Determine RAG availability
+        effective_rag = use_rag if use_rag is not None else False
+        
         quarto_result = await generate_comprehensive_quarto_analysis(
             message,
             origin=origin,
@@ -389,7 +394,9 @@ async def process_chat_message(
             audience=audience or "internal",
             document_type=document_type or "long_read",
             style=style or "formal",
-            use_enhanced=use_enhanced if use_enhanced is not None else True
+            use_enhanced=use_enhanced if use_enhanced is not None else True,
+            use_rag=effective_rag,
+            rag_retriever=rag_retriever if effective_rag else None
         )
 
         # ------------------------------------------
@@ -783,7 +790,9 @@ async def generate_comprehensive_quarto_analysis(
     audience: str = "internal",
     document_type: str = "long_read",
     style: str = "formal",
-    use_enhanced: bool = True
+    use_enhanced: bool = True,
+    use_rag: bool = False,
+    rag_retriever: Any = None
 ) -> dict:
     """
     Generate a complete Quarto notebook that contains the full analysis.
@@ -804,6 +813,9 @@ async def generate_comprehensive_quarto_analysis(
         use_enhanced: Whether to use the enhanced analysis pipeline (default: True)
                      When True, includes statistical analysis, guardrails, and visualization
                      When False, uses simple pipeline without additional enrichment
+        use_rag: Whether to use RAG-enriched story generation (default: False)
+                 Requires rag_retriever to be provided
+        rag_retriever: Optional RAG retriever instance for LLM-based story generation
     
     Returns:
         Dictionary containing Quarto notebook content and metadata
