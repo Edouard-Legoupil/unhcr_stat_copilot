@@ -225,6 +225,29 @@ def get_tool_description_from_server(tool_name: str) -> str:
     return "No description available"
 
 
+def convert_types_to_strings(types_dict: dict) -> dict:
+    """
+    Convert Python type objects to string representations for JSON serialization.
+    
+    Args:
+        types_dict: Dictionary with type objects as values
+        
+    Returns:
+        Dictionary with type names as strings
+    """
+    result = {}
+    for key, value in types_dict.items():
+        if isinstance(value, tuple):
+            # Handle union types like (str, int)
+            type_names = [t.__name__ if hasattr(t, '__name__') else str(t) for t in value]
+            result[key] = type_names
+        elif hasattr(value, '__name__'):
+            result[key] = value.__name__
+        else:
+            result[key] = str(value)
+    return result
+
+
 # ---------------------------------------------------------------------
 # MCP Documentation Endpoints
 # ---------------------------------------------------------------------
@@ -263,7 +286,7 @@ async def mcp_docs():
             "description": tool_desc,
             "required_params": schema.get("required", []),
             "optional_params": schema.get("optional", []),
-            "param_types": schema.get("types", {}),
+            "param_types": convert_types_to_strings(schema.get("types", {})),
             "example": generate_example_usage(tool_name, schema)
         }
     
@@ -473,7 +496,7 @@ async def tools():
             "description": tool_desc,
             "required_params": schema.get("required", []),
             "optional_params": schema.get("optional", []),
-            "param_types": schema.get("types", {}),
+            "param_types": convert_types_to_strings(schema.get("types", {})),
             "example_usage": generate_example_usage(tool_name, schema),
             "execution_endpoint": "/tool"
         })
@@ -503,7 +526,7 @@ async def tools():
                       "application/json": {
                           "example": {
                               "tool": "get_population_data",
-                              "result": {"data": [...], "metadata": {}},
+                              "result": {"data": [], "metadata": {}},
                               "user": {"name": "user@example.com"}
                           }
                       }
@@ -620,8 +643,8 @@ async def execute_tool(
                           "example": {
                               "response": "Analysis complete...",
                               "analysis_type": "comprehensive_quarto",
-                              "data": {...},
-                              "visualization": {...},
+                              "data": {},
+                              "visualization": {},
                               "user": {"name": "user@example.com"}
                           }
                       }
@@ -1548,8 +1571,8 @@ async def get_rendered_quarto_analysis_word(analysis_id: str):
                       "application/json": {
                           "example": {
                               "story": "Comprehensive analysis of refugee data...",
-                              "visualization_data": {...},
-                              "metadata": {...},
+                              "visualization_data": {},
+                              "metadata": {},
                               "user": {"name": "user@example.com"}
                           }
                       }
@@ -1687,7 +1710,7 @@ async def create_story(
                               "path": "/path/to/report.qmd",
                               "title": "UNHCR Report",
                               "format": "quarto",
-                              "metadata": {...},
+                              "metadata": {},
                               "user": {"name": "user@example.com"}
                           }
                       }
@@ -1859,8 +1882,8 @@ async def suggestions(
                      "application/json": {
                          "example": {
                              "guidance": "Welcome to UNHCR Copilot...",
-                             "features": [...],
-                             "examples": [...],
+                             "features": [],
+                             "examples": [],
                              "user": {"name": "user@example.com"}
                          }
                      }
@@ -1931,7 +1954,7 @@ async def guidance(
                               "status": "success",
                               "config": {
                                   "audiences": {
-                                      "policy_makers": {"document_types": [...], "default": "..."}
+                                      "policy_makers": {"document_types": [], "default": ""}
                                   }
                               }
                           }
@@ -1971,8 +1994,7 @@ async def get_analysis_config():
                     "default": "technical_report",
                     "style": "detailed",
                     "length": "long"
-                },
-                ...
+                }
             }
         }
     """
