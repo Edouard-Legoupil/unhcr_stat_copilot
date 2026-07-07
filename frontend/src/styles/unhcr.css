@@ -87,11 +87,7 @@ body {
     }
 }
 
-/* Analysis Viewer Styles */
-.analysis-viewer {
-    position: relative;
-}
-
+/* Analysis Viewer Styles (legacy - kept for potential reuse) */
 .analysis-header {
     display: flex;
     justify-content: space-between;
@@ -558,15 +554,7 @@ debug-panel {
     word-wrap: break-word;
 }
 
-/* Quarto Viewer Styles */
-
-.quarto-viewer {
-
-    border: 1px solid var(--unhcr-blue);
-
-    margin-top: 16px;
-}
-
+/* Quarto Viewer Styles (legacy - kept for potential reuse) */
 /* Pre-rendered Badge Styles */
 .quarto-rendered-badge {
     display: inline-flex;
@@ -1571,8 +1559,7 @@ debug-panel {
     font-size: 14px;
 }
 
-/* Analysis rating container (in AnalysisViewer) */
-.analysis-rating,
+/* Analysis rating container (in IntegratedAnalysisViewer) */
 .viewer-rating {
     margin: 16px 0;
     padding: 0 16px;
