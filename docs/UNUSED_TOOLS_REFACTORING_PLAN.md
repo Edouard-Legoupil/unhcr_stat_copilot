@@ -456,22 +456,22 @@ story = await generate_ai_data_story_tool(
 ## 🎯 Implementation Roadmap
 
 ### Phase 1: Low-Risk Integrations (Week 1)
-- [ ] Add `analyze_data_statistics` to `get_data_for_story`
-- [ ] Add `apply_analysis_guardrails` to `get_data_for_story`
-- [ ] Update `generate_analytical_story` to use stats in Key Findings
+- [x] Add `analyze_data_statistics` to `get_data_for_story`
+- [x] Add `apply_analysis_guardrails` to `get_data_for_story`
+- [x] Update `generate_analytical_story` to use stats in Key Findings
 
 ### Phase 2: Medium-Risk Integrations (Week 2)
-- [ ] Add `extract_visualization_structure` to `create_quarto_notebook`
-- [ ] Add `generate_visualization_description` after structure extraction
-- [ ] Create `run_enhanced_analysis_pipeline` orchestrator
+- [x] Add `extract_visualization_structure` to `create_quarto_notebook`
+- [x] Add `generate_visualization_description` after structure extraction
+- [x] Create `run_enhanced_analysis_pipeline` orchestrator
 
 ### Phase 3: High-Value Integrations (Week 3)
-- [ ] Fix `generate_ai_data_story` to work with current data formats
-- [ ] Add conditional logic to use LLM-based stories when available
-- [ ] Add `use_enhanced` flag to analysis config
+- [x] Fix `generate_ai_data_story` to work with current data formats
+- [x] Add conditional logic to use LLM-based stories when available
+- [x] Add `use_enhanced` flag to analysis config
 
 ### Phase 4: Polish & Test (Week 4)
-- [ ] Write integration tests
+- [x] Write integration tests
 - [ ] Update documentation
 - [ ] Performance optimization
 - [ ] User testing
