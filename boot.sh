@@ -178,6 +178,18 @@ echo "Azure will probe: http://<container>:${BIND_PORT}/"
 echo "Ensure GET / returns HTTP 200"
 echo ""
 
+# -------------------------
+# Documentation Endpoints
+# -------------------------
+echo "📚 MCP Documentation"
+echo "--------------------------------------------"
+echo "  Main API Docs (Swagger):    http://0.0.0.0:${BIND_PORT}/docs"
+echo "  Main API Docs (ReDoc):      http://0.0.0.0:${BIND_PORT}/redoc"
+echo "  MCP Full Documentation:     http://0.0.0.0:${BIND_PORT}/mcp/docs"
+echo "  MCP Server Info:           http://0.0.0.0:${BIND_PORT}/mcp/info"
+echo "  Tool List:                 http://0.0.0.0:${BIND_PORT}/tools"
+echo "  MCP Protocol Endpoint:     http://0.0.0.0:${BIND_PORT}/mcp"
+echo ""
 
 
 # -------------------------

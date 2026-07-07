@@ -34,7 +34,7 @@ from slowapi.util import get_remote_address
 from backend.mcp.server import create_server
 from backend.chat import process_chat_message
 from backend.charts import generate_chart   
-from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError
+from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError, MCP_TOOL_SCHEMAS
 from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses, save_rating
 from backend.auth import (
     UserInfo,
@@ -146,6 +146,184 @@ except Exception as e:
         e
     )
 
+
+# ---------------------------------------------------------------------
+# Helper Functions for Documentation
+# ---------------------------------------------------------------------
+
+def generate_example_usage(tool_name: str, schema: dict) -> str:
+    """
+    Generate example usage for a tool.
+    
+    Args:
+        tool_name: Name of the MCP tool
+        schema: Tool schema containing required and optional parameters
+        
+    Returns:
+        String with example usage
+    """
+    required = schema.get("required", [])
+    optional = schema.get("optional", [])[:3]  # Show first 3 optional params
+    types_map = schema.get("types", {})
+    
+    params = []
+    # Add required parameters
+    for p in required:
+        param_type = types_map.get(p, str)
+        if param_type == str:
+            params.append(f"'{p}': 'example_value'")
+        elif param_type == int:
+            params.append(f"'{p}': 2024")
+        elif param_type == bool:
+            params.append(f"'{p}': True")
+        elif param_type == list:
+            params.append(f"'{p}': ['item1', 'item2']")
+        elif param_type == dict:
+            params.append(f"'{p}': {{'key': 'value'}}")
+        else:
+            params.append(f"'{p}': 'value'")
+    
+    # Add optional parameters
+    for p in optional:
+        param_type = types_map.get(p, str)
+        if param_type == str:
+            params.append(f"'{p}': 'optional_value'")
+        elif param_type == int:
+            params.append(f"'{p}': 100")
+        elif param_type == bool:
+            params.append(f"'{p}': False")
+        elif param_type == list:
+            params.append(f"'{p}': []")
+        elif param_type == dict:
+            params.append(f"'{p}': {{}}")
+        else:
+            params.append(f"'{p}': None")
+    
+    params_str = ", \n        ".join(params)
+    return f"""call_tool('{tool_name}', {{
+        {params_str}
+    }})"""
+
+
+def get_tool_description_from_server(tool_name: str) -> str:
+    """
+    Get tool description from the MCP server if available.
+    
+    Args:
+        tool_name: Name of the MCP tool
+        
+    Returns:
+        Tool description or fallback message
+    """
+    try:
+        if hasattr(mcp_server, '_tool_manager'):
+            tool_info = mcp_server._tool_manager.get_tool(tool_name)
+            if tool_info and hasattr(tool_info, 'description'):
+                return tool_info.description
+    except Exception:
+        pass
+    return "No description available"
+
+
+# ---------------------------------------------------------------------
+# MCP Documentation Endpoints
+# ---------------------------------------------------------------------
+
+@app.get("/mcp/docs",
+         summary="MCP Server Documentation",
+         description="Get complete documentation for the MCP server including all tools, descriptions, and parameters.",
+         response_description="MCP server documentation",
+         tags=["MCP", "Documentation"])
+async def mcp_docs():
+    """
+    Returns comprehensive documentation for the MCP server.
+    
+    This endpoint provides:
+    - Server metadata (name, description, version)
+    - All registered tools with their descriptions
+    - Tool parameter schemas
+    - Usage examples
+    
+    Returns:
+        dict: Documentation containing server info, tools, and endpoints
+    """
+    # Get server info
+    server_info = {
+        "name": mcp_server.settings.name,
+        "description": mcp_server.settings.instructions,
+        "version": "1.0.0"
+    }
+    
+    # Build tool documentation
+    tools_docs = {}
+    for tool_name, schema in MCP_TOOL_SCHEMAS.items():
+        tool_desc = get_tool_description_from_server(tool_name)
+        
+        tools_docs[tool_name] = {
+            "description": tool_desc,
+            "required_params": schema.get("required", []),
+            "optional_params": schema.get("optional", []),
+            "param_types": schema.get("types", {}),
+            "example": generate_example_usage(tool_name, schema)
+        }
+    
+    return {
+        "server": server_info,
+        "tools": tools_docs,
+        "endpoints": {
+            "mcp_base": "/mcp",
+            "mcp_docs": "/mcp/docs",
+            "mcp_info": "/mcp/info",
+            "tools_list": "/tools",
+            "execute_tool": "/tool",
+            "chat": "/chat",
+            "health": "/health"
+        },
+        "total_tools": len(tools_docs),
+        "documentation": {
+            "format": "JSON",
+            "generated_at": datetime.now().isoformat(),
+            "fastapi_docs": "/docs",
+            "redoc": "/redoc"
+        }
+    }
+
+
+@app.get("/mcp/info",
+         summary="MCP Server Info",
+         description="Get metadata and basic information about the MCP server.",
+         response_description="MCP server metadata",
+         tags=["MCP", "Info"])
+async def mcp_info():
+    """
+    Get basic information about the MCP server.
+    
+    This provides a lightweight overview of the MCP server without
+    the full tool documentation.
+    
+    Returns:
+        dict: Server metadata and summary information
+    """
+    tool_names = list(MCP_TOOL_SCHEMAS.keys())
+    
+    return {
+        "server": {
+            "name": mcp_server.settings.name,
+            "description": mcp_server.settings.instructions,
+            "version": "1.0.0"
+        },
+        "endpoint": "/mcp",
+        "tools_count": len(tool_names),
+        "tool_names": tool_names,
+        "status": "running",
+        "documentation_endpoints": {
+            "full_docs": "/mcp/docs",
+            "tool_list": "/tools"
+        },
+        "timestamp": datetime.now().isoformat()
+    }
+
+
 # ---------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------
@@ -243,19 +421,26 @@ async def metrics():
 
 @app.get("/tools",
          summary="List Available Tools",
-         description="Retrieve a list of all available MCP tools that can be executed.",
-         response_description="List of available MCP tools",
+         description="Retrieve detailed information about all available MCP tools including descriptions and parameters.",
+         response_description="List of available MCP tools with metadata",
+         tags=["MCP", "Tools"],
          responses={
              200: {
-                 "description": "Successful response with tool list",
+                 "description": "Successful response with tool list and metadata",
                  "content": {
                      "application/json": {
                          "example": {
                              "tools": [
-                                 "get_population_data",
-                                 "get_demographics_data",
-                                 "create_quarto_notebook"
-                             ]
+                                 {
+                                     "name": "get_population_data",
+                                     "description": "Retrieve forcibly displaced population statistics from UNHCR",
+                                     "required_params": [],
+                                     "optional_params": ["coo", "coa", "year"],
+                                     "endpoint": "/tool"
+                                 }
+                             ],
+                             "total": 1,
+                             "server": "UNHCR Forcibly Displaced Populations MCP Server"
                          }
                      }
                  }
@@ -263,55 +448,43 @@ async def metrics():
          })
 async def tools():
     """
-    List all available MCP tools.
+    List all available MCP tools with detailed metadata.
     
-    This endpoint returns an array of tool names that are available for execution
-    through the MCP server. These tools can be called directly via the /tool endpoint
-    or used through the chat interface.
+    This endpoint returns comprehensive information about all available tools
+    in the MCP server, including descriptions, required/optional parameters,
+    and usage examples.
     
     This endpoint does not require authentication.
     
     Returns:
         dict: A dictionary containing:
-            - tools (list[str]): Array of available tool names
-    
-    Available Tools:
-        - get_population_data: Retrieve UNHCR population statistics
-        - get_demographics_data: Get demographic breakdown data
-        - get_rsd_applications: Fetch Refugee Status Determination applications
-        - get_rsd_decisions: Fetch RSD decision data
-        - get_solutions: Retrieve information on durable solutions
-        - get_country_key_figures: Get key figures for specific countries
-        - get_population_trends: Analyze population trends over time
-        - get_demographic_breakdown: Detailed demographic analysis
-        - extract_visualization_structure: Extract structure from visualizations
-        - analyze_data_statistics: Perform statistical analysis on data
-        - generate_visualization_description: Generate descriptions for visualizations
-        - generate_ai_data_story: Create AI-generated data stories
-        - get_usage_guidance: Get usage instructions and guidance
-        - get_suggested_questions: Generate suggested analysis questions
-        - apply_analysis_guardrails: Apply validation rules to analysis requests
-        - create_quarto_notebook: Create Quarto notebooks from data stories
+            - tools (list[dict]): Array of tool objects with metadata
+            - total (int): Total number of available tools
+            - server (str): MCP server name
+            - endpoint (str): Base endpoint for tool execution
     """
+    tool_list = []
+    
+    for tool_name, schema in MCP_TOOL_SCHEMAS.items():
+        tool_desc = get_tool_description_from_server(tool_name)
+        
+        tool_list.append({
+            "name": tool_name,
+            "description": tool_desc,
+            "required_params": schema.get("required", []),
+            "optional_params": schema.get("optional", []),
+            "param_types": schema.get("types", {}),
+            "example_usage": generate_example_usage(tool_name, schema),
+            "execution_endpoint": "/tool"
+        })
+    
     return {
-        "tools": [
-            "get_population_data",
-            "get_demographics_data",
-            "get_rsd_applications",
-            "get_rsd_decisions",
-            "get_solutions",
-            "get_country_key_figures",
-            "get_population_trends",
-            "get_demographic_breakdown",
-            "extract_visualization_structure",
-            "analyze_data_statistics",
-            "generate_visualization_description",
-            "generate_ai_data_story",
-            "get_usage_guidance",
-            "get_suggested_questions",
-            "apply_analysis_guardrails",
-            "create_quarto_notebook",
-        ]
+        "tools": tool_list,
+        "total": len(tool_list),
+        "server": mcp_server.settings.name,
+        "mcp_endpoint": "/mcp",
+        "full_documentation": "/mcp/docs",
+        "server_info": "/mcp/info"
     }
 
 
