@@ -104,12 +104,16 @@ def create_visualization_data(
 from contextlib import asynccontextmanager
 
 mcp_server = create_server()
+# Set streamable_http_path to "/" so it works when mounted at /mcp
 mcp_server.settings.streamable_http_path = "/"
 mcp_app = mcp_server.streamable_http_app()
 
+# Get the session manager AFTER creating the streamable HTTP app
+mcp_session_manager = mcp_server.session_manager
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with mcp_server.session_manager.run():
+    async with mcp_session_manager.run():
         yield
 
 app = FastAPI(
@@ -137,6 +141,7 @@ app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 try:
     # FastMCP HTTP transport
+    # Mount at /mcp/ to avoid redirect issues
     app.mount(
         "/mcp",
         mcp_app

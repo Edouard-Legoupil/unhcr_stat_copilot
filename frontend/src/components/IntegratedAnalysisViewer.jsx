@@ -61,19 +61,24 @@ export default function IntegratedAnalysisViewer({ quartoContent, quartoRawConte
     const rawContent = rawSource || quartoRawContent || initialRawContent;
 
     // Sanitize the Quarto HTML to prevent global CSS conflicts
-    // We now keep all styles but wrap the content to isolate it
+    // We need to extract only the body content to avoid conflicts
     const sanitizeQuartoHtml = (html) => {
         if (!html) return html;
 
-        // Remove only the most problematic global styles
-        // Keep Quarto's formatting styles (code blocks, tables, etc.)
-        let sanitized = html;
+        // Extract just the body content from the full HTML document
+        // This prevents conflicts with our page's DOCTYPE, html, head tags
+        let bodyContent = html;
         
-        // Remove inline styles that would affect our header
-        // Quarto adds some inline styles for body that conflict with our layout
-        sanitized = sanitized.replace(/<style[^>]*>\s*[\s\S]*?body[\s\S]*?\{[\s\S]*?\}[\s\S]*?<\/style>/gmi, '');
+        // Try to extract <body>...</body> content
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) {
+            bodyContent = bodyMatch[1];
+        }
         
-        return sanitized;
+        // Remove script tags that might interfere
+        bodyContent = bodyContent.replace(/<script[^>]*>.*?<\/script>/gmis, '');
+        
+        return bodyContent;
     };
 
     const sanitizedQuartoContent = sanitizeQuartoHtml(quartoContent);
