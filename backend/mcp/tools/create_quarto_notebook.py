@@ -420,13 +420,23 @@ def _generate_data_visualization_code(
     # Import statements - NO leading indentation
     code_lines.append("import pandas as pd")
     code_lines.append("import matplotlib.pyplot as plt")
-    code_lines.append("import seaborn as sns")
+    code_lines.append("import unhcrpyplotstyle  # noqa: F401")
     code_lines.append("")
     
-    # Set style
-    code_lines.append("# Set visualization style")
-    code_lines.append("plt.style.use('seaborn-v0_8-darkgrid')")
-    code_lines.append("sns.set_palette('husl')")
+    # Set UNHCR visualization style
+    code_lines.append("# Apply UNHCR brand compliance styles")
+    
+    # Use recommended styles from visualization description if available
+    if visualization_description and isinstance(visualization_description, dict):
+        style_info = visualization_description.get('unhcrpyplotstyle', {})
+        if style_info and isinstance(style_info, dict):
+            styles = style_info.get('styles', ['unhcrpyplotstyle'])
+            code_lines.append(f"plt.style.use({styles})")
+        else:
+            code_lines.append("plt.style.use('unhcrpyplotstyle')")
+    else:
+        # Default to base UNHCR style
+        code_lines.append("plt.style.use('unhcrpyplotstyle')")
     code_lines.append("")
     
     # Extract actual data from nested structures
@@ -473,24 +483,29 @@ def _generate_data_visualization_code(
                     break
             
             if year_col and len(numeric_cols) > 1:
-                # Time series plot
+                # Time series plot using matplotlib (UNHCR compliant)
                 code_lines.append("# Plot 1: Time series of numeric variables")
-                code_lines.append(f"plt.figure(figsize=(12, 6))")
+                code_lines.append(f"fig, ax = plt.subplots(figsize=(12, 6))")
                 
-                # Plot each numeric column
+                # Plot each numeric column using matplotlib
                 for col in numeric_cols:
                     if col != year_col:
-                        code_lines.append(f"sns.lineplot(data=df, x='{year_col}', y='{col}', label='{col}')")
+                        code_lines.append(f"ax.plot(df['{year_col}'], df['{col}'], label='{col}', marker='o')")
                 
-                code_lines.append("plt.title('Trends Over Time')")
-                code_lines.append("plt.xlabel('Year')")
-                code_lines.append("plt.ylabel('Count')")
-                code_lines.append("plt.legend()")
+                code_lines.append("ax.set_title('Trends Over Time', fontfamily='Lato', fontsize=14)")
+                code_lines.append("ax.set_xlabel('Year', fontfamily='Lato')")
+                code_lines.append("ax.set_ylabel('Count', fontfamily='Lato')")
+                code_lines.append("ax.legend(fontsize=10)")
+                code_lines.append("ax.grid(True, alpha=0.3)")
                 code_lines.append("plt.tight_layout()")
+                
+                # Add UNHCR source attribution
+                code_lines.append("# Add UNHCR source attribution")
+                code_lines.append("plt.figtext(0.5, 0.01, 'Source: UNHCR Population Data | © UNHCR, the UN Refugee Agency', ha='center', fontfamily='Lato', fontsize=8)")
                 code_lines.append("plt.show()")
                 code_lines.append("")
                 
-                # Bar chart for most recent year
+                # Bar chart for most recent year using matplotlib
                 code_lines.append("# Plot 2: Values for most recent year")
                 code_lines.append(f"recent_year = df['{year_col}'].max()")
                 code_lines.append(f"recent_data = df[df['{year_col}'] == recent_year]")
@@ -498,24 +513,31 @@ def _generate_data_visualization_code(
                 code_lines.append("if not recent_data.empty:")
                 code_lines.append("    recent_numeric = recent_data.select_dtypes(include=['number']).drop(columns=['" + year_col + "'], errors='ignore')")
                 code_lines.append("    if not recent_numeric.empty:")
-                code_lines.append("        plt.figure(figsize=(10, 5))")
-                code_lines.append("        recent_numeric.iloc[0].plot(kind='bar')")
-                code_lines.append("        plt.title(f'Values for Year {recent_year}')")
-                code_lines.append("        plt.ylabel('Count')")
-                code_lines.append("        plt.xticks(rotation=45)")
+                code_lines.append("        fig, ax = plt.subplots(figsize=(10, 5))")
+                code_lines.append("        ax.bar(recent_numeric.columns, recent_numeric.iloc[0], color='#0072BC')")
+                code_lines.append("        ax.set_title(f'Values for Year {recent_year}', fontfamily='Lato', fontsize=14)")
+                code_lines.append("        ax.set_ylabel('Count', fontfamily='Lato')")
+                code_lines.append("        ax.tick_params(axis='x', rotation=45)")
+                code_lines.append("        ax.grid(True, alpha=0.3, axis='y')")
                 code_lines.append("        plt.tight_layout()")
+                code_lines.append("        plt.figtext(0.5, 0.01, 'Source: UNHCR Population Data | © UNHCR, the UN Refugee Agency', ha='center', fontfamily='Lato', fontsize=8)")
                 code_lines.append("        plt.show()")
                 code_lines.append("")
             else:
-                # Bar chart for all numeric columns
+                # Bar chart for all numeric columns using matplotlib
                 code_lines.append("# Plot: Distribution of numeric values")
-                code_lines.append("plt.figure(figsize=(12, 6))")
+                code_lines.append("fig, ax = plt.subplots(figsize=(12, 6))")
                 if len(numeric_cols) > 0:
-                    cols_str = ", ".join([f"'{c}'" for c in numeric_cols])
-                    code_lines.append(f"df[[{cols_str}]].plot(kind='bar')")
-                code_lines.append("plt.title('Numeric Values Distribution')")
-                code_lines.append("plt.xticks(rotation=45)")
+                    # Use UNHCR primary blue for bars
+                    code_lines.append("colors = ['#0072BC'] * len(numeric_cols)")
+                    code_lines.append(f"ax.bar(range(len(numeric_cols)), [df[c].sum() for c in numeric_cols], color=colors)")
+                    code_lines.append(f"ax.set_xticks(range(len(numeric_cols)))")
+                    code_lines.append(f"ax.set_xticklabels(numeric_cols, rotation=45, ha='right')")
+                code_lines.append("ax.set_title('Numeric Values Distribution', fontfamily='Lato', fontsize=14)")
+                code_lines.append("ax.set_ylabel('Total', fontfamily='Lato')")
+                code_lines.append("ax.grid(True, alpha=0.3, axis='y')")
                 code_lines.append("plt.tight_layout()")
+                code_lines.append("plt.figtext(0.5, 0.01, 'Source: UNHCR Population Data | © UNHCR, the UN Refugee Agency', ha='center', fontfamily='Lato', fontsize=8)")
                 code_lines.append("plt.show()")
                 code_lines.append("")
         
