@@ -1215,11 +1215,11 @@ async def generate_comprehensive_quarto_analysis(
         metadata["visualization_description"] = viz_description if use_enhanced else data_viz_description
         
         # Add analysis metadata if available (from data_result)
-        if stats_data:
-            quarto_metadata["statistics"] = stats_data
-        if guardrails_data:
-            quarto_metadata["guardrails"] = guardrails_data
-        # Note: visualization_structure, visualization_description, stats_data, guardrails_data
+        if data_stats:
+            quarto_metadata["statistics"] = data_stats
+        if data_guardrails:
+            quarto_metadata["guardrails"] = data_guardrails
+        # Note: visualization_structure, visualization_description, data_stats, data_guardrails
         # are extracted from data_result above and used in the conditional block above
         
         # Generate the Quarto notebook with pre-rendering enabled

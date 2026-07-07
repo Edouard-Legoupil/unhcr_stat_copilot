@@ -305,7 +305,7 @@ def _escape_jinja(text: str | list | Any) -> str:
     if text is None:
         return ""
     text_str = _extract_text_from_message(text) if not isinstance(text, str) else text
-    return text_str.replace('{{', '\\{{').replace('}}', '\\}}').replace('{%', '\\{%').replace('%}', '\\%}')
+    return text_str.replace('{{', r'\{{').replace('}}', r'\}}').replace('{%', r'\{%').replace('%}', r'\%}')
 
 
 def _quote_yaml(text: str) -> str:
