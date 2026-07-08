@@ -464,29 +464,22 @@ async def run_tool_directly(
 
 async def generate_story(
     result: dict,
-    question: str
+    question: str,
+    audience: str = "internal",
+    document_type: str = "executive_summary"
 ):
 
     try:
 
-        visualization_data = {
-            "data": result
-        }
-
         return await call_tool(
-            "generate_ai_data_story",
+            "generate_analytical_story",
             {
-                "visualization_data":
-                    visualization_data,
-
-                "context":
-                    question,
-
-                "story_type":
-                    "executive",
-
-                "apply_guardrails":
-                    True
+                "data": result,
+                "question": question,
+                "audience": audience,
+                "document_type": document_type,
+                "use_rag": True,
+                "apply_guardrails": True
             }
         )
 
@@ -699,6 +692,23 @@ async def get_data_for_story(
     
     # Extract parameters from question to auto-complete missing arguments
     extracted_params = await extract_question_parameters(question)
+    
+    # Convert origin/destination to coo/coa for API compatibility
+    # and handle lists of countries
+    if 'origin' in extracted_params:
+        origin = extracted_params.pop('origin')
+        if origin:
+            if isinstance(origin, list):
+                extracted_params['coo'] = ','.join(origin)
+            else:
+                extracted_params['coo'] = origin
+    if 'destination' in extracted_params:
+        destination = extracted_params.pop('destination')
+        if destination:
+            if isinstance(destination, list):
+                extracted_params['coa'] = ','.join(destination)
+            else:
+                extracted_params['coa'] = destination
     
     # Merge extracted parameters into arguments
     # This ensures country, timespan, etc. are properly extracted from the question

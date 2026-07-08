@@ -65,10 +65,17 @@ async def get_data_for_story_tool(
             population_types = [population_type]
         
         # Use extracted parameters if not provided
+        # Handle both 'coo'/'coa' and 'origin'/'destination' keys
         if coo is None:
-            coo = extracted_params.get('coo')
+            coo = extracted_params.get('coo') or extracted_params.get('origin')
         if coa is None:
-            coa = extracted_params.get('coa')
+            coa = extracted_params.get('coa') or extracted_params.get('destination')
+        
+        # Handle list of countries by joining with comma
+        if isinstance(coo, list):
+            coo = ','.join(coo)
+        if isinstance(coa, list):
+            coa = ','.join(coa)
         if year is None:
             year = extracted_params.get('year')
         if timespan and year is None and years is None:

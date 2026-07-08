@@ -42,7 +42,7 @@ async def full_analysis_workflow_tool(
     This is the highest-level workflow that orchestrates all steps of the analysis:
     1. Question classification and tool selection (safe_tool_selection)
     2. Data retrieval and enrichment (get_data_for_story)
-    3. Story generation (generate_analytical_story or generate_ai_data_story with RAG)
+    3. Story generation (generate_analytical_story with unified RAG support)
     4. Quarto notebook creation (create_quarto_notebook)
     
     Args:
@@ -103,6 +103,12 @@ async def full_analysis_workflow_tool(
         final_destination = destination or extracted_params.get("destination")
         final_topic = topic or extracted_params.get("topic")
         final_timespan = timespan or extracted_params.get("timespan")
+        
+        # Handle list of countries by joining with comma
+        if isinstance(final_origin, list):
+            final_origin = ','.join(final_origin)
+        if isinstance(final_destination, list):
+            final_destination = ','.join(final_destination)
         
         # Merge with any additional parameters
         data_params = {
@@ -174,76 +180,50 @@ async def full_analysis_workflow_tool(
         logger.info(f"Step 3/4: Generating story for: {question[:100]}")
         step_3_start = datetime.now()
         
-        # Try RAG-enriched story generation if requested and retriever is available
-        if use_rag and rag_retriever:
-            try:
-                from backend.mcp.tools.generate_ai_data_story import generate_ai_data_story_tool
-                
-                # Prepare visualization data for AI story
-                viz_data = {
-                    "data": data_result,
-                    "question": question,
-                    "metadata": {
-                        "audience": audience or "internal",
-                        "document_type": document_type or "long_read"
-                    }
-                }
-                
-                story_result = await generate_ai_data_story_tool(
-                    visualization_data=viz_data,
-                    context=question,
-                    story_type="analytical",
-                    max_tokens=1000,
-                    apply_guardrails=True,
-                    use_report_context=True,
-                    rag_retriever=rag_retriever,
-                    rag_top_k=5,
-                    rag_fetch_k=20
-                )
-                
-                if story_result and isinstance(story_result, dict) and story_result.get("status") == "success":
-                    # RAG story generation succeeded
-                    logger.info("RAG-enriched story generation successful")
-                else:
-                    # Fallback to template-based story
-                    logger.info("RAG story generation failed, falling back to template-based")
-                    story_result = await generate_analytical_story_tool(
-                        result=data_result,
-                        data=data_result,
-                        question=question,
-                        audience=audience or "internal",
-                        document_type=document_type or "long_read",
-                        analysis_config={
-                            "tone": style or "formal",
-                            "document_type": document_type
-                        } if document_type else None
-                    )
-            except Exception as e:
-                logger.warning(f"RAG story generation failed: {e}, falling back to template-based")
-                story_result = await generate_analytical_story_tool(
-                    result=data_result,
-                    data=data_result,
-                    question=question,
-                    audience=audience or "internal",
-                    document_type=document_type or "long_read",
-                    analysis_config={
-                        "tone": style or "formal",
-                        "document_type": document_type
-                    } if document_type else None
-                )
-        else:
-            # Use template-based story generation
-            story_result = await generate_analytical_story_tool(
-                result=data_result,
-                data=data_result,
-                question=question,
-                audience=audience or "internal",
-                document_type=document_type or "long_read",
-                analysis_config={
-                    "tone": style or "formal",
+        # Use unified story generator with RAG support
+        # Build full analysis_config with defaults based on document_type
+        full_analysis_config = analysis_config
+        if document_type and not analysis_config:
+            doc_configs = {
+                "long_read": {
+                    "tone": style or "analytical, narrative, engaging",
+                    "length": {"wordRange": "1200-3000", "readingTime": "6-15 min", "density": "medium-high"},
+                    "structure": ["introduction", "context", "key findings", "deep dive analysis", "implications", "conclusion"],
                     "document_type": document_type
-                } if document_type else None
-            )
+                },
+                "technical_report": {
+                    "tone": style or "formal",
+                    "length": {"wordRange": "2000-5000", "readingTime": "10-20 min", "density": "high"},
+                    "structure": ["abstract", "introduction", "methodology", "results", "discussion", "conclusion", "references"],
+                    "document_type": document_type
+                },
+                "executive_summary": {
+                    "tone": style or "concise, action-oriented",
+                    "length": {"wordRange": "500-1500", "readingTime": "3-8 min", "density": "medium"},
+                    "structure": ["executive summary", "key findings", "recommendations", "appendix"],
+                    "document_type": document_type
+                }
+            }
+            full_analysis_config = doc_configs.get(document_type.lower(), {
+                "tone": style or "formal",
+                "document_type": document_type
+            })
+        
+        # Generate story using unified tool with RAG enabled by default
+        story_result = await generate_analytical_story_tool(
+            result=data_result,
+            data=data_result,
+            question=question,
+            audience=audience or "internal",
+            document_type=document_type or "long_read",
+            analysis_config=full_analysis_config,
+            use_rag=use_rag,
+            rag_retriever=rag_retriever if use_rag else None,
+            rag_top_k=5,
+            rag_fetch_k=20,
+            rag_rerank=False,
+            context=question
+        )
         
         step_3_end = datetime.now()
         workflow_sequence.append({

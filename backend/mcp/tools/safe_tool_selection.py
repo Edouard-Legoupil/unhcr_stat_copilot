@@ -190,10 +190,19 @@ async def safe_tool_selection_tool(question: str) -> dict[str, Any]:
             arguments = {}
             
             # Build arguments from extracted parameters
+            # Handle both 'origin'/'destination' and 'coo'/'coa' keys
             if extracted_params.get('coo'):
-                arguments['coo'] = extracted_params['coo']
+                coo = extracted_params['coo']
+                arguments['coo'] = ','.join(coo) if isinstance(coo, list) else coo
+            elif extracted_params.get('origin'):
+                origin = extracted_params['origin']
+                arguments['coo'] = ','.join(origin) if isinstance(origin, list) else origin
             if extracted_params.get('coa'):
-                arguments['coa'] = extracted_params['coa']
+                coa = extracted_params['coa']
+                arguments['coa'] = ','.join(coa) if isinstance(coa, list) else coa
+            elif extracted_params.get('destination'):
+                destination = extracted_params['destination']
+                arguments['coa'] = ','.join(destination) if isinstance(destination, list) else destination
             if extracted_params.get('year'):
                 arguments['year'] = extracted_params['year']
             if extracted_params.get('timespan'):
@@ -259,10 +268,25 @@ def _build_arguments_for_tool(
     arguments: dict[str, Any] = {}
     
     # Common arguments for most tools
+    # Handle both 'origin'/'destination' and 'coo'/'coa' keys
     if extracted_params.get('coo'):
         arguments['coo'] = extracted_params['coo']
+    elif extracted_params.get('origin'):
+        origin = extracted_params['origin']
+        # Handle list of origins by joining with comma
+        if isinstance(origin, list):
+            arguments['coo'] = ','.join(origin)
+        else:
+            arguments['coo'] = origin
     if extracted_params.get('coa'):
         arguments['coa'] = extracted_params['coa']
+    elif extracted_params.get('destination'):
+        destination = extracted_params['destination']
+        # Handle list of destinations by joining with comma
+        if isinstance(destination, list):
+            arguments['coa'] = ','.join(destination)
+        else:
+            arguments['coa'] = destination
     
     # Handle year/timespan
     if extracted_params.get('year'):

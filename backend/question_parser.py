@@ -5,7 +5,7 @@ timespan, and other parameters from natural language questions.
 """
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ COUNTRY_MAPPING = {
     'azerbaijan': 'AZE', 'azeri': 'AZE',
 }
 
-async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
+async def extract_question_parameters(question: str) -> Dict[str, Optional[Union[str, List[str]]]]:
     """
     Extract metadata parameters from a user question.
     
@@ -163,8 +163,8 @@ async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]
         
     Returns:
         Dictionary containing extracted parameters:
-        - origin: Country of origin (ISO3 code)
-        - destination: Country of asylum (ISO3 code) 
+        - origin: Country of origin (ISO3 code) or list of ISO3 codes for comparisons
+        - destination: Country of asylum (ISO3 code) or list of ISO3 codes
         - timespan: Time period (years or range)
         - topic: Main topic/subject
         - population_type: Type of population (validated against VALID_POPULATION_TYPES)
@@ -236,7 +236,7 @@ async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]
     return params
 
 
-async def _extract_countries_llm_first(question: str) -> Dict[str, Optional[str]]:
+async def _extract_countries_llm_first(question: str) -> Dict[str, Optional[Union[str, List[str]]]]:
     """
     Extract countries using LLM as primary method with regex fallback.
     
@@ -263,7 +263,7 @@ async def _extract_countries_llm_first(question: str) -> Dict[str, Optional[str]
     question_lower = question.lower()
     return _extract_countries_regex(question_lower)
 
-def extract_countries_from_question(question: str) -> Dict[str, Optional[str]]:
+def extract_countries_from_question(question: str) -> Dict[str, Optional[Union[str, List[str]]]]:
     """
     Extract origin and destination countries from question text.
     
@@ -376,34 +376,76 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
     
     # Handle the ambiguous case: "refugees from [Country]" with no other country
     # "refugees from X" means refugees whose origin is X (COO)
+    # Also handle comparison questions like "from X and Y" or "from X, Y"
     if not countries['destination'] and not countries['origin']:
-        # Try to find "from <country>" where country is a valid country name
+        # First, try to find "from <country>" where country is a valid country name
         # Try multi-word country names first (2-3 words)
         from_multiword = r'from\s+(\w+(?:\s+\w+){1,2})'
-        matches = re.finditer(from_multiword, question)
+        matches = list(re.finditer(from_multiword, question))
         
-        for match in matches:
-            country_name = match.group(1).strip()
+        if matches:
+            # Check if there's an "and" or "," connecting multiple countries
+            # Look for patterns like "from X and Y" or "from X, Y"
+            from_and_pattern = r'from\s+([\w\s]+?)\s+(?:and|,)\s+([\w\s]+)'
+            and_match = re.search(from_and_pattern, question)
+            
+            if and_match:
+                # Found a comparison pattern: "from X and Y" or "from X, Y"
+                country1_name = and_match.group(1).strip()
+                country2_name = and_match.group(2).strip()
+                
+                iso3_code1 = lookup_country_iso3(country1_name)
+                iso3_code2 = lookup_country_iso3(country2_name)
+                
+                if iso3_code1 and iso3_code2:
+                    # Return both countries as a list in origin
+                    countries['origin'] = [iso3_code1, iso3_code2]
+                    return countries
+                elif iso3_code1:
+                    countries['origin'] = iso3_code1
+                    return countries
+                elif iso3_code2:
+                    countries['origin'] = iso3_code2
+                    return countries
+            
+            # If no "and" pattern, use the first match
+            country_name = matches[0].group(1).strip()
             iso3_code = lookup_country_iso3(country_name)
             if iso3_code:
                 countries['origin'] = iso3_code
                 return countries
-        else:
-            # If no multi-word country found, try single word
-            from_singleword = r'from\s+(\w+)'
-            matches = re.findall(from_singleword, question)
-            
+        
+        # If no multi-word country found, try single word
+        from_singleword = r'from\s+(\w+)'
+        matches = re.findall(from_singleword, question)
+        
+        if len(matches) > 1:
+            # Multiple single-word countries found, check if they're valid
+            valid_countries = []
             for match in matches:
                 country_name = match.strip()
                 iso3_code = lookup_country_iso3(country_name)
                 if iso3_code:
-                    countries['origin'] = iso3_code
-                    return countries
+                    valid_countries.append(iso3_code)
+            
+            if valid_countries:
+                if len(valid_countries) == 1:
+                    countries['origin'] = valid_countries[0]
+                else:
+                    countries['origin'] = valid_countries
+                return countries
+        
+        for match in matches:
+            country_name = match.strip()
+            iso3_code = lookup_country_iso3(country_name)
+            if iso3_code:
+                countries['origin'] = iso3_code
+                return countries
     
     return countries
 
 
-async def _extract_countries_llm(question: str) -> Dict[str, Optional[str]]:
+async def _extract_countries_llm(question: str) -> Dict[str, Optional[Union[str, List[str]]]]:
     """
     LLM-based country extraction for ambiguous cases.
     
@@ -433,6 +475,9 @@ Guidelines:
 - "refugees from X" means refugees whose origin is X (COO), not refugees located in X
 - When only one country is mentioned with "refugees from X", treat X as COO (origin)
 - When two countries are mentioned with "from X in/to Y", X is COO and Y is COA
+- For comparison questions like "Compare X and Y" or "X and Y", return both as a list
+- If multiple origins, return as a JSON array: ["FRA", "GBR"]
+- If multiple destinations, return as a JSON array: ["FRA", "GBR"]
 
 Examples:
 - "refugees from Syria in Germany" -> COO: SYR, COA: DEU
@@ -441,11 +486,13 @@ Examples:
 - "refugees from Afghanistan to Pakistan" -> COO: AFG, COA: PAK
 - "displaced people fleeing Ukraine" -> COO: UKR, COA: null
 - "migrants arriving in Lebanon from Syria" -> COO: SYR, COA: LBN
+- "Compare refugees from France and the UK" -> COO: ["FRA", "GBR"], COA: null
+- "refugees from Syria, Afghanistan, and Iraq" -> COO: ["SYR", "AFG", "IRQ"], COA: null
 
 Return ONLY a JSON object with this exact format:
 {
-    "coo": "SYR" or null,
-    "coa": "TUR" or null
+    "coo": "SYR" or ["SYR", "AFG"] or null,
+    "coa": "TUR" or ["TUR", "DEU"] or null
 }
 
 Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
