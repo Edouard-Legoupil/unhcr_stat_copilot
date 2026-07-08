@@ -22,6 +22,14 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+# Configure file-based logging for persistence
+from backend.mcp.observability.logging import configure_logging
+configure_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    log_file="logs/unhcr_stat_copilot.log"
+)
+
 logger = logging.getLogger(__name__)
 
 # Use the existing backend app as the main application

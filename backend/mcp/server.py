@@ -39,6 +39,14 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+# Configure file-based logging for persistence
+from backend.mcp.observability.logging import configure_logging
+configure_logging(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    log_file="logs/unhcr_mcp_server.log"
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +86,6 @@ def create_server() -> FastMCP:
         extract_visualization_structure_tool,
         analyze_data_statistics_tool,
         generate_visualization_description_tool,
-        generate_ai_data_story_tool,
         get_usage_guidance_tool,
         get_suggested_questions_tool,
         apply_analysis_guardrails_tool,
@@ -318,34 +325,7 @@ def create_server() -> FastMCP:
             structure, statistics, description_type, max_length, focus_areas
         )
 
-    @server.tool(
-        name="generate_ai_data_story",
-        description=(
-            "Generate a complete AI data story from visualization data, optionally enriched "
-            "with relevant context retrieved from local UNHCR statistical reports."
-        ),
-    )
-    async def generate_ai_data_story_wrapper(
-        visualization_data: dict[str, Any],
-        context: str | None = None,
-        story_type: str = "analytical",
-        max_tokens: int = 500,
-        apply_guardrails: bool = True,
-        use_report_context: bool = True,
-        rag_top_k: int = DEFAULT_RAG_TOP_K,
-        rag_fetch_k: int = DEFAULT_RAG_FETCH_K,
-        rag_rerank: bool = False,
-        rag_year: str | None = None,
-        rag_report_type: str | None = None,
-        rag_section_contains: str | None = None,
-        rag_exclude_figures_tables: bool = False
-    ) -> dict[str, Any]:
-        return await generate_ai_data_story_tool(
-            rag_retriever, visualization_data, context, story_type, max_tokens,
-            apply_guardrails, use_report_context, rag_top_k, rag_fetch_k,
-            rag_rerank, rag_year, rag_report_type, rag_section_contains,
-            rag_exclude_figures_tables
-        )
+
 
     @server.tool(
         name="get_usage_guidance",
@@ -462,7 +442,8 @@ def create_server() -> FastMCP:
     @server.tool(
         name="generate_analytical_story",
         description=(
-            "Generate analytical stories and narratives from UNHCR data. "
+            "Generate analytical stories and narratives from UNHCR data, optionally enriched "
+            "with relevant context retrieved from local UNHCR statistical reports. "
             "Use this tool when asked to create reports, stories, or narratives based on data analysis."
         ),
     )
@@ -473,9 +454,34 @@ def create_server() -> FastMCP:
         audience: str | None = None,
         document_type: str | None = None,
         analysis_config: dict | None = None,
+        # RAG parameters - enabled by default
+        use_rag: bool = True,
+        rag_top_k: int = DEFAULT_RAG_TOP_K,
+        rag_fetch_k: int = DEFAULT_RAG_FETCH_K,
+        rag_rerank: bool = False,
+        rag_year: str | None = None,
+        rag_report_type: str | None = None,
+        rag_section_contains: str | None = None,
+        rag_exclude_figures_tables: bool = False,
+        context: str | None = None,
     ) -> dict[str, Any]:
         return await generate_analytical_story_tool(
-            result, data, question, audience, document_type, analysis_config
+            result=result,
+            data=data,
+            question=question,
+            audience=audience,
+            document_type=document_type,
+            analysis_config=analysis_config,
+            use_rag=use_rag,
+            rag_retriever=rag_retriever if use_rag else None,
+            rag_top_k=rag_top_k,
+            rag_fetch_k=rag_fetch_k,
+            rag_rerank=rag_rerank,
+            rag_year=rag_year,
+            rag_report_type=rag_report_type,
+            rag_section_contains=rag_section_contains,
+            rag_exclude_figures_tables=rag_exclude_figures_tables,
+            context=context,
         )
 
     @server.tool(
