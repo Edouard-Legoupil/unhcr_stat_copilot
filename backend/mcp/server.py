@@ -41,11 +41,18 @@ logging.basicConfig(
 )
 
 # Configure file-based logging for persistence
+# Log configuration is controlled by environment variables:
+# - MCP_LOG_FILE: Path to MCP log file (set in start.sh/boot.sh)
+# - LOG_LEVEL: Log level (default: INFO)
+# - LOG_ENABLED: Enable/disable file logging (default: true)
 from backend.mcp.observability.logging import configure_logging
-configure_logging(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    log_file="logs/unhcr_mcp_server.log"
-)
+
+log_enabled = os.getenv("LOG_ENABLED", "true").lower() == "true"
+if log_enabled:
+    configure_logging(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        log_file=os.getenv("MCP_LOG_FILE", "logs/unhcr_mcp_server.log")
+    )
 
 logger = logging.getLogger(__name__)
 

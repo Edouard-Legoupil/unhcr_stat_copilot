@@ -77,6 +77,24 @@ echo ""
 # Set MCP_SERVER_URL to internal container endpoint
 export MCP_SERVER_URL="http://localhost:${BIND_PORT}/mcp/"
 
+# Configure logging for Azure environment
+# Logs will be written to /home/logs/ directory (Azure App Service)
+export LOG_ENABLED=true
+export LOG_LEVEL=INFO
+export LOG_FILE=/home/logs/unhcr_stat_copilot.log
+export MCP_LOG_FILE=/home/logs/unhcr_mcp_server.log
+export METRICS_FILE_ENABLED=true
+export METRICS_FILE_PATH=/home/metrics/prometheus.metrics
+
+# Create log and metrics directories if they don't exist
+mkdir -p /home/logs /home/metrics
+
+echo "Azure Logging configuration:"
+echo "  - Backend logs: ${LOG_FILE}"
+echo "  - MCP logs: ${MCP_LOG_FILE}"
+echo "  - Metrics: ${METRICS_FILE_PATH}"
+echo ""
+
 # -------------------------
 # Python Configuration
 # -------------------------

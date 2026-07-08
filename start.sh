@@ -27,6 +27,24 @@ echo ""
 echo "Preparing backend..."
 echo ""
 
+# Configure logging for local development
+# Logs will be written to the logs/ directory
+export LOG_ENABLED=true
+export LOG_LEVEL=INFO
+export LOG_FILE=logs/unhcr_stat_copilot.log
+export MCP_LOG_FILE=logs/unhcr_mcp_server.log
+export METRICS_FILE_ENABLED=true
+export METRICS_FILE_PATH=metrics/prometheus.metrics
+
+# Create log and metrics directories if they don't exist
+mkdir -p logs metrics
+
+echo "Logging configuration:"
+echo "  - Backend logs: ${LOG_FILE}"
+echo "  - MCP logs: ${MCP_LOG_FILE}"
+echo "  - Metrics: ${METRICS_FILE_PATH}"
+echo ""
+
 cd "${BACKEND_DIR}"
 
 if [ ! -d ".venv" ]; then
