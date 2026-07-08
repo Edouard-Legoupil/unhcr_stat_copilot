@@ -711,13 +711,30 @@ async def generate_story_from_data(
         
         user_prompt = f"User Question: {question}\n\nUNHCR API Data:\n{data_str}\n\nPlease write a detailed analytical story based on this data."
 
+        # Calculate max_output_tokens based on length_config if available
+        max_tokens = 1500  # Default
+        if length_config:
+            word_range = length_config.get("wordRange", "1200-3000")
+            if word_range:
+                # Extract the upper bound from the range (e.g., "1200-3000" -> 3000)
+                if '-' in word_range:
+                    try:
+                        upper_bound = int(word_range.split('-')[1].strip())
+                        # Estimate tokens: 1 word ≈ 1.3 tokens (conservative estimate)
+                        max_tokens = int(upper_bound * 1.5)  # Add buffer for markdown formatting
+                        # Cap at reasonable maximum to prevent excessive token usage
+                        max_tokens = min(max_tokens, 8000)
+                        max_tokens = max(max_tokens, 1500)  # Minimum
+                    except (ValueError, IndexError):
+                        pass
+
         response = await client.chat.completions.create(
             model=AZURE_OPENAI_DEPLOYMENT,
             input=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_output_tokens=1500
+            max_output_tokens=max_tokens
         )
         
         return response.choices[0].message.content
