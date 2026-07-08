@@ -37,6 +37,12 @@ OPENAI_API_VERSION = os.getenv(
     "2024-10-21"
 )
 
+# Azure OpenAI API timeout in seconds (default: 120s for long story generation)
+AZURE_OPENAI_TIMEOUT = float(os.getenv("AZURE_OPENAI_TIMEOUT_SECONDS", "120"))
+
+# Maximum number of retry attempts for Azure OpenAI API calls
+AZURE_OPENAI_MAX_RETRIES = int(os.getenv("AZURE_OPENAI_MAX_RETRIES", "3"))
+
 # Azure OpenAI client is REQUIRED - fail if not configured
 if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_API_KEY:
     raise RuntimeError(
@@ -138,13 +144,13 @@ class AzureOpenAIResponsesClient:
             if value is not None:
                 payload[key] = value
         
-        # Retry with exponential backoff - max 3 retries
-        max_retries = 3
+        # Retry with exponential backoff
+        max_retries = AZURE_OPENAI_MAX_RETRIES
         base_delay = 1.0  # seconds
         
         for attempt in range(max_retries):
             try:
-                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                async with httpx.AsyncClient(timeout=AZURE_OPENAI_TIMEOUT) as http_client:
                     response = await http_client.post(url, headers=headers, json=payload)
                     response.raise_for_status()
                     response_data = response.json()
