@@ -86,8 +86,11 @@ COPY --from=frontend-builder /app/dist /app/frontend/dist
 RUN mkdir -p /app/log /app/data /app/uploads /app/generated \
     && chmod -R 755 /app/log /app/data /app/uploads /app/generated
 
-# Copy the knowledge files (if any) for your app
-#COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
+# ------------------------------------------------
+# Copy vector store database and markdown reports
+# ------------------------------------------------
+RUN mkdir -p /app/data/vector_store /app/data/markdown_reports
+COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
 
 # ------------------------------------------------
 # Expose the container port
