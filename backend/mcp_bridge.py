@@ -10,9 +10,28 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 # Configuration from environment variables
-MCP_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp/")
 MCP_TIMEOUT = int(os.getenv("MCP_TIMEOUT_SECONDS", "30"))
 MCP_MAX_RETRIES = int(os.getenv("MCP_MAX_RETRIES", "3"))
+
+
+def get_mcp_server_url() -> str:
+    """
+    Get the MCP server URL, preferring internal container address when in Azure.
+    Falls back to MCP_SERVER_URL env var if explicitly set (for external MCP servers).
+    """
+    # Check if we're in a container with a specific port
+    port = os.getenv("WEBSITES_PORT") or os.getenv("PORT", "8000")
+    
+    # Use explicit MCP_SERVER_URL if set (for external MCP servers or overrides)
+    explicit_url = os.getenv("MCP_SERVER_URL")
+    if explicit_url:
+        return explicit_url
+    
+    # Default to internal container endpoint
+    return f"http://localhost:{port}/mcp/"
+
+
+MCP_URL = get_mcp_server_url()
 
 logger = logging.getLogger(__name__)
 

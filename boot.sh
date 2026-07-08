@@ -74,6 +74,9 @@ echo ""
 echo "✅ Final binding: 0.0.0.0:${BIND_PORT}"
 echo ""
 
+# Set MCP_SERVER_URL to internal container endpoint
+export MCP_SERVER_URL="http://localhost:${BIND_PORT}/mcp/"
+
 # -------------------------
 # Python Configuration
 # -------------------------
