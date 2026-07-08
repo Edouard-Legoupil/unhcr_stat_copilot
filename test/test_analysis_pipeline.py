@@ -190,11 +190,11 @@ async def test_pipeline_includes_visualization():
 
 # Mocked tests for LLM-based story generation
 @pytest.mark.asyncio
-@patch('backend.mcp.tools.analysis_pipeline.generate_ai_data_story_tool')
-async def test_pipeline_with_rag(mock_ai_story):
+@patch('backend.mcp.tools.generate_analytical_story.generate_analytical_story_tool')
+async def test_pipeline_with_rag(mock_analytical_story):
     """Test pipeline with RAG retriever (mocked)."""
-    mock_ai_story.return_value = {
-        "story": "Mocked AI story",
+    mock_analytical_story.return_value = {
+        "story": "Mocked analytical story with RAG",
         "status": "success"
     }
     
