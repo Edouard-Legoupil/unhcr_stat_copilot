@@ -1,6 +1,59 @@
 import { useState, useEffect } from "react";
 
 /**
+ * Helper function to safely set items in localStorage with quota management
+ */
+function safeSetItem(key, value) {
+    try {
+        const valueStr = JSON.stringify(value);
+        const estimatedSize = key.length + valueStr.length;
+        
+        // Check current usage
+        let totalSize = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            const v = localStorage.getItem(k);
+            totalSize += k.length + v.length;
+        }
+        
+        // Estimate available space (5MB is typical limit, use 4MB as safe threshold)
+        const MAX_STORAGE = 4 * 1024 * 1024; // 4MB
+        
+        if (totalSize + estimatedSize >= MAX_STORAGE) {
+            // Clean up old rating entries
+            const ratingKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('rating_')) {
+                    ratingKeys.push(k);
+                }
+            }
+            // Remove oldest ratings (keep only 50 most recent)
+            ratingKeys.sort().slice(0, -50).forEach(k => localStorage.removeItem(k));
+            
+            // Check again
+            totalSize = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                const v = localStorage.getItem(k);
+                totalSize += k.length + v.length;
+            }
+            
+            if (totalSize + estimatedSize >= MAX_STORAGE) {
+                throw new Error("Storage quota exceeded. Please clear your browser cache.");
+            }
+        }
+        
+        localStorage.setItem(key, valueStr);
+        return true;
+    } catch (e) {
+        console.error(`Failed to set localStorage item '${key}':`, e);
+        // Don't fail the rating submission, just log the error
+        return false;
+    }
+}
+
+/**
  * RatingComponent - Five-star rating component for analyses
  * Allows users to rate an analysis with 1-5 stars
  * Shows feedback textarea when rating is less than 4 stars
@@ -107,11 +160,11 @@ export default function RatingComponent({ analysisId, onRatingSubmitted }) {
             }
             
             // Save to local storage to prevent multiple ratings
-            localStorage.setItem(`rating_${analysisId}`, JSON.stringify({
+            safeSetItem(`rating_${analysisId}`, {
                 rating: rating,
                 feedback: feedback,
                 timestamp: new Date().toISOString()
-            }));
+            });
 
             setSubmitted(true);
             setExistingRating(rating);

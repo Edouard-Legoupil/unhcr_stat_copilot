@@ -12,6 +12,104 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import ErrorPanel from "./components/ErrorPanel";
 import AboutSection from "./components/AboutSection";
 
+// ============================================================================
+// LocalStorage Utilities with Quota Management
+// ============================================================================
+
+/**
+ * Check if localStorage has enough space for a new item
+ * Returns true if there's space, false if quota would be exceeded
+ */
+function hasStorageSpace(newItemSize = 1024) {
+    try {
+        // Check current usage
+        let totalSize = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            totalSize += key.length + value.length;
+        }
+        
+        // Estimate available space (5MB is typical limit, use 4MB as safe threshold)
+        const MAX_STORAGE = 4 * 1024 * 1024; // 4MB
+        return totalSize + newItemSize < MAX_STORAGE;
+    } catch (e) {
+        // If we can't check (e.g., in private mode), assume we have space
+        console.warn("Could not check localStorage quota:", e);
+        return true;
+    }
+}
+
+/**
+ * Clean up old analysis entries from localStorage
+ * Keeps only the most recent N analyses
+ */
+function cleanupOldAnalyses(maxToKeep = 50) {
+    try {
+        const analysisKeys = [];
+        
+        // Find all analysis_* keys
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('analysis_')) {
+                analysisKeys.push({
+                    key: key,
+                    // Extract timestamp from the ID if available, or use lastModified
+                    timestamp: localStorage.getItem(key) ? new Date().getTime() : 0
+                });
+            }
+        }
+        
+        // Sort by key (assuming newer ones have higher IDs)
+        analysisKeys.sort((a, b) => a.key.localeCompare(b.key));
+        
+        // Remove oldest entries if we have more than maxToKeep
+        while (analysisKeys.length > maxToKeep) {
+            const oldest = analysisKeys.shift();
+            localStorage.removeItem(oldest.key);
+        }
+        
+        return analysisKeys.length;
+    } catch (e) {
+        console.warn("Could not clean up old analyses:", e);
+        return 0;
+    }
+}
+
+/**
+ * Safely set an item in localStorage with quota management
+ * If quota is exceeded, cleans up old items first
+ */
+function safeSetItem(key, value) {
+    try {
+        const valueStr = JSON.stringify(value);
+        const estimatedSize = key.length + valueStr.length;
+        
+        // Check if we have space
+        if (!hasStorageSpace(estimatedSize)) {
+            // Try to clean up old analyses
+            cleanupOldAnalyses(30); // Keep only 30 most recent
+            
+            // Check again
+            if (!hasStorageSpace(estimatedSize)) {
+                // Still no space - try more aggressive cleanup
+                cleanupOldAnalyses(10); // Keep only 10 most recent
+                
+                if (!hasStorageSpace(estimatedSize)) {
+                    console.error("localStorage quota exceeded even after cleanup");
+                    throw new Error("Storage quota exceeded. Please clear your browser cache.");
+                }
+            }
+        }
+        
+        localStorage.setItem(key, valueStr);
+        return true;
+    } catch (e) {
+        console.error(`Failed to set localStorage item '${key}':`, e);
+        throw e;
+    }
+}
+
 // Helper function to get URL parameters
 function getUrlAnalysisId() {
     const params = new URLSearchParams(window.location.search);
@@ -68,7 +166,7 @@ export default function App() {
 
             if (data.status === "success") {
                 // Cache the history in local storage for offline use
-                localStorage.setItem("analysisHistory", JSON.stringify(data.analyses));
+                safeSetItem("analysisHistory", data.analyses);
                 setPreviousAnalyses(data.analyses);
                 return data.analyses;
             }
@@ -316,29 +414,50 @@ export default function App() {
                 );
             }
 
-            setResponse(json);
-
             // Cache the full analysis in local storage
             if (json.id) {
-                localStorage.setItem(`analysis_${json.id}`, JSON.stringify(json));
+                safeSetItem(`analysis_${json.id}`, json);
             }
+
+            // For Quarto analyses, wait for HTML rendering to complete before setting response and switching mode
+            if (json.analysis_type?.startsWith('quarto') && json.id) {
+                try {
+                    // Add a timeout to prevent hanging indefinitely
+                    const renderController = new AbortController();
+                    const timeoutId = setTimeout(() => renderController.abort(), 30000); // 30 second timeout
+                    
+                    const renderRes = await fetch(`/quarto/${json.id}/rendered`, {
+                        signal: renderController.signal
+                    });
+                    clearTimeout(timeoutId);
+                    
+                    if (!renderRes.ok) {
+                        throw new Error(`Render endpoint returned ${renderRes.status}`);
+                    }
+                    const htmlContent = await renderRes.text();
+                    // Update the response with rendered HTML before setting state
+                    json.quarto_rendered_html = htmlContent;
+                    json.rendered = true;
+                    // Also update local storage with the HTML
+                    if (json.id) {
+                        safeSetItem(`analysis_${json.id}`, json);
+                    }
+                } catch (renderErr) {
+                    clearTimeout(timeoutId);
+                    console.warn('HTML rendering check failed or timed out, will use raw .qmd:', renderErr);
+                    // If rendering fails, fall back to raw .qmd
+                    if (!json.quarto_rendered_html && json.quarto_content) {
+                        json.quarto_rendered_html = json.quarto_content;
+                        json.rendered = false;
+                    }
+                }
+            }
+
+            setResponse(json);
 
             // Switch to content mode and update history
             setMode("content");
             await fetchPreviousAnalyses();
-
-            // Wait for server-side HTML rendering to complete before hiding spinner
-            if (json.analysis_type?.startsWith('quarto') && json.id) {
-                try {
-                    const renderRes = await fetch(`/quarto/${json.id}/rendered`);
-                    if (!renderRes.ok) {
-                        throw new Error(`Render endpoint returned ${renderRes.status}`);
-                    }
-                    await renderRes.text();
-                } catch (renderErr) {
-                    console.warn('HTML rendering check failed:', renderErr);
-                }
-            }
 
         } catch (err) {
 
