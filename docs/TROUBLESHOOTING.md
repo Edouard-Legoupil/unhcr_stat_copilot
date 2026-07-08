@@ -91,31 +91,25 @@ curl -X POST http://localhost:8080/mcp \
 
 #### For Azure Deployment
 
-This is a **known issue** that has been **fixed in the latest commit**. The error occurs because Azure's health check sends a POST request to `/mcp`, but the MCP endpoint was only configured for POST requests through the mount, not direct access.
+This was a **previous attempted fix** that has been **reverted** because it caused JSON-RPC parsing errors. The health check endpoints at `/mcp` were returning plain JSON instead of JSON-RPC format, which broke MCP clients.
 
-**Fix Applied**:
-```python
-# In backend/app.py
-@app.post("/mcp", include_in_schema=False)
-async def mcp_health_check():
-    """Health check for /mcp endpoint to prevent 405 errors from Azure health checks."""
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
+**Current Solution**: The `/mcp` health check endpoints have been removed. Requests to `/mcp` are now automatically redirected to `/mcp/` where the FastMCP server handles them properly.
 
-@app.get("/mcp", include_in_schema=False)
-async def mcp_health_check_get():
-    """Health check for /mcp endpoint to prevent 404 errors."""
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-```
+**Important**: For Azure deployments, configure health checks to use `/health` instead of `/mcp`.
+
+**For Azure App Service**: 
+- Set the health check path to `/health` in your App Service configuration
+- Or set `WEBSITE_HEALTHCHECK_PATH=/health` environment variable
 
 **Verification**:
 ```bash
-# Test GET request
-curl http://localhost:8080/mcp
-# Should return: {"status": "ok", "message": "MCP endpoint active", ...}
+# Test GET request - should redirect to /mcp/
+curl -i http://localhost:8080/mcp
+# Should return: 307 Temporary Redirect to /mcp/
 
-# Test POST request
-curl -X POST http://localhost:8080/mcp -H "Content-Type: application/json" -d '{}'
-# Should return: {"status": "ok", "message": "MCP endpoint active", ...}
+# Test health check endpoint
+curl http://localhost:8080/health
+# Should return: {"status": "healthy", ...}
 ```
 
 #### For Other Cases
@@ -1058,26 +1052,19 @@ async def health():
 
 This is the **most common Azure deployment issue** and has been **fixed in the latest commit**.
 
-**Problem**: Azure sends POST requests to `/mcp` for health checks, but only GET was supported.
+**Problem**: Azure sends POST requests to `/mcp` for health checks, but this causes conflicts with MCP protocol.
 
-**Fix Applied**:
+**Fix Applied**: The `/mcp` health check endpoints have been **removed**. 
 
-```python
-# In backend/app.py
-@app.post("/mcp", include_in_schema=False)
-async def mcp_health_check():
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-
-@app.get("/mcp", include_in_schema=False)
-async def mcp_health_check_get():
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-```
+**Important**: Azure health checks should be configured to use `/health` instead of `/mcp`.
 
 **Verification**:
 ```bash
-# Test both GET and POST to /mcp
-curl https://unhcr-stat-copilot.azurewebsites.net/mcp
-curl -X POST https://unhcr-stat-copilot.azurewebsites.net/mcp
+# Test health check endpoint
+curl https://unhcr-stat-copilot.azurewebsites.net/health
+
+# Test MCP endpoint (should redirect to /mcp/)
+curl -i https://unhcr-stat-copilot.azurewebsites.net/mcp
 ```
 
 ### Issue: Azure Deployment Times Out
@@ -1190,55 +1177,32 @@ az webapp config container set \
   --docker-registry-server-password <password>
 ```
 
-### Issue: Azure "405 Method Not Allowed" on POST to `/mcp`
+### Issue: Azure "405 Method Not Allowed" or JSON-RPC Parsing Errors on `/mcp`
 
-**Problem**: Azure logs show: `HTTP Request: POST https://.../mcp "HTTP/1.1 405 Method Not Allowed"`
+**Problem**: Azure logs show: `HTTP Request: POST https://.../mcp "HTTP/1.1 405 Method Not Allowed"` or MCP clients fail with JSON-RPC validation errors.
 
-**Root Cause**: This is the **most common Azure deployment issue** and occurs because:
-1. Azure's health check sends POST requests to `/mcp`
-2. The MCP server mount was configured to only handle POST requests through the FastAPI router
-3. There was a conflict between the mount and direct endpoint
+**Root Cause**: There was a conflict between:
+1. Direct `/mcp` endpoints that returned plain JSON for health checks
+2. The FastMCP mount at `/mcp` that expected JSON-RPC protocol
 
-**Fix Applied in Latest Commit**:
+The direct endpoints were intercepting requests and returning non-JSON-RPC responses, which broke MCP clients.
 
-```python
-# In backend/app.py
+**Fix Applied in Latest Commit**: The `/mcp` health check endpoints have been **removed** to avoid conflicts. Requests to `/mcp` are now automatically redirected to `/mcp/` where the FastMCP server handles them properly.
 
-# Add explicit health check endpoints for /mcp
-@app.post("/mcp", include_in_schema=False)
-async def mcp_health_check():
-    """Health check for /mcp endpoint to prevent 405 errors from Azure health checks."""
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-
-@app.get("/mcp", include_in_schema=False)
-async def mcp_health_check_get():
-    """Health check for /mcp endpoint to prevent 404 errors."""
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-
-# The MCP server is mounted separately
-from starlette.routing import Mount
-app.routes.append(Mount("/mcp", mcp_app))
-```
-
-**This fix ensures that both GET and POST requests to `/mcp` are handled properly.**
+**Important**: Azure health checks should be configured to use `/health` instead of `/mcp`.
 
 **Verification for Azure**:
 ```bash
-# Test GET request
-curl https://unhcr-stat-copilot.azurewebsites.net/mcp
-# Should return: {"status": "ok", "message": "MCP endpoint active", ...}
+# Test health check endpoint (use this for Azure health checks)
+curl https://unhcr-stat-copilot.azurewebsites.net/health
+# Should return: {"status": "healthy", ...}
 
-# Test POST request (what Azure sends for health checks)
-curl -X POST https://unhcr-stat-copilot.azurewebsites.net/mcp \
-  -H "Content-Type: application/json" \
-  -d '{}'
-# Should return: {"status": "ok", "message": "MCP endpoint active", ...}
+# Test MCP endpoint (should redirect to /mcp/)
+curl -i https://unhcr-stat-copilot.azurewebsites.net/mcp
+# Should return: 307 Temporary Redirect to /mcp/
 
-# Test actual MCP tool execution
-curl -X POST https://unhcr-stat-copilot.azurewebsites.net/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"tool": "get_usage_guidance", "arguments": {}}'
-# Should return tool result
+# Test actual MCP tool execution (requires MCP client)
+# MCP clients will follow the redirect and work properly
 ```
 
 ### Issue: Azure WEBSITES_PORT Configuration

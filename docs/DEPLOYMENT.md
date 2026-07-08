@@ -758,7 +758,9 @@ The application provides multiple health check endpoints:
 |----------|--------|-------------|
 | `/health` | GET | Comprehensive health check |
 | `/` | GET | API root with service info |
-| `/mcp` | GET/POST | MCP endpoint health check |
+| `/mcp` | GET/POST | MCP protocol endpoint (redirects to `/mcp/`) |
+
+**Note**: For health checks, use `/health` instead of `/mcp`. The `/mcp` endpoint is for MCP protocol communication.
 
 ### Azure Health Probes
 
@@ -1118,28 +1120,26 @@ steps:
 
 #### Issue: "405 Method Not Allowed" on `/mcp`
 
-**Cause**: Azure health check is sending POST requests to `/mcp`, but the MCP endpoint only accepts POST. However, there might be a mount conflict.
+**Cause**: Azure health check is sending POST requests to `/mcp`, but the MCP endpoint only accepts POST through the FastMCP mount. There might be a mount conflict with direct routes at `/mcp`.
 
-**Solution**: This has been **fixed in the latest commit** by adding explicit health check endpoints:
+**Solution**: The health check endpoints at `/mcp` have been **removed** to avoid conflicts with the FastMCP mount. Requests to `/mcp` are now automatically redirected to `/mcp/` where the FastMCP server handles them.
 
-```python
-# In backend/app.py
-@app.post("/mcp", include_in_schema=False)
-async def mcp_health_check():
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
+**Important**: Azure health checks should be configured to use `/health` instead of `/mcp`. The `/health` endpoint returns a proper health status response.
 
-@app.get("/mcp", include_in_schema=False)
-async def mcp_health_check_get():
-    return {"status": "ok", "message": "MCP endpoint active", "mcp_protocol": "/mcp/"}
-```
+**For Azure App Service**: 
+- Set the health check path to `/health` in your App Service configuration
+- Or set `WEBSITE_HEALTHCHECK_PATH=/health` environment variable
 
 **Verification**:
 ```bash
-# Test GET request
-curl http://localhost:8080/mcp
+# Test GET request - should redirect to /mcp/
+curl -i http://localhost:8080/mcp
 
-# Test POST request
-curl -X POST http://localhost:8080/mcp -H "Content-Type: application/json" -d '{"tool": "get_usage_guidance", "arguments": {}}'
+# Test health check endpoint
+curl http://localhost:8080/health
+
+# Test MCP protocol (requires proper MCP client)
+# The MCP client will follow the redirect from /mcp to /mcp/
 ```
 
 #### Issue: FastAPI Docs Not Loading
