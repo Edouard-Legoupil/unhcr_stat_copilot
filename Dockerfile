@@ -28,6 +28,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     net-tools \
     util-linux \
     build-essential \
+    # Install fonts for matplotlib (Lato is required by unhcrpyplotstyle)
+    fonts-lato \
+    fonts-dejavu \
+    fonts-liberation \
+    fontconfig \
     && wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.9.38/quarto-1.9.38-linux-amd64.deb \
     && apt-get update \
     && apt-get install -y ./quarto-1.9.38-linux-amd64.deb \
@@ -58,7 +63,9 @@ COPY backend/requirements.txt backend/
 
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir uvicorn fastapi gunicorn \
-    && pip install --no-cache-dir -r backend/requirements.txt
+    && pip install --no-cache-dir -r backend/requirements.txt \
+    # Rebuild matplotlib font cache to pick up newly installed fonts
+    && python -c "import matplotlib.font_manager; matplotlib.font_manager._rebuild()"
 
 # ------------------------------------------------
 # Copy backend source code
