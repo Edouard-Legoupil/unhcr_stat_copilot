@@ -32,7 +32,6 @@ from backend.mcp.tools.get_demographic_breakdown import get_demographic_breakdow
 from backend.mcp.tools.extract_visualization_structure import extract_visualization_structure_tool
 from backend.mcp.tools.analyze_data_statistics import analyze_data_statistics_tool
 from backend.mcp.tools.generate_visualization_description import generate_visualization_description_tool
-from backend.mcp.tools.generate_ai_data_story import generate_ai_data_story_tool
 from backend.mcp.tools.get_usage_guidance import get_usage_guidance_tool
 from backend.mcp.tools.get_suggested_questions import get_suggested_questions_tool
 from backend.mcp.tools.apply_analysis_guardrails import apply_analysis_guardrails_tool
@@ -68,7 +67,6 @@ __all__ = [
     'extract_visualization_structure_tool',
     'analyze_data_statistics_tool',
     'generate_visualization_description_tool',
-    'generate_ai_data_story_tool',
     'get_usage_guidance_tool',
     'get_suggested_questions_tool',
     'apply_analysis_guardrails_tool',

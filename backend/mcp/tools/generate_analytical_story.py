@@ -1,6 +1,10 @@
 """
 Tool: generate_analytical_story
-Generate analytical stories and narratives from UNHCR data.
+Generate analytical stories and narratives from UNHCR data with optional RAG enrichment.
+
+This is the unified story generation tool that combines the functionality of both
+generate_analytical_story and generate_ai_data_story, with RAG support enabled by default
+and graceful fallback logging.
 """
 
 import json
@@ -18,12 +22,28 @@ async def generate_analytical_story_tool(
     audience: Optional[str] = None,
     document_type: Optional[str] = None,
     analysis_config: Optional[dict] = None,
+    # RAG parameters - enabled by default with graceful fallback
+    use_rag: bool = True,
+    rag_retriever: Any = None,
+    rag_top_k: int = 5,
+    rag_fetch_k: int = 20,
+    rag_rerank: bool = False,
+    rag_year: Optional[str] = None,
+    rag_report_type: Optional[str] = None,
+    rag_section_contains: Optional[str] = None,
+    rag_exclude_figures_tables: bool = False,
+    # Additional parameters for backwards compatibility with generate_ai_data_story
+    context: Optional[str] = None,
+    story_type: str = "analytical",
+    max_tokens: int = 500,
+    apply_guardrails: bool = True,
 ) -> dict[str, Any]:
     """
-    Generate analytical stories from data results.
+    Generate analytical stories from data results with optional RAG enrichment.
     
     Uses either LLM-based story generation (if Azure OpenAI is configured)
-    or a fallback template-based approach.
+    or a fallback template-based approach. RAG is attempted by default when
+    rag_retriever is available, with graceful fallback and logging.
     
     Args:
         result: Data result from previous analysis
@@ -32,13 +52,32 @@ async def generate_analytical_story_tool(
         audience: Target audience for the analysis
         document_type: Type of document being generated
         analysis_config: Analysis configuration
+        use_rag: Whether to attempt RAG-enriched generation (default: True)
+        rag_retriever: Optional UNHCRVectorRetriever instance for RAG enrichment
+        rag_top_k: Number of top results to retrieve
+        rag_fetch_k: Number of results to fetch before re-ranking
+        rag_rerank: Whether to use re-ranking
+        rag_year: Filter RAG results by year
+        rag_report_type: Filter RAG results by report type
+        rag_section_contains: Filter RAG results by section content
+        rag_exclude_figures_tables: Exclude figures and tables from RAG results
+        context: Additional context for story generation (backwards compat)
+        story_type: Type of story to generate
+        max_tokens: Maximum tokens for LLM generation
+        apply_guardrails: Whether to apply UNHCR methodology guardrails
     
     Returns:
-        Dictionary containing the generated story and metadata
+        Dictionary containing the generated story, metadata, and fallback information
     """
+    # Track attempt history for observability
+    attempt_history = []
+    
     # Extract parameters - use result if provided, otherwise data
     if result is None:
         result = data
+    
+    # Use context if provided, otherwise question
+    generation_context = context or question
     
     # Extract analysis configuration if available
     tone = None
@@ -50,31 +89,140 @@ async def generate_analytical_story_tool(
         structure = analysis_config.get("structure")
     
     try:
-        # Try LLM-based story generation first
         story_content = None
-        try:
-            # Import inside try block to handle import-time errors
-            from backend.llm import generate_story_from_data
-            story_content = await generate_story_from_data(
-                question, result, 
-                audience=audience, 
-                document_type=document_type,
-                tone=tone,
-                length_config=length_config,
-                structure=structure
-            )
-        except Exception as e:
-            logger.debug(f"LLM story generation failed: {e}, falling back to template-based approach")
-            # Fallback to template-based story generation
-            story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
+        
+        # Attempt 1: RAG-enriched LLM generation (if enabled and retriever available)
+        if use_rag and rag_retriever is not None:
+            attempt_history.append({
+                "attempt": 1,
+                "method": "rag_llm",
+                "timestamp": datetime.now().isoformat(),
+                "status": "attempting"
+            })
+            try:
+                from backend.llm import generate_story_from_data
+                from backend.mcp.common import summarize_retrieved_context_for_story
+                
+                # Retrieve RAG context
+                rag_query = rag_retriever.formulate_query(
+                    user_request=generation_context,
+                    data_summary=json.dumps(result, default=str)[:500] if result else None
+                )
+                
+                retrieved_chunks = rag_retriever.retrieve(
+                    query=rag_query,
+                    top_k=rag_top_k,
+                    fetch_k=rag_fetch_k,
+                    year=rag_year,
+                    report_type=rag_report_type,
+                    section_contains=rag_section_contains,
+                    exclude_figures_tables=rag_exclude_figures_tables,
+                    rerank=rag_rerank
+                )
+                
+                # Summarize retrieved context for LLM
+                rag_context = ""
+                if retrieved_chunks:
+                    chunk_texts = [chunk.text for chunk in retrieved_chunks]
+                    rag_context = summarize_retrieved_context_for_story(
+                        "\n\n".join(chunk_texts)
+                    )
+                
+                # Prepare enriched prompt with RAG context
+                if rag_context:
+                    # Create a version of the data that includes RAG context
+                    enriched_data = {
+                        **result,
+                        "rag_context": rag_context,
+                        "rag_chunks": len(retrieved_chunks)
+                    } if result else {"rag_context": rag_context}
+                    
+                    # Generate story with RAG-enriched data
+                    story_content = await generate_story_from_data(
+                        question=generation_context,
+                        data=enriched_data,
+                        audience=audience,
+                        document_type=document_type,
+                        tone=tone,
+                        length_config=length_config,
+                        structure=structure
+                    )
+                    
+                    attempt_history[-1]["status"] = "success"
+                    attempt_history[-1]["rag_chunks_retrieved"] = len(retrieved_chunks)
+                    
+                else:
+                    # RAG available but no chunks retrieved - try without RAG
+                    attempt_history[-1]["status"] = "no_rag_results"
+                    story_content = None
+                    
+            except Exception as e:
+                attempt_history[-1]["status"] = "failed"
+                attempt_history[-1]["error"] = str(e)
+                logger.warning(f"RAG-enriched LLM story generation failed: {e}")
+                story_content = None
+        
+        # Attempt 2: Standard LLM generation (without RAG)
+        if not story_content:
+            attempt_history.append({
+                "attempt": 2,
+                "method": "llm",
+                "timestamp": datetime.now().isoformat(),
+                "status": "attempting"
+            })
+            try:
+                from backend.llm import generate_story_from_data
+                story_content = await generate_story_from_data(
+                    question=generation_context,
+                    data=result,
+                    audience=audience,
+                    document_type=document_type,
+                    tone=tone,
+                    length_config=length_config,
+                    structure=structure
+                )
+                attempt_history[-1]["status"] = "success"
+            except Exception as e:
+                attempt_history[-1]["status"] = "failed"
+                attempt_history[-1]["error"] = str(e)
+                logger.warning(f"Standard LLM story generation failed: {e}")
+                story_content = None
+        
+        # Attempt 3: Template-based generation
+        if not story_content:
+            attempt_history.append({
+                "attempt": 3,
+                "method": "template",
+                "timestamp": datetime.now().isoformat(),
+                "status": "attempting"
+            })
+            try:
+                story_content = _generate_story_from_template(
+                    question=generation_context,
+                    result=result,
+                    audience=audience,
+                    document_type=document_type,
+                    analysis_config=analysis_config
+                )
+                attempt_history[-1]["status"] = "success"
+            except Exception as e:
+                attempt_history[-1]["status"] = "failed"
+                attempt_history[-1]["error"] = str(e)
+                logger.warning(f"Template story generation failed: {e}")
+                story_content = None
         
         if not story_content:
-            # If somehow we still don't have content, use template
-            story_content = _generate_story_from_template(question, result, audience, document_type, analysis_config)
+            # Final fallback - minimal story
+            story_content = f"# Analysis: {generation_context}\n\nNo story could be generated. Please check the data and try again."
+            attempt_history.append({
+                "attempt": 4,
+                "method": "minimal_fallback",
+                "timestamp": datetime.now().isoformat(),
+                "status": "success"
+            })
         
-        # Generate a better title from the question
-        # Remove "Generate an analysis of" or similar prefixes
-        clean_question = question
+        # Generate a better title from the question/context
+        clean_question = generation_context
         for prefix in ["Generate an analysis of ", "Generate analysis of ", "Analyze ", "Analysis of ", "Generate ", "Create "]:
             if clean_question.startswith(prefix):
                 clean_question = clean_question[len(prefix):]
@@ -108,22 +256,34 @@ async def generate_analytical_story_tool(
         return {
             "title": title,
             "story": story_content,
-            "story_type": "analytical",
+            "story_type": story_type,
             "metadata": {
                 "source": "UNHCR AI Story Generation",
-                "question": question,
+                "question": generation_context,
                 "data_type": result.get("data_type", "unknown") if result else "unknown",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "generation_method": attempt_history[-1]["method"] if attempt_history else "unknown",
+                "fallback_history": attempt_history,
+                "rag_enabled": use_rag,
+                "rag_available": rag_retriever is not None,
+                "rag_used": any(a.get("method") == "rag_llm" and a.get("status") == "success" for a in attempt_history),
             },
-            "status": "success"
+            "status": "success",
+            "warnings": [
+                a for a in attempt_history if a.get("status") == "failed"
+            ] if any(a.get("status") == "failed" for a in attempt_history) else None,
         }
     except Exception as e:
         logger.exception(f"Failed to generate analytical story: {e}")
         return {
             "error": f"Failed to generate analytical story: {str(e)}",
             "status": "error",
-            "question": question,
-            "data_summary": str(result)[:200] if result else "No data"
+            "question": generation_context,
+            "data_summary": str(result)[:200] if result else "No data",
+            "metadata": {
+                "fallback_history": attempt_history,
+                "timestamp": datetime.now().isoformat()
+            }
         }
 
 
@@ -258,7 +418,7 @@ def _generate_section_content(
         audience: Target audience
         document_type: Document type
         analysis_config: Analysis configuration
-        
+    
     Returns:
         Content for the section
     """
@@ -441,7 +601,7 @@ def _generate_section_content(
                                 years = [str(item.get(year_cols[0])) for item in items if item.get(year_cols[0])]
                                 if years:
                                     content_lines.append(f"Time range: {min(years)} to {max(years)}")
-                                    
+                            
                             # Analyze trends for numeric fields
                             numeric_fields = []
                             for key, value in items[0].items():

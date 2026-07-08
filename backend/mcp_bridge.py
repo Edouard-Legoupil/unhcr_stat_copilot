@@ -189,25 +189,7 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "focus_areas": list
         }
     },
-    "generate_ai_data_story": {
-        "required": ["visualization_data"],
-        "optional": ["context", "story_type", "max_tokens", "apply_guardrails", "use_report_context", "rag_top_k", "rag_fetch_k", "rag_rerank", "rag_year", "rag_report_type", "rag_section_contains", "rag_exclude_figures_tables"],
-        "types": {
-            "visualization_data": dict,
-            "context": str,
-            "story_type": str,
-            "max_tokens": int,
-            "apply_guardrails": bool,
-            "use_report_context": bool,
-            "rag_top_k": int,
-            "rag_fetch_k": int,
-            "rag_rerank": bool,
-            "rag_year": str,
-            "rag_report_type": str,
-            "rag_section_contains": str,
-            "rag_exclude_figures_tables": bool
-        }
-    },
+
     "get_usage_guidance": {
         "required": [],
         "optional": ["tool_category", "specific_tool"],
@@ -279,14 +261,26 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "generate_analytical_story": {
         "required": [],
-        "optional": ["result", "data", "question", "audience", "document_type", "analysis_config"],
+        "optional": ["result", "data", "question", "audience", "document_type", "analysis_config", "use_rag", "rag_top_k", "rag_fetch_k", "rag_rerank", "rag_year", "rag_report_type", "rag_section_contains", "rag_exclude_figures_tables", "context", "story_type", "max_tokens", "apply_guardrails"],
         "types": {
             "result": dict,
             "data": dict,
             "question": str,
             "audience": str,
             "document_type": str,
-            "analysis_config": dict
+            "analysis_config": dict,
+            "use_rag": bool,
+            "rag_top_k": int,
+            "rag_fetch_k": int,
+            "rag_rerank": bool,
+            "rag_year": str,
+            "rag_report_type": str,
+            "rag_section_contains": str,
+            "rag_exclude_figures_tables": bool,
+            "context": str,
+            "story_type": str,
+            "max_tokens": int,
+            "apply_guardrails": bool
         }
     },
 }

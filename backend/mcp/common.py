@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Vector database configuration
 VECTOR_DB_PATH = os.getenv(
     "UNHCR_VECTOR_DB",
-    "data/vector_store/unhcr_reports.duckdb",
+    "/app/data/vector_store/unhcr_reports.duckdb",
 )
 
 DEFAULT_RAG_EMBED_MODEL = os.getenv(

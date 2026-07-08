@@ -10,6 +10,8 @@ and story generation.
 import logging
 from typing import Any, Optional
 
+from backend.mcp.common import DEFAULT_RAG_TOP_K, DEFAULT_RAG_FETCH_K
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +32,7 @@ async def run_enhanced_analysis_pipeline(
     - Compliance validation (apply_analysis_guardrails)
     - Visualization structure extraction (extract_visualization_structure)
     - Visualization description generation (generate_visualization_description)
-    - AI-powered story generation (generate_ai_data_story or generate_analytical_story)
+    - AI-powered story generation (generate_analytical_story with unified RAG support)
     
     Args:
         question: User's original question
@@ -197,33 +199,8 @@ async def run_enhanced_analysis_pipeline(
         'compliance_score': guardrails_result.get('compliance_percentage', 0) if guardrails_result else 0
     }
     
-    # Choose story generator based on configuration
-    if use_rag and rag_retriever:
-        # Use AI-powered story generation with RAG enrichment
-        try:
-            from backend.mcp.tools.generate_ai_data_story import generate_ai_data_story_tool
-            
-            story_result = await generate_ai_data_story_tool(
-                rag_retriever=rag_retriever,
-                visualization_data=enhanced_data,
-                context=question,
-                story_type='analytical',
-                apply_guardrails=analysis_config.get('apply_guardrails', True) if analysis_config else True,
-                use_report_context=True,
-                max_tokens=analysis_config.get('max_tokens', 500) if analysis_config else 500
-            )
-            
-            if story_result and isinstance(story_result, dict):
-                return {
-                    **story_result,
-                    'enhanced_data': enhanced_data,
-                    'pipeline_phases': ['statistics', 'guardrails', 'visualization', 'story'],
-                    'status': 'success'
-                }
-        except Exception as e:
-            logger.warning(f"AI data story generation failed: {e}, falling back to analytical story")
-    
-    # Fallback: Use template-based analytical story generator
+    # Use unified story generator with RAG support
+    # RAG is enabled by default (use_rag parameter) with graceful fallback
     try:
         from backend.mcp.tools.generate_analytical_story import generate_analytical_story_tool
         
@@ -233,7 +210,13 @@ async def run_enhanced_analysis_pipeline(
             question=question,
             audience=audience,
             document_type=document_type,
-            analysis_config=analysis_config
+            analysis_config=analysis_config,
+            use_rag=use_rag,
+            rag_retriever=rag_retriever if use_rag else None,
+            rag_top_k=DEFAULT_RAG_TOP_K if 'DEFAULT_RAG_TOP_K' in globals() else 5,
+            rag_fetch_k=DEFAULT_RAG_FETCH_K if 'DEFAULT_RAG_FETCH_K' in globals() else 20,
+            rag_rerank=False,
+            context=question
         )
         
         if story_result and isinstance(story_result, dict):
@@ -244,19 +227,12 @@ async def run_enhanced_analysis_pipeline(
                 'status': 'success'
             }
     except Exception as e:
-        logger.error(f"Analytical story generation failed: {e}")
+        logger.error(f"Story generation failed: {e}")
         return {
             'error': f'Story generation failed: {str(e)}',
             'status': 'error',
             'enhanced_data': enhanced_data
         }
-    
-    # Final fallback
-    return {
-        'error': 'No story generator available',
-        'status': 'error',
-        'enhanced_data': enhanced_data
-    }
 
 
 async def run_conditional_analysis_pipeline(

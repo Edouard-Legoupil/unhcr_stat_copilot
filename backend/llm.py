@@ -37,11 +37,11 @@ OPENAI_API_VERSION = os.getenv(
     "2024-10-21"
 )
 
-# Azure OpenAI API timeout in seconds (default: 120s for long story generation)
-AZURE_OPENAI_TIMEOUT = float(os.getenv("AZURE_OPENAI_TIMEOUT_SECONDS", "120"))
+# Azure OpenAI API timeout in seconds (default: 180s for long story generation)
+AZURE_OPENAI_TIMEOUT = float(os.getenv("AZURE_OPENAI_TIMEOUT_SECONDS", "180"))
 
 # Maximum number of retry attempts for Azure OpenAI API calls
-AZURE_OPENAI_MAX_RETRIES = int(os.getenv("AZURE_OPENAI_MAX_RETRIES", "3"))
+AZURE_OPENAI_MAX_RETRIES = int(os.getenv("AZURE_OPENAI_MAX_RETRIES", "4"))
 
 # Azure OpenAI client is REQUIRED - fail if not configured
 if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_API_KEY:

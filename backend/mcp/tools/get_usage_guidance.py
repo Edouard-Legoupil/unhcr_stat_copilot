@@ -31,7 +31,7 @@ def get_usage_guidance_tool(
             {'name': 'extract_visualization_structure', 'category': 'reporting', 'description': 'Extract visualization metadata'},
             {'name': 'analyze_data_statistics', 'category': 'analysis', 'description': 'Perform statistical analysis'},
             {'name': 'generate_visualization_description', 'category': 'reporting', 'description': 'Generate visualization descriptions'},
-            {'name': 'generate_ai_data_story', 'category': 'reporting', 'description': 'Generate data stories'},
+            {'name': 'generate_analytical_story', 'category': 'reporting', 'description': 'Generate analytical stories and data stories with optional RAG enrichment'},
             {'name': 'get_country_key_figures', 'category': 'data_retrieval', 'description': 'Get country-specific key figures'},
             {'name': 'get_population_trends', 'category': 'analysis', 'description': 'Get population trends over time'},
             {'name': 'get_demographic_breakdown', 'category': 'analysis', 'description': 'Get demographic breakdowns'},

@@ -73,8 +73,8 @@ def create_visualization_data(
     y_label: str = "Y Axis"
 ) -> dict[str, Any]:
     """
-    Helper function to create properly formatted visualization_data
-    for the generate_ai_data_story tool.
+    Helper function to create properly formatted data
+    for the generate_analytical_story tool.
     
     Args:
         data: The actual data to visualize
