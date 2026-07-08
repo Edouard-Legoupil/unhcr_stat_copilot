@@ -26,7 +26,7 @@ COUNTRY_MAPPING = {
     'france': 'FRA', 'french': 'FRA',
     'germany': 'DEU', 'german': 'DEU',
     'united states': 'USA', 'usa': 'USA', 'america': 'USA', 'us': 'USA',
-    'united kingdom': 'GBR', 'uk': 'GBR', 'britain': 'GBR',
+    'united kingdom': 'GBR', 'uk': 'GBR', 'britain': 'GBR', 'the uk': 'GBR', 'the uk ': 'GBR',
     'syria': 'SYR', 'syrian': 'SYR',
     'afghanistan': 'AFG', 'afghan': 'AFG',
     'ukraine': 'UKR', 'ukrainian': 'UKR',
@@ -354,9 +354,12 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
             country_name = match.group(1).strip()
             iso3_code = lookup_country_iso3(country_name)
             # Skip common non-country words
-            if iso3_code and country_name not in ['the', 'last', 'past', 'next']:
-                countries['destination'] = iso3_code
-                return countries
+            # Also check if the country name is too short or is a stop word
+            if iso3_code and country_name not in ['the', 'last', 'past', 'next', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'for']:
+                # Only accept if the country name has at least 3 characters (to avoid matching articles, prepositions, etc.)
+                if len(country_name) >= 3:
+                    countries['destination'] = iso3_code
+                    return countries
     
     # Origin patterns (only if no destination found)
     origin_patterns = [
@@ -385,14 +388,23 @@ def _extract_countries_regex(question: str) -> Dict[str, Optional[str]]:
         
         if matches:
             # Check if there's an "and" or "," connecting multiple countries
-            # Look for patterns like "from X and Y" or "from X, Y"
-            from_and_pattern = r'from\s+([\w\s]+?)\s+(?:and|,)\s+([\w\s]+)'
-            and_match = re.search(from_and_pattern, question)
+            # Look for patterns like "from X and Y" or "from X, Y" or "from X and the Y"
+            # Handle common articles like "the" in country names (e.g., "the UK")
+            # Use non-greedy matching and limit to reasonable country name length
+            from_and_pattern = r'from\s+([\w\s]+?)\s+(?:and|,)\s+(?:the\s+)?([\w\s]{1,20}?)(?:\s|$)'
+            and_match = re.search(from_and_pattern, question, re.IGNORECASE)
             
             if and_match:
                 # Found a comparison pattern: "from X and Y" or "from X, Y"
                 country1_name = and_match.group(1).strip()
                 country2_name = and_match.group(2).strip()
+                
+                # Clean up common prefixes/suffixes from country names
+                for prefix in ['the', 'a', 'an']:
+                    if country1_name.lower().startswith(prefix + ' '):
+                        country1_name = country1_name[len(prefix):].strip()
+                    if country2_name.lower().startswith(prefix + ' '):
+                        country2_name = country2_name[len(prefix):].strip()
                 
                 iso3_code1 = lookup_country_iso3(country1_name)
                 iso3_code2 = lookup_country_iso3(country2_name)
