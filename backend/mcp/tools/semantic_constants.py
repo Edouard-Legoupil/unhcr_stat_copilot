@@ -222,6 +222,91 @@ def is_valid_iso3_country_code(code: str | None) -> bool:
 
 
 # ============================================================================
+# FIELD LABEL MAPPING
+# ============================================================================
+# Mapping from technical field names to user-friendly labels for display
+
+FIELD_LABEL_MAPPING: Dict[str, str] = {
+    # Country/location fields
+    'coo': 'Country of Origin',
+    'coo_id': 'Origin ID',
+    'coo_name': 'Origin Country',
+    'coo_iso': 'Origin ISO Code',
+    'coa': 'Country of Asylum',
+    'coa_id': 'Asylum ID',
+    'coa_name': 'Asylum Country',
+    'coa_iso': 'Asylum ISO Code',
+    
+    # Population type fields
+    'refugees': 'Refugees',
+    'asylum_seekers': 'Asylum Seekers',
+    'idps': 'Internally Displaced Persons',
+    'stateless': 'Stateless Persons',
+    'returned_refugees': 'Returned Refugees',
+    'returned_idps': 'Returned IDPs',
+    'oip': 'Other People in Need of International Protection',
+    'ooc': 'Other Persons of Concern',
+    'returnees': 'Returnees',
+    'venezuelans_displaced_abroad': 'Venezuelans Displaced Abroad',
+    'other_people_in_need': 'Other People in Need',
+    
+    # Year/time fields
+    'year': 'Year',
+    'years': 'Years',
+    'timespan': 'Time Span',
+    
+    # Technical fields
+    'hst': 'Host',
+    
+    # Demographic fields (for demographics data)
+    'age': 'Age',
+    'sex': 'Sex',
+    'age_group': 'Age Group',
+    'sex_name': 'Gender',
+    
+    # Solutions fields
+    'resettled': 'Resettled',
+    'naturalized': 'Naturalized',
+    'idp_returned': 'IDP Returns',
+    
+    # RSD fields
+    'pending': 'Pending',
+    'approved': 'Approved',
+    'rejected': 'Rejected',
+    'withdrawn': 'Withdrawn',
+    'otherwise_closed': 'Otherwise Closed',
+}
+
+
+def get_field_label(field_name: str) -> str:
+    """
+    Get the user-friendly label for a technical field name.
+    
+    Args:
+        field_name: The technical field name
+        
+    Returns:
+        The user-friendly label, or the original field name if no mapping exists
+    """
+    if field_name is None:
+        return ''
+    
+    field_name_lower = field_name.lower().strip()
+    
+    # Check direct mapping
+    if field_name in FIELD_LABEL_MAPPING:
+        return FIELD_LABEL_MAPPING[field_name]
+    
+    # Check case-insensitive mapping
+    for key, label in FIELD_LABEL_MAPPING.items():
+        if key.lower() == field_name_lower:
+            return label
+    
+    # Return original field name with title case as fallback
+    return field_name.replace('_', ' ').title()
+
+
+# ============================================================================
 # SEMANTIC SAFEGUARD DECORATOR
 # ============================================================================
 

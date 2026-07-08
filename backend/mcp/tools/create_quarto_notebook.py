@@ -23,6 +23,49 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _get_field_label(field_name: str) -> str:
+    """
+    Get user-friendly label for a technical field name.
+    Local fallback implementation for when semantic_constants is not available.
+    """
+    if field_name is None:
+        return ''
+    
+    # Common field mappings
+    field_mapping = {
+        'coo': 'Country of Origin',
+        'coo_id': 'Origin ID',
+        'coo_name': 'Origin Country',
+        'coo_iso': 'Origin ISO Code',
+        'coa': 'Country of Asylum',
+        'coa_id': 'Asylum ID',
+        'coa_name': 'Asylum Country',
+        'coa_iso': 'Asylum ISO Code',
+        'refugees': 'Refugees',
+        'asylum_seekers': 'Asylum Seekers',
+        'idps': 'Internally Displaced Persons',
+        'stateless': 'Stateless Persons',
+        'returned_refugees': 'Returned Refugees',
+        'returned_idps': 'Returned IDPs',
+        'oip': 'Other People in Need',
+        'ooc': 'Other Persons of Concern',
+        'year': 'Year',
+        'hst': 'Host',
+    }
+    
+    # Try direct match
+    if field_name in field_mapping:
+        return field_mapping[field_name]
+    
+    # Try case-insensitive match
+    for key, label in field_mapping.items():
+        if key.lower() == field_name.lower():
+            return label
+    
+    # Fallback: convert snake_case to Title Case
+    return field_name.replace('_', ' ').title()
+
+
 def _extract_text_from_message(content: Any) -> str:
     """
     Extract text content from various message formats.
@@ -613,9 +656,11 @@ def _generate_data_visualization_code(
                 # Generate loop for each numeric column
                 for col in numeric_cols:
                     if col != year_col:
+                        # Use field label for the legend
+                        field_label = _get_field_label(col)
                         code_lines.append(f"        # Check if {col} has variation for plotting")
                         code_lines.append(f"        if is_numeric_column_valid(df, '{col}') and '{col}' in valid_numeric_cols:")
-                        code_lines.append(f"            ax.plot(df['{year_col}'], df['{col}'], label='{col}', marker='o')")
+                        code_lines.append(f"            ax.plot(df['{year_col}'], df['{col}'], label='{field_label}', marker='o')")
                         code_lines.append(f"            plotted_cols.append('{col}')")
                 
                 code_lines.append("        if len(plotted_cols) == 0:")

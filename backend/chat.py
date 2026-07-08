@@ -1030,17 +1030,20 @@ async def generate_comprehensive_quarto_analysis(
                     try:
                         items = data_result.get('items', [])
                         if items and isinstance(items[0], dict):
+                            # Import semantic validation helper
+                            from backend.mcp.tools.semantic_constants import is_identifier_field
+                            
                             # Detect numeric and categorical columns
                             numeric_cols = []
                             categorical_cols = []
                             for k, v in items[0].items():
                                 if isinstance(v, (int, float)):
-                                    # Skip ID-like columns
-                                    if not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'coo', 'coa']):
+                                    # Skip ID-like columns using semantic validation
+                                    if not is_identifier_field(k) and not any(skip in k.lower() for skip in ['iso', 'hst', 'ooc', 'oip']):
                                         numeric_cols.append(k)
                                 elif isinstance(v, str):
-                                    # Skip ID-like string columns
-                                    if not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'coo', 'coa', 'year']):
+                                    # Skip ID-like string columns using semantic validation
+                                    if not is_identifier_field(k) and not any(skip in k.lower() for skip in ['iso', 'year']):
                                         categorical_cols.append(k)
                             
                             statistics_result = await call_tool_directly(

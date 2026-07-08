@@ -112,6 +112,8 @@ async def get_data_for_story_tool(
         stats = None
         try:
             from backend.mcp.tools.analyze_data_statistics import analyze_data_statistics_tool
+            from backend.mcp.tools.semantic_constants import is_identifier_field
+            
             items = data.get('items', []) if isinstance(data, dict) else data if isinstance(data, list) else []
             if items and isinstance(items, list) and len(items) > 0:
                 # Extract numeric columns (exclude IDs and codes)
@@ -120,11 +122,16 @@ async def get_data_for_story_tool(
                     numeric_cols = [
                         k for k, v in first_item.items()
                         if isinstance(v, (int, float))
-                        and not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'hst', 'ooc', 'oip'])
+                        and not (is_identifier_field(k) or any(skip in k.lower() for skip in ['iso', 'hst', 'ooc', 'oip']))
                     ]
+                    
+                    # Extract categorical columns (exclude identifier fields)
+                    # Use semantic validation to exclude fields like coo_id, coa_id, etc.
                     categorical_cols = [
                         k for k, v in first_item.items()
-                        if isinstance(v, str) and any(cat in k.lower() for cat in ['year', 'coo', 'coa', 'name'])
+                        if isinstance(v, str) 
+                        and any(cat in k.lower() for cat in ['year', 'coo', 'coa', 'name'])
+                        and not is_identifier_field(k)  # Exclude identifier fields
                     ]
                     
                     if numeric_cols:

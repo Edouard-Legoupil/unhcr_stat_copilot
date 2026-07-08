@@ -74,19 +74,22 @@ async def run_enhanced_analysis_pipeline(
     stats_result = None
     try:
         from backend.mcp.tools.analyze_data_statistics import analyze_data_statistics_tool
+        from backend.mcp.tools.semantic_constants import is_identifier_field
         
         if items and isinstance(items, list) and len(items) > 0 and isinstance(items[0], dict):
             # Extract numeric columns (exclude IDs and codes)
             numeric_cols = [
                 k for k, v in items[0].items()
                 if isinstance(v, (int, float))
-                and not any(skip in k.lower() for skip in ['id', '_id', 'iso', 'hst', 'ooc', 'oip'])
+                and not (is_identifier_field(k) or any(skip in k.lower() for skip in ['iso', 'hst', 'ooc', 'oip']))
             ]
             
-            # Extract categorical columns
+            # Extract categorical columns (exclude identifier fields)
             categorical_cols = [
                 k for k, v in items[0].items()
-                if isinstance(v, str) and any(cat in k.lower() for cat in ['year', 'coo', 'coa', 'name'])
+                if isinstance(v, str) 
+                and any(cat in k.lower() for cat in ['year', 'coo', 'coa', 'name'])
+                and not is_identifier_field(k)  # Exclude identifier fields
             ]
             
             if numeric_cols:

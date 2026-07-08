@@ -11,9 +11,11 @@ from backend.mcp.tools.semantic_constants import (
     VALID_POPULATION_TYPES_SET,
     POPULATION_TYPE_DEFINITIONS,
     FORBIDDEN_IDENTIFIER_FIELDS,
+    FIELD_LABEL_MAPPING,
     is_valid_population_type,
     is_identifier_field,
     validate_population_type,
+    get_field_label,
     semantic_safeguard,
 )
 
@@ -47,9 +49,11 @@ __all__ = [
     'VALID_POPULATION_TYPES_SET',
     'POPULATION_TYPE_DEFINITIONS',
     'FORBIDDEN_IDENTIFIER_FIELDS',
+    'FIELD_LABEL_MAPPING',
     'is_valid_population_type',
     'is_identifier_field',
     'validate_population_type',
+    'get_field_label',
     'semantic_safeguard',
     # Tool functions
     'retrieve_report_context_tool',
