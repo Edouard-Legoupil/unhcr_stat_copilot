@@ -53,8 +53,8 @@ from tqdm import tqdm
 # Defaults
 # ---------------------------------------------------------------------
 
-DEFAULT_MARKDOWN_ROOT = Path("data/markdown_reports")
-DEFAULT_DB_PATH = Path("data/vector_store/unhcr_reports.duckdb")
+DEFAULT_MARKDOWN_ROOT = Path("/app/data/markdown_reports")
+DEFAULT_DB_PATH = Path("/app/data/vector_store/unhcr_reports.duckdb")
 DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
 DEFAULT_CHUNK_SIZE = 1_200
