@@ -533,6 +533,13 @@ def _generate_data_visualization_code(
     else:
         # Default to base UNHCR style
         code_lines.append("plt.style.use('unhcrpyplotstyle')")
+    
+    # Fix: Enable ticks which are disabled by unhcrpyplotstyle
+    # This prevents "ValueError: cannot convert float NaN to integer" during rendering
+    code_lines.append("plt.rcParams['xtick.bottom'] = True")
+    code_lines.append("plt.rcParams['xtick.labelbottom'] = True")
+    code_lines.append("plt.rcParams['ytick.left'] = True")
+    code_lines.append("plt.rcParams['ytick.labelleft'] = True")
     code_lines.append("")
     
     # Extract actual data from nested structures
