@@ -421,10 +421,11 @@ export default function App() {
 
             // For Quarto analyses, wait for HTML rendering to complete before setting response and switching mode
             if (json.analysis_type?.startsWith('quarto') && json.id) {
+                let timeoutId = null;
                 try {
                     // Add a timeout to prevent hanging indefinitely
                     const renderController = new AbortController();
-                    const timeoutId = setTimeout(() => renderController.abort(), 30000); // 30 second timeout
+                    timeoutId = setTimeout(() => renderController.abort(), 30000); // 30 second timeout
                     
                     const renderRes = await fetch(`/quarto/${json.id}/rendered`, {
                         signal: renderController.signal
@@ -443,7 +444,7 @@ export default function App() {
                         safeSetItem(`analysis_${json.id}`, json);
                     }
                 } catch (renderErr) {
-                    clearTimeout(timeoutId);
+                    if (timeoutId) clearTimeout(timeoutId);
                     console.warn('HTML rendering check failed or timed out, will use raw .qmd:', renderErr);
                     // If rendering fails, fall back to raw .qmd
                     if (!json.quarto_rendered_html && json.quarto_content) {

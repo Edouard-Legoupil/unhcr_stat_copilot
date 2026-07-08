@@ -31,9 +31,10 @@ export default function AnalysisRequestForm({
     
     // Check if backend is available
     const checkBackendAvailability = async () => {
+        let timeoutId = null;
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+            timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
             
             const response = await fetch('/health', {
                 method: 'GET',
@@ -44,6 +45,7 @@ export default function AnalysisRequestForm({
             });
             
             clearTimeout(timeoutId);
+            timeoutId = null;
             
             if (!response.ok) {
                 console.warn('Backend health check failed, using fallback document types');
@@ -58,6 +60,7 @@ export default function AnalysisRequestForm({
                 return false;
             }
         } catch (error) {
+            if (timeoutId) clearTimeout(timeoutId);
             console.warn('Backend not available, using fallback document types:', error.message);
             return false;
         }
@@ -89,12 +92,13 @@ export default function AnalysisRequestForm({
             if (!formData.audience) return;
             
             setIsLoadingConfig(true);
+            let timeoutId = null;
             try {
                 console.log(`Fetching document types for audience: ${formData.audience}`);
                 
                 // Add timeout for the request
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
                 
                 // Fetch the configuration for the selected audience
                 const response = await fetch(`/analysis-config/${formData.audience}`, {
@@ -102,6 +106,7 @@ export default function AnalysisRequestForm({
                 });
                 
                 clearTimeout(timeoutId);
+                timeoutId = null;
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -141,6 +146,7 @@ export default function AnalysisRequestForm({
                 }
                 
             } catch (error) {
+                if (timeoutId) clearTimeout(timeoutId);
                 console.error("Error fetching document types:", error);
                 
                 // Use audience-specific fallback document types based on the configuration
