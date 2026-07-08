@@ -90,7 +90,7 @@ RUN mkdir -p /app/log /app/data /app/uploads /app/generated \
 # Copy vector store database and markdown reports
 # ------------------------------------------------
 RUN mkdir -p /app/data/vector_store /app/data/markdown_reports
-COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
+#COPY ./data/vector_store/unhcr_reports.duckdb /app/data/vector_store/ 2>/dev/null || true
 
 # ------------------------------------------------
 # Expose the container port
