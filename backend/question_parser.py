@@ -10,6 +10,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import semantic constants for validation
+from backend.mcp.tools.semantic_constants import (
+    VALID_POPULATION_TYPES,
+    VALID_POPULATION_TYPES_SET,
+    FORBIDDEN_IDENTIFIER_FIELDS,
+    is_valid_population_type,
+    is_identifier_field,
+    validate_population_type,
+)
+
 # Country name to ISO3 code mapping (common countries)
 COUNTRY_MAPPING = {
     # Common country names and their ISO3 codes
@@ -138,18 +148,15 @@ COUNTRY_MAPPING = {
     'azerbaijan': 'AZE', 'azeri': 'AZE',
 }
 
-# Population types for UNHCR data
-POPULATION_TYPES = [
-    'refugees', 'asylum_seekers', 'idps', 'returnees', 'stateless',
-    'venezuelans_displaced_abroad', 'other_people_in_need'
-]
-
 async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]:
     """
     Extract metadata parameters from a user question.
     
     Uses LLM for accurate semantic understanding of country roles (origin vs destination),
     with regex fallback for simple cases.
+    
+    Includes semantic validation to prevent identifier fields (like coo_id) from being
+    misclassified as population types.
     
     Args:
         question: The user's question in natural language
@@ -160,7 +167,10 @@ async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]
         - destination: Country of asylum (ISO3 code) 
         - timespan: Time period (years or range)
         - topic: Main topic/subject
-        - population_type: Type of population
+        - population_type: Type of population (validated against VALID_POPULATION_TYPES)
+        
+    Raises:
+        ValueError: If a forbidden identifier field is detected as a population type
     """
     
     # Initialize with None values
@@ -175,11 +185,25 @@ async def extract_question_parameters(question: str) -> Dict[str, Optional[str]]
     # Convert to lowercase for case-insensitive matching
     question_lower = question.lower()
     
-    # Extract population type
-    for pop_type in POPULATION_TYPES:
+    # Extract population type using centralized constants
+    extracted_pop_type = None
+    for pop_type in VALID_POPULATION_TYPES:
         if pop_type in question_lower:
-            params['population_type'] = pop_type
+            extracted_pop_type = pop_type
             break
+    
+    # Validate the extracted population type
+    if extracted_pop_type:
+        # Check if it's actually an identifier field being misclassified
+        if is_identifier_field(extracted_pop_type):
+            logger.warning(
+                f"Semantic safeguard triggered: '{extracted_pop_type}' is an identifier field, "
+                f"not a valid population type. Question: {question[:100]}"
+            )
+            # Don't set population_type - leave as None
+            extracted_pop_type = None
+        else:
+            params['population_type'] = extracted_pop_type
     
     # If no specific population type found, default to refugees for refugee-related questions
     if not params['population_type'] and any(keyword in question_lower for keyword in ['refugee', 'asylum', 'displaced', 'migration']):
@@ -663,9 +687,14 @@ def auto_complete_parameters(
             # Try to get from population_type first, then default
             if not completed_params.get('population_types'):
                 if completed_params.get('population_type'):
-                    # Map single population_type to list
+                    # Validate and map single population_type to list
                     pop_type = completed_params['population_type']
-                    completed_params['population_types'] = [pop_type]
+                    if is_valid_population_type(pop_type):
+                        completed_params['population_types'] = [pop_type]
+                    else:
+                        # Invalid population type - use default
+                        logger.warning(f"Invalid population type '{pop_type}' in auto-complete, using default 'refugees'")
+                        completed_params['population_types'] = ['refugees']
                 else:
                     # Default to refugees if not specified
                     completed_params['population_types'] = ['refugees']

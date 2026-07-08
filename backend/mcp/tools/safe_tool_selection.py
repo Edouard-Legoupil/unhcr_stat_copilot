@@ -4,12 +4,73 @@ Safely select the appropriate tool for a given question.
 
 This implementation uses question parsing and keyword matching instead of
 calling back to llm.py which would create a circular dependency with the MCP server.
+
+Includes semantic safeguards to prevent identifier fields from being misused
+as population types or other semantic entities.
 """
 
 import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Import semantic constants for validation
+from backend.mcp.tools.semantic_constants import (
+    VALID_POPULATION_TYPES,
+    VALID_POPULATION_TYPES_SET,
+    FORBIDDEN_IDENTIFIER_FIELDS,
+    is_valid_population_type,
+    is_identifier_field,
+    validate_population_type,
+)
+
+
+def _validate_semantic_parameters(extracted_params: dict[str, Any]) -> dict[str, Any]:
+    """
+    Validate extracted parameters for semantic correctness.
+    
+    Prevents identifier fields (like coo_id) from being misused as population types
+    or other semantic entities.
+    
+    Args:
+        extracted_params: Dictionary of extracted parameters from the question
+        
+    Returns:
+        Dictionary with validation results and any corrections
+    """
+    validation_result = {
+        'valid': True,
+        'errors': [],
+        'warnings': [],
+        'corrections': {}
+    }
+    
+    # Check population_type
+    population_type = extracted_params.get('population_type')
+    if population_type:
+        is_valid, message = validate_population_type(population_type)
+        if not is_valid:
+            validation_result['valid'] = False
+            validation_result['errors'].append({
+                'parameter': 'population_type',
+                'value': population_type,
+                'message': message
+            })
+            # Correct by removing invalid population_type
+            validation_result['corrections']['population_type'] = None
+    
+    # Check if any extracted field is a forbidden identifier
+    for key, value in extracted_params.items():
+        if value and isinstance(value, str) and is_identifier_field(value):
+            # Check if this is being used as a semantic parameter (not as a field name)
+            if key not in ['coo', 'coa', 'year', 'timespan', 'origin', 'destination']:
+                validation_result['warnings'].append({
+                    'parameter': key,
+                    'value': value,
+                    'message': f"'{value}' appears to be a database identifier, not a semantic value"
+                })
+    
+    return validation_result
 
 
 # Tool selection keywords and patterns
@@ -75,6 +136,9 @@ async def safe_tool_selection_tool(question: str) -> dict[str, Any]:
     Uses keyword matching and question parsing to determine the best tool
     without requiring Azure OpenAI or creating circular dependencies.
     
+    Includes semantic validation to prevent identifier fields from being
+    misclassified as population types.
+    
     Args:
         question: The user question to analyze
     
@@ -87,6 +151,30 @@ async def safe_tool_selection_tool(question: str) -> dict[str, Any]:
         # 1. Extract parameters from the question
         from backend.question_parser import extract_question_parameters
         extracted_params = await extract_question_parameters(question)
+        
+        # 1.5. Validate semantic parameters (semantic safeguard)
+        validation_result = _validate_semantic_parameters(extracted_params)
+        
+        # If there are critical errors, return early with error
+        if not validation_result['valid'] and validation_result['errors']:
+            logger.warning(f"Semantic validation failed for question: {question[:100]}")
+            return {
+                "tool": None,
+                "error": "Semantic validation failed",
+                "validation_errors": validation_result['errors'],
+                "validation_warnings": validation_result['warnings'],
+                "question": question,
+                "status": "error"
+            }
+        
+        # Apply corrections from validation
+        for key, value in validation_result['corrections'].items():
+            extracted_params[key] = value
+        
+        # Log warnings
+        if validation_result['warnings']:
+            for warning in validation_result['warnings']:
+                logger.warning(f"Semantic warning: {warning['message']}")
         
         # 2. Score each tool based on keyword matches
         tool_scores: dict[str, int] = {}
@@ -202,18 +290,38 @@ def _build_arguments_for_tool(
         # Enable population type breakdown
         arguments['pop_type'] = True
         if extracted_params.get('population_type'):
-            arguments['population_type'] = extracted_params['population_type']
+            pop_type = extracted_params['population_type']
+            # Validate population type before adding to arguments
+            if is_valid_population_type(pop_type):
+                arguments['population_type'] = pop_type
+            else:
+                logger.warning(f"Invalid population type '{pop_type}' in tool arguments, omitting")
     
     if tool_name == "get_solutions":
         if extracted_params.get('population_type'):
             # Map to specific solution types
             pop_type = extracted_params['population_type']
-            if pop_type in ['returned_refugees', 'returned_idps']:
+            # Validate before adding
+            if is_valid_population_type(pop_type) and pop_type in ['returned_refugees', 'returned_idps']:
+                arguments['population_types'] = [pop_type]
+            elif is_valid_population_type(pop_type):
+                # For other valid types, include them if they make sense for solutions
                 arguments['population_types'] = [pop_type]
     
     if tool_name == "get_country_key_figures":
         if extracted_params.get('population_types'):
-            arguments['population_types'] = extracted_params['population_types']
+            # Validate all population types in the list
+            valid_types = []
+            for pop_type in extracted_params['population_types']:
+                if is_valid_population_type(pop_type):
+                    valid_types.append(pop_type)
+                else:
+                    logger.warning(f"Invalid population type '{pop_type}' in population_types list, omitting")
+            if valid_types:
+                arguments['population_types'] = valid_types
+            else:
+                # Default to all main population types if none are valid
+                arguments['population_types'] = ['refugees', 'asylum_seekers', 'idps', 'stateless']
         else:
             # Default to all main population types
             arguments['population_types'] = ['refugees', 'asylum_seekers', 'idps', 'stateless']

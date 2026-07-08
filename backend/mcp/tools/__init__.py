@@ -5,6 +5,18 @@ This package contains all the tool implementations for the UNHCR MCP server.
 Each tool is implemented in a separate module and exported here.
 """
 
+# Import semantic constants (for validation across tools)
+from backend.mcp.tools.semantic_constants import (
+    VALID_POPULATION_TYPES,
+    VALID_POPULATION_TYPES_SET,
+    POPULATION_TYPE_DEFINITIONS,
+    FORBIDDEN_IDENTIFIER_FIELDS,
+    is_valid_population_type,
+    is_identifier_field,
+    validate_population_type,
+    semantic_safeguard,
+)
+
 # Import all tool functions
 from backend.mcp.tools.retrieve_report_context import retrieve_report_context_tool
 from backend.mcp.tools.get_population_data import get_population_data_tool
@@ -30,6 +42,16 @@ from backend.mcp.tools.analysis_pipeline import run_enhanced_analysis_pipeline, 
 from backend.mcp.tools.workflows import full_analysis_workflow_tool, quick_analysis_tool, compare_analysis_tool
 
 __all__ = [
+    # Semantic constants for validation
+    'VALID_POPULATION_TYPES',
+    'VALID_POPULATION_TYPES_SET',
+    'POPULATION_TYPE_DEFINITIONS',
+    'FORBIDDEN_IDENTIFIER_FIELDS',
+    'is_valid_population_type',
+    'is_identifier_field',
+    'validate_population_type',
+    'semantic_safeguard',
+    # Tool functions
     'retrieve_report_context_tool',
     'get_population_data_tool',
     'get_demographics_data_tool',

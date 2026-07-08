@@ -5,6 +5,17 @@ Apply UNHCR methodology guardrails to ensure analyses follow international stand
 
 from typing import Any, Optional
 
+# Import semantic constants for centralized validation
+from backend.mcp.tools.semantic_constants import (
+    VALID_POPULATION_TYPES,
+    VALID_POPULATION_TYPES_SET,
+    POPULATION_TYPE_DEFINITIONS,
+    FORBIDDEN_IDENTIFIER_FIELDS,
+    is_valid_population_type,
+    is_identifier_field,
+    validate_population_type,
+)
+
 
 def apply_analysis_guardrails_tool(
     analysis_request: dict[str, Any],
@@ -76,31 +87,41 @@ def apply_analysis_guardrails_tool(
 
 
 def _check_population_definition_compliance(population_type: str) -> dict[str, Any]:
-    """Check if population type definitions comply with UNHCR standards."""
-    unhcr_population_types = {
-        'refugees': {'compliant': True, 'definition': 'Persons recognized as refugees under the 1951 Convention'},
-        'asylum_seekers': {'compliant': True, 'definition': 'Persons whose applications for asylum are pending'},
-        'idps': {'compliant': True, 'definition': 'Internally displaced persons'},
-        'stateless': {'compliant': True, 'definition': 'Persons not considered as nationals by any State'},
-        'returned_refugees': {'compliant': True, 'definition': 'Refugees who have voluntarily returned'},
-        'returned_idps': {'compliant': True, 'definition': 'IDPs who have returned to their areas of origin'},
-        'oip': {'compliant': True, 'definition': 'Other people in need of international protection'},
-        'ooc': {'compliant': True, 'definition': 'Other persons of concern'}
-    }
+    """
+    Check if population type definitions comply with UNHCR standards.
     
-    if population_type in unhcr_population_types:
+    This function now includes semantic safeguards to prevent identifier fields
+    (like coo_id) from being misclassified as population types.
+    """
+    # First, check if it's a forbidden identifier field
+    if is_identifier_field(population_type):
+        return {
+            'compliant': False,
+            'population_type': population_type,
+            'message': f'Population type "{population_type}" is a database identifier field, not a population type',
+            'recommendation': f'Use one of: {VALID_POPULATION_TYPES}',
+            'error_type': 'IDENTIFIER_FIELD_MISUSE',
+            'severity': 'CRITICAL'
+        }
+    
+    # Check against valid population types
+    if population_type and population_type.lower() in VALID_POPULATION_TYPES_SET:
+        # Use the canonical lowercase version for lookup
+        canonical_type = population_type.lower()
         return {
             'compliant': True,
-            'population_type': population_type,
-            'definition': unhcr_population_types[population_type]['definition'],
-            'message': f'Population type {population_type} is compliant with UNHCR standards'
+            'population_type': canonical_type,
+            'definition': POPULATION_TYPE_DEFINITIONS.get(canonical_type, 'UNHCR standard population type'),
+            'message': f'Population type "{canonical_type}" is compliant with UNHCR standards'
         }
     else:
         return {
             'compliant': False,
             'population_type': population_type,
-            'message': f'Population type {population_type} is not a standard UNHCR classification',
-            'recommendation': f'Use one of: {list(unhcr_population_types.keys())}'
+            'message': f'Population type "{population_type}" is not a standard UNHCR classification',
+            'recommendation': f'Use one of: {VALID_POPULATION_TYPES}',
+            'error_type': 'INVALID_POPULATION_TYPE',
+            'severity': 'HIGH'
         }
 
 
@@ -122,7 +143,24 @@ def _check_valid_country_code(country_iso: str) -> dict[str, Any]:
 
 
 def _check_data_disaggregation(data_fields: list[str], population_type: Optional[str]) -> dict[str, Any]:
-    """Check if data is properly disaggregated according to UNHCR standards."""
+    """
+    Check if data is properly disaggregated according to UNHCR standards.
+    
+    Also validates that data_fields don't contain forbidden identifier fields
+    being misused as data fields.
+    """
+    # Check if any data_fields are forbidden identifier fields
+    identifier_fields_in_data = [f for f in data_fields if is_identifier_field(f)]
+    
+    if identifier_fields_in_data:
+        return {
+            'compliant': False,
+            'message': f'Data fields contain identifier fields that should not be used as data: {identifier_fields_in_data}',
+            'error_type': 'IDENTIFIER_FIELD_IN_DATA',
+            'severity': 'CRITICAL',
+            'recommendation': 'Remove identifier fields (coo_id, coa_id, year, etc.) from data fields'
+        }
+    
     required_disaggregations = {
         'refugees': ['age', 'sex', 'country_of_origin'],
         'asylum_seekers': ['age', 'sex', 'country_of_origin'],
@@ -130,14 +168,17 @@ def _check_data_disaggregation(data_fields: list[str], population_type: Optional
         'demographics': ['age', 'sex']
     }
     
-    if population_type and population_type in required_disaggregations:
-        required = required_disaggregations[population_type]
+    # Use lowercase for comparison
+    population_type_lower = population_type.lower() if population_type else None
+    
+    if population_type and population_type_lower in required_disaggregations:
+        required = required_disaggregations[population_type_lower]
         missing = [d for d in required if d not in data_fields]
         
         if not missing:
             return {
                 'compliant': True,
-                'message': f'Data properly disaggregated for {population_type}',
+                'message': f'Data properly disaggregated for {population_type_lower}',
                 'required_fields': required
             }
         else:
