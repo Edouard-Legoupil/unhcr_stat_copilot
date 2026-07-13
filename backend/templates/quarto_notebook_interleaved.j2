@@ -1,0 +1,167 @@
+{# UNHCR Quarto Notebook Template with Interleaved Charts #}
+{# Uses Jinja2 templating with charts automatically inserted at key points #}
+---
+title: {{ title|quote_yaml }}
+author: {{ author|quote_yaml }}
+date: {{ date|quote_yaml }}
+format:
+  html:
+    embed-resources: true
+    standalone: true
+    format-links: false
+    {%- if use_unhcr_theme %}
+    theme:
+      - unhcr
+      - cosmo
+    css: unhcr.css
+    {%- else %}
+    theme: cosmo
+    {%- endif %}
+  pdf:
+    documentclass: article
+    papersize: a4
+    geometry:
+      - top=30mm
+      - left=20mm
+      - right=20mm
+      - bottom=30mm
+
+{# Store all metadata in YAML header #}
+{%- if metadata %}
+unhcr_metadata:
+  {%- if metadata.get('audience') and metadata.audience is not none %}
+  audience: {{ metadata.audience|quote_yaml }}
+  {%- endif %}
+  {%- if metadata.get('document_type') and metadata.document_type is not none %}
+  document_type: {{ metadata.document_type|quote_yaml }}
+  {%- endif %}
+  {%- if metadata.get('analysis_config') and metadata.analysis_config is not none %}
+  analysis_config: |
+    {{ metadata.analysis_config|tojson|indent(4, first=false) }}
+  {%- endif %}
+  {%- if metadata.get('tool_sequence') and metadata.tool_sequence is not none %}
+  tool_sequence: |
+    {{ metadata.tool_sequence|tojson|indent(4, first=false) }}
+  {%- endif %}
+  {%- if metadata.get('statistics') and metadata.statistics is not none %}
+  statistics: |
+    {{ metadata.statistics|tojson|indent(4, first=false) }}
+  {%- endif %}
+  {%- if metadata.get('guardrails') and metadata.guardrails is not none %}
+  guardrails: |
+    {{ metadata.guardrails|tojson|indent(4, first=false) }}
+  {%- endif %}
+{% endif %}
+
+{%- if original_query %}
+original_query: {{ original_query|quote_yaml }}
+{% endif %}
+
+generated: {{ timestamp|quote_yaml }}
+source: UNHCR Statistics Copilot
+
+engine: jupyter
+---
+
+{# Title #}
+{% if story_content.strip() and not story_content.strip().startswith('#') %}
+# {{ title }}
+
+{% endif %}
+
+{# Split story into sections and insert charts at appropriate points #}
+{% set story_sections = story_content.split('## ') if '## ' in story_content else [story_content] %}
+
+{# Process each section and insert charts #}
+{% for i, section in enumerate(story_sections) %}
+    {%- if i > 0 %}
+## {{ section.split('\n')[0] }}
+    {%- else %}
+    {{ section }}
+    {%- endif %}
+    
+    {# Insert chart after introduction/overview sections #}
+    {%- if i == 0 and ('introduction' in section.lower() or 'overview' in section.lower() or 'executive' in section.lower() or 'summary' in section.lower()) %}
+    
+    {# Generate main visualization if data is available #}
+    {%- if data and data.get('items') %}
+    
+    ## Data Visualization
+    
+    {%- if data.get('visualization_structure') %}
+    ```{python}
+    #| label: "Main Visualization"
+    #| echo: false
+    #| fold: false
+    #| fig-height: 8
+    #| fig-width: 12
+    
+    # Generate visualization based on data structure
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    
+    # Extract data
+    items = {{ data.items|tojson }}
+    df = pd.DataFrame(items)
+    
+    # Detect time series
+    time_col = None
+    value_col = None
+    for col in df.columns:
+        if 'year' in col.lower():
+            time_col = col
+        elif df[col].dtype in ['int64', 'float64'] and 'year' not in col.lower():
+            value_col = col
+            break
+    
+    if time_col and value_col:
+        plt.figure(figsize=(10, 6))
+        for pop_type in df.columns:
+            if df[pop_type].dtype in ['int64', 'float64'] and pop_type != time_col:
+                plt.plot(df[time_col], df[pop_type], label=pop_type.replace('_', ' ').title())
+        plt.xlabel(time_col.replace('_', ' ').title())
+        plt.ylabel('Count')
+        plt.title('Population Trends')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+    
+    print("Visualization generated from data")
+    ```
+    
+    {%- endif %}
+    {%- endif %}
+    
+    {%- endif %}
+    
+{% endfor %}
+
+{# Additional charts from visualization_structure if available #}
+{%- if metadata and metadata.get('visualization_structure') %}
+
+## Detailed Analysis Charts
+
+```{python}
+#| label: "Detailed Charts"
+#| echo: false
+#| fold: true
+import json
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Visualization structure from analysis
+viz_structure = {{ metadata.visualization_structure|tojson }}
+print("Visualization structure:", json.dumps(viz_structure, indent=2))
+```
+
+{% endif %}
+
+{# Code cells - only output displayed, code hidden in rendered output #}
+{%- if include_code_cells and python_code %}
+```{python}
+#| echo: false
+#| fold: true
+#| title: "Data Analysis Code"
+{{ python_code | safe }}
+```
+{% endif %}

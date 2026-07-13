@@ -638,16 +638,16 @@ class CrewAIManager:
     def _get_total_steps(self, workflow_type: WorkflowType) -> int:
         """Get the total number of steps for a workflow type."""
         step_counts = {
-            WorkflowType.FULL_ANALYSIS: 8,
+            WorkflowType.FULL_ANALYSIS: 3,
             WorkflowType.QUICK_ANALYSIS: 4,
             WorkflowType.COMPARE_ANALYSIS: 6,
-            WorkflowType.ENHANCED_ANALYSIS: 7,
+            WorkflowType.ENHANCED_ANALYSIS: 3,
             WorkflowType.CONDITIONAL_ANALYSIS: 5,
             WorkflowType.NOTEBOOK_ONLY: 2,
             WorkflowType.DATA_ONLY: 2,
             WorkflowType.STORY_ONLY: 4
         }
-        return step_counts.get(workflow_type, 4)
+        return step_counts.get(workflow_type, 3)
     
     async def _execute_full_analysis(
         self,

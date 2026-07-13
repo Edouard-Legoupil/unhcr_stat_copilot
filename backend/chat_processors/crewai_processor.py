@@ -170,6 +170,12 @@ class CrewAIChatProcessor:
             if not isinstance(result, dict):
                 result = {"status": "error", "error": f"Unexpected result type: {type(result)}"}
             
+            # Ensure notebook is always a dict
+            if "notebook" in result and result["notebook"] is None:
+                result["notebook"] = {}
+            if "notebook" not in result:
+                result["notebook"] = {}
+            
             # Adapt result to match expected format
             adapted_result = {
                 "question": message,
