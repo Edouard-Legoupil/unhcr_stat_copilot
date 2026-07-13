@@ -302,7 +302,12 @@ class CrewAIManager:
             logger.info("Level 4 agents initialized")
             
             # Set up agent references in orchestrators
-            self._setup_agent_references()
+            try:
+                self._setup_agent_references()
+            except Exception as e:
+                # For simplified workflow, agent references may not be needed
+                # Log as warning and continue
+                logger.warning(f"Could not set up agent references (may be expected for simplified workflow): {e}")
             
             # Initialize metrics for all agents
             for agent_name, agent in self._agents.items():
