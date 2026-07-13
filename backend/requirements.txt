@@ -47,3 +47,9 @@ seaborn
 
 structlog
 prometheus_client
+jupyterlab  
+
+crewai 
+crewai[tools]
+crewai[azure]
+crewai[azure-ai-inference]
