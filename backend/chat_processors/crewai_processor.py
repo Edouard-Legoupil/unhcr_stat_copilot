@@ -164,13 +164,19 @@ class CrewAIChatProcessor:
                 output_path=None
             )
             
+            # Handle case where result is None or not a dict
+            if result is None:
+                result = {}
+            if not isinstance(result, dict):
+                result = {"status": "error", "error": f"Unexpected result type: {type(result)}"}
+            
             # Adapt result to match expected format
             adapted_result = {
                 "question": message,
                 "analysis_type": "quarto_notebook",
                 "quarto_content": result.get("notebook", {}).get("content", result.get("quarto_content", "")),
                 "quarto_metadata": result.get("metadata", {}),
-                "status": result.get("status", "success"),
+                "status": result.get("status", "error"),
                 "execution_source": self.execution_source
             }
             
@@ -192,11 +198,19 @@ class CrewAIChatProcessor:
             
         except Exception as e:
             logger.exception(f"CrewAI chat processing failed: {e}")
+            # Check if it's a workflow execution error
+            error_msg = str(e)
+            if "workflow" in error_msg.lower() or "orchestrator" in error_msg.lower():
+                error_msg = f"CrewAI workflow execution failed: {error_msg}"
+            
+            # Optionally fall back to MCP if CrewAI fails
+            # For now, just return error - fallback can be added later
             return {
                 "status": "error",
-                "message": str(e),
+                "message": error_msg,
                 "execution_source": self.execution_source,
-                "question": message
+                "question": message,
+                "error": error_msg
             }
     
     async def run_tool_directly(self, tool_name: str, arguments: dict) -> dict:
