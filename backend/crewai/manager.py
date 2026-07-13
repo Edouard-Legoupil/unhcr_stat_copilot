@@ -328,25 +328,42 @@ class CrewAIManager:
             orchestrator = self._agents.get('analysis_orchestrator')
             if orchestrator:
                 # Set all agent references
-                orchestrator.set_agents(
-                    data_fetcher=self._agents.get('data_fetcher'),
-                    statistical_analyzer=self._agents.get('statistical_analyzer'),
-                    guardrails_validator=self._agents.get('guardrails_validator'),
-                    tool_selector=self._agents.get('tool_selector'),
-                    visualization_expert=self._agents.get('visualization_expert'),
+                # Handle both set_agents (old) and set_agent_references (new) methods
+                agent_refs = {
+                    'data_fetcher': self._agents.get('data_fetcher'),
+                    'statistical_analyzer': self._agents.get('statistical_analyzer'),
+                    'guardrails_validator': self._agents.get('guardrails_validator'),
+                    'tool_selector': self._agents.get('tool_selector'),
+                    'visualization_expert': self._agents.get('visualization_expert'),
+                    'story_generator': self._agents.get('story_generator'),
+                    'rag_researcher': self._agents.get('rag_researcher'),
+                    'audience_adapter': self._agents.get('audience_adapter')
+                }
+                
+                if hasattr(orchestrator, 'set_agents'):
+                    orchestrator.set_agents(**agent_refs)
+                    logger.info("Agent references set for orchestrator (set_agents)")
+                elif hasattr(orchestrator, 'set_agent_references'):
+                    orchestrator.set_agent_references(**agent_refs)
+                    logger.info("Agent references set for orchestrator (set_agent_references)")
+                else:
+                    # For simplified orchestrator (no agent reference methods), no references needed
+                    logger.info("Orchestrator uses direct MCP tool calls - no agent references needed")
+                
+            # Also set references for notebook generator
+            notebook_gen = self._agents.get('notebook_generator')
+            if notebook_gen and hasattr(notebook_gen, 'set_agents'):
+                notebook_gen.set_agents(
+                    analysis_orchestrator=orchestrator,
                     story_generator=self._agents.get('story_generator'),
-                    rag_researcher=self._agents.get('rag_researcher'),
                     audience_adapter=self._agents.get('audience_adapter')
                 )
-                
-                # Also set references for notebook generator
-                notebook_gen = self._agents.get('notebook_generator')
-                if notebook_gen and hasattr(notebook_gen, 'set_agents'):
-                    notebook_gen.set_agents(
-                        analysis_orchestrator=orchestrator,
-                        story_generator=self._agents.get('story_generator'),
-                        audience_adapter=self._agents.get('audience_adapter')
-                    )
+            elif notebook_gen and hasattr(notebook_gen, 'set_agent_references'):
+                notebook_gen.set_agent_references(
+                    analysis_orchestrator=orchestrator,
+                    story_generator=self._agents.get('story_generator'),
+                    audience_adapter=self._agents.get('audience_adapter')
+                )
             
             logger.info("Agent references set up successfully")
             
