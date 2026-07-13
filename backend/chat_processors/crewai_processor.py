@@ -154,7 +154,7 @@ class CrewAIChatProcessor:
             effective_rag = use_rag if use_rag is not None else True
             effective_enhanced = use_enhanced if use_enhanced is not None else True
             
-            result = manager.execute_workflow(
+            result = await manager.execute_workflow(
                 question=message,
                 audience=effective_audience,
                 document_type=effective_document_type,

@@ -420,7 +420,7 @@ class CrewAIManager:
                 metrics.total_execution_time / metrics.execution_count
             )
     
-    def execute_workflow(
+    async def execute_workflow(
         self,
         question: str,
         audience: str = "internal",
@@ -511,7 +511,7 @@ class CrewAIManager:
         try:
             # Route to appropriate workflow handler
             if workflow_type == WorkflowType.FULL_ANALYSIS:
-                result.update(self._execute_full_analysis(
+                result.update(await self._execute_full_analysis(
                     question=question,
                     audience=audience,
                     document_type=document_type,
@@ -649,7 +649,7 @@ class CrewAIManager:
         }
         return step_counts.get(workflow_type, 4)
     
-    def _execute_full_analysis(
+    async def _execute_full_analysis(
         self,
         question: str,
         audience: str,
@@ -667,8 +667,8 @@ class CrewAIManager:
         if not orchestrator:
             raise ValueError("AnalysisOrchestrator not initialized")
         
-        # Execute the orchestrated workflow
-        workflow_result = orchestrator.execute_full_workflow(
+        # Execute the orchestrated workflow (async)
+        workflow_result = await orchestrator.execute_full_workflow(
             question=question,
             audience=audience,
             document_type=document_type,
