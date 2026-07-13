@@ -15,6 +15,12 @@ try:
 except ImportError:
     CREWAI_AVAILABLE = False
     logging.warning("CrewAI not installed. MasterCrew will use mock behavior.")
+    
+    # Mock Process enum
+    from enum import Enum
+    class Process(Enum):
+        sequential = "sequential"
+        parallel = "parallel"
 
 from backend.crewai.agents import AnalysisOrchestrator, NotebookGenerator
 from backend.crewai.crews import DataCrew, AnalysisCrew, StoryCrew, NotebookCrew

@@ -95,7 +95,9 @@ class StoryGenerator(UNHCRBaseAgent):
         audience: str = "internal",
         document_type: str = "technical_report",
         use_rag: bool = True,
-        analysis_config: Optional[Dict[str, Any]] = None
+        analysis: Optional[Dict[str, Any]] = None,
+        analysis_config: Optional[Dict[str, Any]] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         Generate a story from data and analysis.
@@ -106,7 +108,9 @@ class StoryGenerator(UNHCRBaseAgent):
             audience: Target audience for the story
             document_type: Document type for the story
             use_rag: Whether to use RAG enrichment
+            analysis: Optional analysis results to include
             analysis_config: Optional analysis configuration
+            **kwargs: Additional keyword arguments
             
         Returns:
             Generated story with metadata
@@ -164,6 +168,23 @@ class StoryGenerator(UNHCRBaseAgent):
                 'audience': audience,
                 'document_type': document_type
             }
+    
+    def generate_data_story(
+        self,
+        data: Dict[str, Any],
+        question: str,
+        audience: str = "internal",
+        document_type: str = "technical_report",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Generate a story directly from data (alias for generate_story)."""
+        return self.generate_story(
+            data=data,
+            question=question,
+            audience=audience,
+            document_type=document_type,
+            **kwargs
+        )
     
     def generate_comparison_story(
         self,
@@ -321,7 +342,7 @@ class RAGResearcher(UNHCRBaseAgent):
     
     def retrieve_context(
         self,
-        request: str,
+        request: Optional[str] = None,
         question: str = "",
         audience: str = "internal",
         document_type: str = "technical_report",
@@ -334,7 +355,7 @@ class RAGResearcher(UNHCRBaseAgent):
         Retrieve relevant context for a request.
         
         Args:
-            request: The context request
+            request: The context request (optional, defaults to question)
             question: The original user question
             audience: Target audience
             document_type: Document type
@@ -346,6 +367,10 @@ class RAGResearcher(UNHCRBaseAgent):
         Returns:
             Retrieved context with metadata
         """
+        # Use question as request if request is not provided
+        if request is None:
+            request = question
+        
         # Validate audience and document type
         audience = AudienceConfigManager.validate_audience(audience)
         document_type = AudienceConfigManager.validate_document_type(audience, document_type)
@@ -398,6 +423,36 @@ class RAGResearcher(UNHCRBaseAgent):
                 'audience': audience,
                 'document_type': document_type
             }
+    
+    def enrich_story(
+        self,
+        story: str,
+        context: Optional[Dict[str, Any]] = None,
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Enrich story with additional context."""
+        # If no context provided, retrieve it based on the question
+        if context is None and question:
+            context = self.retrieve_context(
+                request=question,
+                question=question,
+                audience=audience,
+                document_type=document_type
+            )
+        
+        # For now, return the story with context
+        # In a full implementation, this would use LLM to enrich the story
+        return {
+            'status': 'success',
+            'enriched_story': story,
+            'original_story': story,
+            'context_used': context,
+            'audience': audience,
+            'document_type': document_type
+        }
 
 
 class AudienceAdapter(UNHCRBaseAgent):

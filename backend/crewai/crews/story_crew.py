@@ -15,6 +15,12 @@ try:
 except ImportError:
     CREWAI_AVAILABLE = False
     logging.warning("CrewAI not installed. StoryCrew will use mock behavior.")
+    
+    # Mock Process enum
+    from enum import Enum
+    class Process(Enum):
+        sequential = "sequential"
+        parallel = "parallel"
 
 from backend.crewai.agents import (
     StoryGenerator,
@@ -115,8 +121,8 @@ class StoryCrew:
                 # Mock crew behavior
                 class MockCrew:
                     def __init__(self, **kwargs):
-                        self.agents = agents
-                        self.process = self.process_type
+                        self.agents = kwargs.get('agents', [])
+                        self.process = kwargs.get('process', 'sequential')
                         self.verbose = kwargs.get('verbose', 2)
                     
                     async def kickoff(self, inputs: Dict) -> Dict:

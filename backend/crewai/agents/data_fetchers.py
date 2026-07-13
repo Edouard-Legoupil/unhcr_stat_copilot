@@ -377,6 +377,40 @@ class RSDExpert(UNHCRBaseAgent):
                 'tool': 'get_rsd_applications',
                 'data_type': 'rsd'
             }
+    
+    def fetch_rsd_applications(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch RSD applications data (wrapper for fetch_rsd_data)."""
+        return self.fetch_rsd_data(
+            question=question,
+            parameters=parameters or {},
+            audience=audience
+        )
+    
+    def fetch_rsd_decisions(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch RSD decisions data (wrapper for fetch_rsd_data)."""
+        params = parameters or {}
+        # Add decision-specific keywords to trigger decision tool
+        if 'question' not in params:
+            params['question'] = question + " decisions"
+        return self.fetch_rsd_data(
+            question=question,
+            parameters=params,
+            audience=audience
+        )
 
 
 class SolutionsExpert(UNHCRBaseAgent):
@@ -483,6 +517,21 @@ class SolutionsExpert(UNHCRBaseAgent):
                 'tool': 'get_solutions',
                 'data_type': 'solutions'
             }
+    
+    def fetch_solutions(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch solutions data (wrapper for fetch_solutions_data)."""
+        return self.fetch_solutions_data(
+            question=question,
+            parameters=parameters or {},
+            audience=audience
+        )
 
 
 class DemographicsExpert(UNHCRBaseAgent):
@@ -549,6 +598,70 @@ class DemographicsExpert(UNHCRBaseAgent):
         except Exception as e:
             logger.error(f"Error registering tools for DemographicsExpert: {e}")
             self.tools = []
+    
+    def fetch_demographics(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch demographic breakdown data."""
+        # Extract parameters
+        coo = parameters.get('coo') if parameters else None
+        coa = parameters.get('coa') if parameters else None
+        year = parameters.get('year') if parameters else None
+        coo_all = parameters.get('coo_all', False) if parameters else False
+        coa_all = parameters.get('coa_all', False) if parameters else False
+        pop_type = parameters.get('pop_type') if parameters else None
+        
+        try:
+            result = self.execute_tool(
+                "get_demographics_data",
+                coo=coo,
+                coa=coa,
+                year=year,
+                coo_all=coo_all,
+                coa_all=coa_all,
+                pop_type=pop_type
+            )
+            
+            return {
+                'status': 'success',
+                'data': result,
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_demographics_data',
+                'data_type': 'demographics'
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch demographics data: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_demographics_data',
+                'data_type': 'demographics'
+            }
+    
+    def fetch_breakdown(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch demographic breakdown data (alternative method)."""
+        return self.fetch_demographics(
+            question=question,
+            parameters=parameters,
+            audience=audience,
+            document_type=document_type,
+            **kwargs
+        )
 
 
 class TemporalAnalyzer(UNHCRBaseAgent):
@@ -599,6 +712,66 @@ class TemporalAnalyzer(UNHCRBaseAgent):
         except Exception as e:
             logger.error(f"Error registering tools for TemporalAnalyzer: {e}")
             self.tools = []
+    
+    def fetch_trends(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch temporal trends data."""
+        # Extract parameters
+        coa = parameters.get('coa') if parameters else None
+        coo = parameters.get('coo') if parameters else None
+        years = parameters.get('years') if parameters else None
+        population_types = parameters.get('population_types') if parameters else None
+        
+        try:
+            result = self.execute_tool(
+                "get_population_trends",
+                coa=coa,
+                coo=coo,
+                years=years,
+                population_types=population_types
+            )
+            
+            return {
+                'status': 'success',
+                'data': result,
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_population_trends',
+                'data_type': 'trends'
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch trends data: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_population_trends',
+                'data_type': 'trends'
+            }
+    
+    def fetch_population_data(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch population data (alias for fetch_trends for backward compatibility)."""
+        return self.fetch_trends(
+            question=question,
+            parameters=parameters,
+            audience=audience,
+            document_type=document_type,
+            **kwargs
+        )
 
 
 class GeographyExpert(UNHCRBaseAgent):
@@ -649,3 +822,46 @@ class GeographyExpert(UNHCRBaseAgent):
         except Exception as e:
             logger.error(f"Error registering tools for GeographyExpert: {e}")
             self.tools = []
+    
+    def fetch_geography_data(
+        self,
+        question: str,
+        parameters: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Fetch geographic/geography data."""
+        # Extract parameters
+        coa = parameters.get('coa') if parameters else None
+        coo = parameters.get('coo') if parameters else None
+        year = parameters.get('year') if parameters else None
+        population_types = parameters.get('population_types') if parameters else None
+        
+        try:
+            result = self.execute_tool(
+                "get_country_key_figures",
+                coa=coa,
+                coo=coo,
+                year=year,
+                population_types=population_types
+            )
+            
+            return {
+                'status': 'success',
+                'data': result,
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_country_key_figures',
+                'data_type': 'geography'
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch geography data: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'question': question,
+                'parameters': parameters or {},
+                'tool': 'get_country_key_figures',
+                'data_type': 'geography'
+            }

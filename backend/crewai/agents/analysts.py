@@ -147,6 +147,45 @@ class StatisticalAnalyzer(UNHCRBaseAgent):
                 'audience': audience,
                 'document_type': document_type
             }
+    
+    def analyze_statistics(
+        self,
+        data: List[Dict[str, Any]],
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = "technical_report",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Analyze statistics (alias for analyze_data)."""
+        return self.analyze_data(
+            data=data,
+            audience=audience,
+            document_type=document_type
+        )
+    
+    def validate_guardrails(
+        self,
+        data: Any = None,
+        analysis: Any = None,
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Validate guardrails - StatisticalAnalyzer returns a basic validation."""
+        # StatisticalAnalyzer doesn't perform guardrails validation
+        # This is a placeholder that returns success
+        return {
+            'status': 'success',
+            'valid': True,
+            'issues': [],
+            'warnings': [],
+            'data': data,
+            'analysis': analysis,
+            'question': question,
+            'audience': audience,
+            'document_type': document_type
+        }
 
 
 class GuardrailsValidator(UNHCRBaseAgent):
@@ -258,6 +297,28 @@ class GuardrailsValidator(UNHCRBaseAgent):
                 'document_type': document_type,
                 'compliance_score': 0
             }
+    
+    def validate_guardrails(
+        self,
+        data: Optional[Dict[str, Any]] = None,
+        analysis: Optional[Dict[str, Any]] = None,
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Validate guardrails (alias for validate_analysis)."""
+        # Build analysis_request from parameters
+        analysis_request = analysis or {}
+        if question:
+            analysis_request['question'] = question
+        
+        return self.validate_analysis(
+            analysis_request=analysis_request,
+            data=data,
+            audience=audience,
+            document_type=document_type
+        )
 
 
 class ToolSelector(UNHCRBaseAgent):
@@ -520,6 +581,58 @@ class VisualizationExpert(UNHCRBaseAgent):
             
         except Exception as e:
             logger.error(f"Failed to extract visualization: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'audience': audience,
+                'document_type': document_type
+            }
+    
+    def extract_visualization_structure(
+        self,
+        data: Dict[str, Any],
+        analysis: Dict[str, Any] = None,
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Extract visualization structure (alias for extract_visualization)."""
+        return self.extract_visualization(
+            data=data,
+            audience=audience,
+            document_type=document_type
+        )
+    
+    def generate_visualization_description(
+        self,
+        data: Dict[str, Any],
+        analysis: Dict[str, Any] = None,
+        question: str = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Generate visualization description using the MCP tool directly."""
+        try:
+            # Execute the generate_visualization_description tool directly
+            result = self.execute_tool(
+                "generate_visualization_description",
+                data=data,
+                analysis=analysis or {},
+                question=question or "",
+                description_type="detailed",
+                max_length=500
+            )
+            
+            return {
+                'status': 'success',
+                'description': result,
+                'audience': audience,
+                'document_type': document_type
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate visualization description: {e}")
             return {
                 'status': 'error',
                 'error': str(e),

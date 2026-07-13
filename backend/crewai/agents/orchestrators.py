@@ -459,6 +459,7 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
         question: str,
         audience: str,
         document_type: str,
+        analysis: Dict[str, Any] = None,
         analysis_log: List[Dict[str, Any]] = None,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
@@ -1060,6 +1061,41 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             }
         
         return pipeline_result
+    
+    def get_data_for_story(
+        self,
+        question: str,
+        data: Dict[str, Any] = None,
+        audience: str = "internal",
+        document_type: str = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Get data suitable for story generation.
+        
+        This method prepares data by potentially running auto-analysis
+        to enrich the data before story generation.
+        """
+        # If data is already provided, just validate and return it
+        if data:
+            return {
+                'status': 'success',
+                'data': data,
+                'analysis': {},
+                'question': question,
+                'audience': audience,
+                'document_type': document_type
+            }
+        
+        # Otherwise, this would typically fetch and analyze data
+        # For now, return an error indicating data is required
+        return {
+            'status': 'error',
+            'error': 'No data provided',
+            'question': question,
+            'audience': audience,
+            'document_type': document_type
+        }
 
 
 class NotebookGenerator(UNHCRBaseAgent):
@@ -1121,8 +1157,9 @@ class NotebookGenerator(UNHCRBaseAgent):
         story_content: str,
         data: Dict[str, Any],
         question: str,
-        audience: str,
-        document_type: str,
+        audience: str = "internal",
+        document_type: str = "technical_report",
+        analysis: Dict[str, Any] = None,
         analysis_log: List[Dict[str, Any]] = None,
         metadata: Dict[str, Any] = None
     ) -> Dict[str, Any]:
@@ -1361,3 +1398,59 @@ class NotebookGenerator(UNHCRBaseAgent):
             'min_duration_ms': min(durations),
             'max_duration_ms': max(durations)
         }
+    
+    def create_quarto_notebook(
+        self,
+        story_content: str,
+        audience: str,
+        document_type: str,
+        output_path: Optional[str] = None,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Create a Quarto notebook (alternative method for MCP compatibility)."""
+        # This is a simplified version that creates a notebook with minimal data
+        try:
+            # Validate inputs
+            audience = AudienceConfigManager.validate_audience(audience)
+            document_type = AudienceConfigManager.validate_document_type(audience, document_type)
+            
+            # Select template
+            template_name = self._select_template(document_type)
+            template = self.jinja_env.get_template(template_name)
+            
+            # Prepare minimal context
+            context = self._prepare_context(
+                story_content=story_content,
+                data={},  # Minimal data
+                question="",
+                audience=audience,
+                document_type=document_type,
+                analysis_log=[],
+                metadata={}
+            )
+            
+            # Render template
+            notebook_content = template.render(**context)
+            
+            return {
+                'status': 'success',
+                'notebook': notebook_content,
+                'template': template_name,
+                'metadata': {
+                    'audience': audience,
+                    'document_type': document_type,
+                    'generated_at': datetime.now().isoformat()
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to create Quarto notebook: {e}")
+            return {
+                'status': 'error',
+                'error': str(e),
+                'template': None,
+                'metadata': {
+                    'audience': audience,
+                    'document_type': document_type
+                }
+            }

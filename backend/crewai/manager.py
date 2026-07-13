@@ -560,13 +560,15 @@ class CrewAIManager:
                 ))
             
             elif workflow_type == WorkflowType.NOTEBOOK_ONLY:
+                # Remove story_content from kwargs to avoid duplicate parameter
+                notebook_kwargs = {k: v for k, v in kwargs.items() if k != 'story_content'}
                 result.update(self._execute_notebook_only(
                     story_content=kwargs.get('story_content', ''),
                     audience=audience,
                     document_type=document_type,
                     output_path=output_path,
                     workflow_metrics=workflow_metrics,
-                    **kwargs
+                    **notebook_kwargs
                 ))
             
             elif workflow_type == WorkflowType.DATA_ONLY:
@@ -849,12 +851,19 @@ class CrewAIManager:
         if not notebook_generator:
             raise ValueError("NotebookGenerator not initialized")
         
+        # generate_notebook doesn't accept output_path directly
+        # Pass it via metadata
+        metadata = kwargs.get('metadata', {})
+        if output_path:
+            metadata['output_path'] = output_path
+        
         result = notebook_generator.generate_notebook(
             story_content=story_content,
+            data={},  # Empty data for notebook-only
+            question="Notebook generation",
             audience=audience,
             document_type=document_type,
-            output_path=output_path,
-            **kwargs
+            metadata=metadata if metadata else None
         )
         
         workflow_metrics.steps_completed = 2
