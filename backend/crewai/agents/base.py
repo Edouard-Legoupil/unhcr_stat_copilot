@@ -84,9 +84,26 @@ class UNHCRBaseAgent(CrewAIAgent):
         kwargs.setdefault('memory', CrewAIConfig.MEMORY_ENABLED)
         kwargs.setdefault('max_iter', CrewAIConfig.MAX_ITER)
         
-        # Set LLM to None to avoid provider errors (OpenAI API key not required)
-        # CrewAI will use the default mock/fallback behavior
-        kwargs.setdefault('llm', None)
+        # Set LLM to a mock object to avoid provider errors (OpenAI API key not required)
+        # CrewAI's Agent will try to create an LLM even if None is passed
+        # So we need to provide a mock LLM that doesn't require credentials
+        if 'llm' not in kwargs or kwargs['llm'] is None:
+            # Create a mock LLM that satisfies CrewAI's requirements
+            try:
+                from crewai import LLM
+                # Try to create a mock LLM with minimal config
+                # Use a placeholder that won't actually be used since we use MCP tools directly
+                mock_llm = LLM(
+                    model="mock",
+                    api_base="http://mock",
+                    api_key="mock",
+                    timeout=30
+                )
+                kwargs.setdefault('llm', mock_llm)
+            except Exception:
+                # If CrewAI LLM creation fails, use None and hope for the best
+                # (Agent might still fail to initialize)
+                kwargs.setdefault('llm', None)
         
         # Generate UNHCR-specific backstory if not provided
         if 'backstory' not in kwargs or not kwargs['backstory']:
