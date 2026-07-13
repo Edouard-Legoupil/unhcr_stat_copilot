@@ -37,6 +37,10 @@ from backend.chat import process_chat_message
 from backend.charts import generate_chart   
 from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError, MCP_TOOL_SCHEMAS
 from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses, save_rating
+
+# CrewAI integration (lazy import to avoid circular dependencies)
+# Will be imported when first CrewAI endpoint is called
+CREWAI_ENABLED = os.getenv("CREWAI_ENABLED", "false").lower() == "true"
 from backend.auth import (
     UserInfo,
     verify_azure_auth,
@@ -137,7 +141,24 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 
-# ---------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# CrewAI Integration
+# -------------------------------------------------------------------------
+
+# Register CrewAI endpoints if enabled
+if CREWAI_ENABLED:
+    try:
+        from backend.crewai.app_integration import register_crewai_endpoints
+        register_crewai_endpoints(app)
+        logger.info("CrewAI endpoints registered and enabled")
+    except Exception as e:
+        logger.warning(f"Could not register CrewAI endpoints: {e}")
+        CREWAI_ENABLED = False
+else:
+    logger.info("CrewAI endpoints disabled (set CREWAI_ENABLED=true to enable)")
+
+
+# -------------------------------------------------------------------------
 
 try:
     # FastMCP HTTP transport
@@ -2450,10 +2471,19 @@ async def root():
         For full API documentation, navigate to /docs (Swagger UI) or /openapi.json
         for the OpenAPI specification.
     """
-    return {
+    result = {
         "application": "UNHCR Stat Copilot ",
         "version": "1.0.0",
         "mcp": "/mcp",
         "chat": "/chat",
         "docs": "/docs"
     }
+    
+    # Add CrewAI info if enabled
+    if CREWAI_ENABLED:
+        result["crewai"] = "/crewai"
+        result["crewai_enabled"] = True
+    else:
+        result["crewai_enabled"] = False
+    
+    return result
