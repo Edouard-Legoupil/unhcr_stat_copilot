@@ -117,7 +117,16 @@ class CrewAIChatProcessor:
         """
         try:
             # Initialize LLM (lazy, only when CrewAI is actually used)
-            llm = _get_llm()
+            # For simplified workflow that uses MCP tools directly, LLM is not required
+            # Try to initialize LLM, but continue without it if credentials are not available
+            llm = None
+            try:
+                llm = _get_llm()
+                logger.info("CrewAI LLM initialized successfully")
+            except ImportError as e:
+                # LLM not available - for simplified workflow this is OK
+                # since we use MCP tools directly
+                logger.warning(f"CrewAI LLM not initialized (will use MCP tools directly): {e}")
             
             from backend.crewai.config import AudienceConfigManager
             from backend.crewai.manager import WorkflowType
