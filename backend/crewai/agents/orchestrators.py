@@ -298,9 +298,17 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                         for item in story_content['content']:
                             if isinstance(item, dict) and 'text' in item:
                                 text_parts.append(item['text'])
-                        story_content = '\n'.join(text_parts)
+                            elif isinstance(item, str):
+                                text_parts.append(item)
+                        story_content = '\n'.join(text_parts) if text_parts else json.dumps(story_content)
+                    elif 'text' in story_content:
+                        story_content = story_content['text']
+                    elif 'content' in story_content:
+                        story_content = str(story_content['content'])
                     else:
-                        story_content = str(story_content)
+                        # Last resort: convert to JSON string for proper parsing downstream
+                        import json
+                        story_content = json.dumps(story_content)
                 else:
                     story_content = str(story_content)
             
@@ -383,9 +391,16 @@ class NotebookGenerator(UNHCRBaseAgent):
                         for item in story_content['content']:
                             if isinstance(item, dict) and 'text' in item:
                                 text_parts.append(item['text'])
-                        story_content = '\n'.join(text_parts)
+                            elif isinstance(item, str):
+                                text_parts.append(item)
+                        story_content = '\n'.join(text_parts) if text_parts else json.dumps(story_content)
+                    elif 'text' in story_content:
+                        story_content = story_content['text']
+                    elif 'content' in story_content:
+                        story_content = str(story_content['content'])
                     else:
-                        story_content = str(story_content)
+                        # Last resort: convert to JSON string for proper parsing downstream
+                        story_content = json.dumps(story_content)
                 else:
                     story_content = str(story_content)
             result = await call_tool('create_quarto_notebook', {'story_content': story_content, 'data': data, **kwargs})
