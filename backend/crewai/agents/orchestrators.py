@@ -383,25 +383,29 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             if not isinstance(story_content, str):
                 story_content = _extract_text_from_message_impl(story_content)
             else:
-                # Clean up any JSON artifacts at the edges
+                # Clean up any JSON artifacts at the edges, including Python repr() format with single quotes
                 cleaned = story_content.strip()
-                if cleaned.startswith('[') and cleaned.endswith(']'):
+                # Try to parse as JSON first (with double quotes)
+                if (cleaned.startswith('[') and cleaned.endswith(']')) or (cleaned.startswith('{') and cleaned.endswith('}')):
                     try:
                         import json
                         parsed = json.loads(cleaned)
                         story_content = _extract_text_from_message_impl(parsed)
                     except (json.JSONDecodeError, TypeError):
-                        pass
-                elif cleaned.startswith('{') and cleaned.endswith('}'):
-                    try:
-                        import json
-                        parsed = json.loads(cleaned)
-                        story_content = _extract_text_from_message_impl(parsed)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
+                        # If JSON parsing fails, try to handle Python repr() format with single quotes
+                        # Replace single quotes with double quotes for JSON compatibility
+                        try:
+                            import json
+                            json_cleaned = cleaned.replace("'", '"')
+                            parsed = json.loads(json_cleaned)
+                            story_content = _extract_text_from_message_impl(parsed)
+                        except (json.JSONDecodeError, TypeError):
+                            # If all parsing fails, pass through
+                            pass
             
             # Log for debugging
             logger.info(f"Orchestrator: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}")
+            logger.debug(f"Orchestrator: story_content value (first 500 chars)={str(story_content)[:500]}")
             
             # Create Quarto notebook
             notebook_result = await call_tool(
