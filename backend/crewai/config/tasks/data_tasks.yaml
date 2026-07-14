@@ -1,0 +1,216 @@
+# UNHCR Statistics Copilot - Data Task Definitions
+# This file defines data-related tasks using YAML for improved readability
+
+tasks:
+  # Fetch Population Data Task
+  - name: fetch_population_data
+    description: |
+      Fetch UNHCR population data for a given question and parameters.
+      This task uses the UNHCRDataFetcher agent to retrieve population
+      statistics.
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing population data with structure:
+      {'status': str, 'data': dict, 'metadata': dict}
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    output_file: null
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+        description: The user's question
+      - name: parameters
+        type: dict
+        required: true
+        description: Data retrieval parameters (coo, coa, year, etc.)
+      - name: audience
+        type: str
+        required: false
+        default: internal
+        description: Target audience for the analysis
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+        description: Document type for the analysis
+
+  # Fetch All Data Task
+  - name: fetch_all_data
+    description: |
+      Fetch all types of UNHCR data for a comprehensive analysis.
+      This task retrieves:
+      - Population data
+      - RSD applications and decisions
+      - Solutions data
+      - Demographics
+      - Trends
+      - Geographic data
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing all data types:
+      {
+        'status': str,
+        'data': {
+          'population': dict,
+          'rsd_applications': dict,
+          'rsd_decisions': dict,
+          'solutions': dict,
+          'demographics': dict,
+          'trends': dict,
+          'geography': dict
+        }
+      }
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Validate Data Task
+  - name: validate_data
+    description: |
+      Validate fetched UNHCR data to ensure it meets quality standards.
+      This task checks for required fields, data types, and consistency.
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing validation results:
+      {
+        'status': str,
+        'valid': bool,
+        'issues': list,
+        'warnings': list,
+        'data_quality': str
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: data
+        type: dict
+        required: true
+        description: Data to validate
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Fetch RSD Data Task
+  - name: fetch_rsd_data
+    description: |
+      Fetch Refugee Status Determination data including applications
+      and decisions.
+    
+    agent: rsd_expert
+    expected_output: |
+      A dictionary containing RSD data:
+      {
+        'status': str,
+        'rsd_applications': dict,
+        'rsd_decisions': dict
+      }
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Fetch Solutions Data Task
+  - name: fetch_solutions_data
+    description: |
+      Fetch durable solutions data including refugee returnees,
+      resettlement, naturalization, and IDP returns.
+    
+    agent: solutions_expert
+    expected_output: |
+      A dictionary containing solutions data:
+      {'status': str, 'solutions': dict}
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report

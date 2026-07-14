@@ -1,0 +1,296 @@
+# UNHCR Statistics Copilot - Data Fetcher Agents Configuration
+# This file defines data fetcher agents using YAML for improved readability
+
+data_fetchers:
+  # UNHCR Data Fetcher Agent
+  - name: unhcr_data_fetcher
+    class_name: UNHCRDataFetcher
+    module: backend.crewai.agents.data_fetchers
+    role: UNHCR Data Fetcher
+    goal: Retrieve accurate population statistics from UNHCR API
+    description: |
+      Specialist agent for fetching UNHCR population data.
+      This agent handles all data retrieval operations from the UNHCR API,
+      including population statistics, demographics, and key figures.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_population_data
+        source: backend.mcp.tools.get_population_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve forcibly displaced population statistics from UNHCR.
+          Use when asked about refugee numbers, asylum seekers, stateless persons,
+          or other populations of concern by country and year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+      
+      - name: get_demographics_data
+        source: backend.mcp.tools.get_demographics_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve age and sex breakdown data for forcibly displaced populations.
+          Use when asked about demographic composition, gender distribution,
+          or age groups of refugees and other populations of concern.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+          - pop_type
+      
+      - name: get_country_key_figures
+        source: backend.mcp.tools.get_country_key_figures
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve formatted key statistics and summaries for specific countries.
+          Use when asked for country profiles, overview statistics,
+          or formatted summaries of displacement situations.
+        parameters:
+          - coa
+          - coo
+          - year
+          - population_types
+      
+      - name: get_population_trends
+        source: backend.mcp.tools.get_population_trends
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve time series data showing population changes over multiple years.
+          Use when asked about trends, historical changes, or comparisons
+          across different time periods.
+        parameters:
+          - coa
+          - coo
+          - years
+          - population_types
+      
+      - name: get_demographic_breakdown
+        source: backend.mcp.tools.get_demographic_breakdown
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve detailed age and sex distribution for specific population types.
+          Use when asked for granular demographic analysis, age pyramids,
+          or gender breakdowns of refugee populations.
+        parameters:
+          - coa
+          - coo
+          - year
+          - population_type
+    
+    capabilities:
+      - population_data_retrieval
+      - demographic_data_retrieval
+      - country_statistics
+      - trend_analysis
+      - breakdown_analysis
+    
+    methods:
+      - fetch_population_data
+      - fetch_all_data
+      - fetch_demographics
+      - fetch_trends
+
+  # RSD Expert Agent
+  - name: rsd_expert
+    class_name: RSDExpert
+    module: backend.crewai.agents.data_fetchers
+    role: RSD Expert
+    goal: Retrieve and analyze Refugee Status Determination data
+    description: |
+      Specialist agent for RSD (Refugee Status Determination) data.
+      This agent handles retrieval of asylum applications, decisions,
+      and related RSD statistics.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_rsd_applications
+        source: backend.mcp.tools.get_rsd_applications
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve Refugee Status Determination (RSD) application statistics.
+          Use when asked about asylum applications, claims, or requests
+          for refugee status by country, origin, or year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+      
+      - name: get_rsd_decisions
+        source: backend.mcp.tools.get_rsd_decisions
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve Refugee Status Determination (RSD) decision outcomes.
+          Use when asked about approved/rejected asylum cases, recognition rates,
+          or refugee status determination results by country and year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+    
+    capabilities:
+      - rsd_data_retrieval
+      - asylum_statistics
+      - decision_analysis
+    
+    methods:
+      - fetch_rsd_data
+
+  # Solutions Expert Agent
+  - name: solutions_expert
+    class_name: SolutionsExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Solutions Expert
+    goal: Retrieve data on durable solutions for displaced populations
+    description: |
+      Specialist agent for durable solutions data.
+      This agent handles retrieval of information about refugee returnees,
+      resettlement, naturalization, and IDP returns.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_solutions
+        source: backend.mcp.tools.get_solutions
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve durable solutions data including refugee returnees,
+          resettlement, naturalization, and IDP returns.
+          Use when asked about solutions to displacement, voluntary repatriation,
+          or integration outcomes.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+    
+    capabilities:
+      - solutions_data_retrieval
+      - returnee_statistics
+      - resettlement_data
+      - integration_outcomes
+    
+    methods:
+      - fetch_solutions_data
+
+  # Demographics Expert Agent
+  - name: demographics_expert
+    class_name: DemographicsExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Demographics Expert
+    goal: Provide detailed demographic breakdowns and analysis
+    description: |
+      Specialist agent for demographic data analysis.
+      This agent focuses on providing detailed age, gender, and other
+      demographic breakdowns of displaced populations.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_demographics_data
+        source: backend.mcp.tools.get_demographics_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve age and sex breakdown data for forcibly displaced populations.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+          - pop_type
+    
+    capabilities:
+      - demographic_analysis
+      - age_distribution
+      - gender_breakdown
+      - population_composition
+    
+    methods:
+      - fetch_demographics
+
+  # Temporal Analyzer Agent
+  - name: temporal_analyzer
+    class_name: TemporalAnalyzer
+    module: backend.crewai.agents.data_fetchers
+    role: Temporal Analyzer
+    goal: Analyze time series data and trends over time
+    description: |
+      Specialist agent for temporal analysis of UNHCR data.
+      This agent focuses on time series analysis, trend identification,
+      and historical comparisons.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_population_trends
+        source: backend.mcp.tools.get_population_trends
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve time series data showing population changes over multiple years.
+        parameters:
+          - coa
+          - coo
+          - years
+          - population_types
+    
+    capabilities:
+      - time_series_analysis
+      - trend_identification
+      - historical_comparison
+      - temporal_patterns
+    
+    methods:
+      - fetch_trends
+
+  # Geography Expert Agent
+  - name: geography_expert
+    class_name: GeographyExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Geography Expert
+    goal: Provide geographic analysis and regional data
+    description: |
+      Specialist agent for geographic analysis of UNHCR data.
+      This agent handles spatial analysis, regional breakdowns,
+      and geographic patterns of displacement.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_population_data
+        source: backend.mcp.tools.get_population_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve population data for geographic analysis.
+    
+    capabilities:
+      - geographic_analysis
+      - regional_breakdowns
+      - spatial_patterns
+      - country_comparisons
+    
+    methods:
+      - fetch_geographic_data

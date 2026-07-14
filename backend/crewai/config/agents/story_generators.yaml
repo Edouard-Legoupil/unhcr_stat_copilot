@@ -1,0 +1,124 @@
+# UNHCR Statistics Copilot - Story Generator Agents Configuration
+# This file defines story generator agents using YAML for improved readability
+
+story_generators:
+  # Story Generator Agent
+  - name: story_generator
+    class_name: StoryGenerator
+    module: backend.crewai.agents.story_generators
+    role: Story Generator
+    goal: Generate analytical stories from UNHCR data
+    description: |
+      Specialist agent for creating analytical narratives and stories.
+      This agent generates comprehensive, audience-appropriate stories
+      from UNHCR data and analysis results.
+    
+    tools:
+      - name: generate_analytical_story
+        source: backend.mcp.tools.generate_analytical_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Generate analytical stories and narratives from UNHCR data, optionally
+          enriched with relevant context retrieved from local UNHCR statistical reports.
+          Use this tool when asked to create reports, stories, or narratives
+          based on data analysis.
+        parameters:
+          - result
+          - data
+          - question
+          - audience
+          - document_type
+          - analysis_config
+          - use_rag
+          - rag_top_k
+          - rag_fetch_k
+          - rag_rerank
+          - rag_year
+          - rag_report_type
+          - rag_section_contains
+          - rag_exclude_figures_tables
+          - context
+      
+      - name: get_data_for_story
+        source: backend.mcp.tools.get_data_for_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Get appropriate data for story generation based on question analysis.
+          Use this tool to retrieve the right data for creating data-driven
+          stories and reports.
+        parameters:
+          - question
+          - coo
+          - coa
+          - year
+          - years
+          - population_types
+          - coo_all
+          - coa_all
+          - audience
+          - document_type
+          - origin
+          - destination
+          - population_type
+          - timespan
+    
+    capabilities:
+      - story_generation
+      - narrative_creation
+      - data_driven_storytelling
+      - audience_adaptation
+    
+    methods:
+      - generate_story
+      - create_data_story
+
+  # RAG Researcher Agent
+  - name: rag_researcher
+    class_name: RAGResearcher
+    module: backend.crewai.agents.story_generators
+    role: RAG Researcher
+    goal: Retrieve relevant context from UNHCR reports for enrichment
+    description: |
+      Specialist agent for Retrieval-Augmented Generation (RAG).
+      This agent retrieves relevant context and information from local
+      UNHCR statistical reports to enrich data stories with authoritative
+      source material.
+    
+    tools:
+      - name: get_data_for_story
+        source: backend.mcp.tools.get_data_for_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Get appropriate data for story generation based on question analysis.
+    
+    capabilities:
+      - context_retrieval
+      - document_search
+      - information_enrichment
+      - source_integration
+    
+    methods:
+      - retrieve_context
+      - enrich_story
+
+  # Audience Adapter Agent
+  - name: audience_adapter
+    class_name: AudienceAdapter
+    module: backend.crewai.agents.story_generators
+    role: Audience Adapter
+    goal: Adapt stories for specific audiences and document types
+    description: |
+      Specialist agent for audience-specific content adaptation.
+      This agent ensures that stories, analyses, and visualizations are
+      appropriately tailored for different target audiences (policy makers,
+      operational staff, analysts, advocates) and document types.
+    
+    capabilities:
+      - audience_adaptation
+      - tone_adjustment
+      - complexity_adjustment
+      - format_customization
+    
+    methods:
+      - adapt_for_audience
+      - customize_for_document_type

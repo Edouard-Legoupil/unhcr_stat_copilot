@@ -1,0 +1,106 @@
+# Data Crew Configuration
+# This crew handles data fetching and validation for UNHCR statistics
+
+name: data_crew
+
+# Crew-level settings
+process_type: parallel  # Data fetching can be done in parallel
+verbose: 2
+memory: true
+cache: true
+max_rpm: null
+share_crew: true
+crew_name: "DataCrew_{audience}_{document_type}"
+manager_llm: null
+
+description: |
+  Crew responsible for fetching and validating UNHCR data.
+  This crew coordinates data fetcher agents to retrieve:
+  - Population statistics
+  - RSD applications and decisions
+  - Solutions data
+  - Demographics
+  - Trends
+  - Geographic data
+
+# Agent references
+agents:
+  - unhcr_data_fetcher
+  - rsd_expert
+  - solutions_expert
+  - demographics_expert
+  - temporal_analyzer
+  - geography_expert
+
+# Default workflow for this crew
+workflow:
+  - name: fetch_all_data
+    description: Fetch all types of UNHCR data for comprehensive analysis
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing all data types:
+      {
+        'status': str,
+        'data': {
+          'population': dict,
+          'rsd_applications': dict,
+          'rsd_decisions': dict,
+          'solutions': dict,
+          'demographics': dict,
+          'trends': dict,
+          'geography': dict
+        }
+      }
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    async_execution: false
+    
+  - name: validate_data
+    description: Validate fetched data for quality and completeness
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing validation results with issues and warnings
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    depends_on: fetch_all_data
+    async_execution: false
+
+# Alternative workflows
+alternative_workflows:
+  population_only:
+    - name: fetch_population_data
+      description: Fetch only population data
+      agent: unhcr_data_fetcher
+      expected_output: Population data dictionary
+      context:
+        - question
+        - parameters
+        - audience
+        - document_type
+    
+    - name: validate_data
+      description: Validate population data
+      agent: unhcr_data_fetcher
+      depends_on: fetch_population_data
+    
+  rsd_only:
+    - name: fetch_rsd_data
+      description: Fetch RSD applications and decisions
+      agent: rsd_expert
+      expected_output: RSD data dictionary
+      context:
+        - question
+        - parameters
+        - audience
+        - document_type
+    
+    - name: validate_data
+      description: Validate RSD data
+      agent: rsd_expert
+      depends_on: fetch_rsd_data
