@@ -290,6 +290,9 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                 else:
                     story_content = str(story_content)
             
+            # Log for debugging
+            logger.info(f"Orchestrator: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}")
+            
             # Create Quarto notebook
             notebook_result = await call_tool(
                 'create_quarto_notebook',

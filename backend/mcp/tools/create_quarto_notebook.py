@@ -876,6 +876,9 @@ async def create_quarto_notebook_tool(
         # Clean and extract story content from various formats (message objects, dicts, etc.)
         cleaned_story = _extract_text_from_message(story_content) if story_content else ""
         
+        # Log for debugging
+        logger.info(f"Quarto notebook: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}, cleaned_length={len(cleaned_story)}")
+        
         # Try to use Jinja2 template first
         template = _load_template("quarto_notebook.j2")
         

@@ -262,6 +262,9 @@ async def generate_analytical_story_tool(
         if first_word_lower not in ['refugees', 'refugee', 'displaced', 'asylum', 'migration', 'population', 'trends', 'data', 'analysis', 'unhcr']:
             title = f"UNHCR Analysis: {title}"
         
+        # Log the story content for debugging
+        logger.info(f"Generated story content (length: {len(story_content) if story_content else 0})")
+        
         return {
             "title": title,
             "story": story_content,
