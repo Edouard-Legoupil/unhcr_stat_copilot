@@ -116,7 +116,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
@@ -170,7 +170,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data from list
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 df = pd.DataFrame(items)
 
 # Detect numeric columns
@@ -215,22 +215,21 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Visualization structure from analysis - use json.loads to properly handle null values
-viz_structure_json = '{{ viz_structure|tojson }}'
-viz_structure = json.loads(viz_structure_json)
+# Visualization structure from analysis
+viz_structure = {{ viz_structure|to_python }}
 print("Visualization structure:", json.dumps(viz_structure, indent=2))
 
 # Extract data for additional visualizations
 {% if has_items %}
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 {% elif has_list_data %}
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 {% else %}
 items = []
 {% endif %}
 
 {% if has_valid_data %}
-df = pd.DataFrame({% if has_items %}{{ items|tojson }}{% elif has_list_data %}{{ items|tojson }}{% else %}[]{% endif %})
+df = pd.DataFrame({% if has_items %}{{ items|to_python }}{% elif has_list_data %}{{ items|to_python }}{% else %}[]{% endif %})
 
 # Create scatter plot for correlations if we have multiple numeric columns
 numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]

@@ -116,7 +116,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
@@ -170,7 +170,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data from list
-items = {{ items|tojson }}
+items = {{ items|to_python }}
 df = pd.DataFrame(items)
 
 # Detect numeric columns

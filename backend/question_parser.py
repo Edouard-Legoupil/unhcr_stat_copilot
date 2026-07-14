@@ -537,13 +537,29 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
                 content = re.sub(r'^```[^\n]*\n', '', content)
                 content = re.sub(r'\n```[^\n]*$', '', content)
         
-        # Remove markdown tables (lines starting with |)
-        content = re.sub(r'^\|[^\n]*\n?', '', content, flags=re.MULTILINE)
-        content = re.sub(r'\|', '', content)
-        content = re.sub(r'^\s*[-]+\s*$', '', content, flags=re.MULTILINE)
+        # Remove markdown tables more aggressively
+        # First, remove complete table structures (header row and separator)
+        content = re.sub(r'^\|.*?\|\n\|[\|\s-]+\|[\n]', '', content, flags=re.MULTILINE)
+        # Remove any remaining lines starting with |
+        content = re.sub(r'^\|.*?\|\n?', '', content, flags=re.MULTILINE)
+        # Remove pipe characters and their surrounding whitespace
+        content = re.sub(r'\s*\|\s*', ' ', content)
+        # Remove table separator lines (lines with only dashes and pipes)
+        content = re.sub(r'^\s*[- \|]+\s*$', '', content, flags=re.MULTILINE)
         
         # Clean up excessive whitespace
         content = re.sub(r'\s+', ' ', content).strip()
+        
+        # If content looks like a table (contains multiple |), try to extract JSON from it
+        if '|' in content and '{' not in content:
+            # This might be a table without proper JSON, try to extract any JSON-like content
+            json_match = re.search(r'\{[^{}]*\}', content)
+            if json_match:
+                content = json_match.group(0)
+            else:
+                # No JSON found, return empty to fall back to regex
+                logger.debug("No JSON found in LLM response, falling back to regex")
+                return {'origin': None, 'destination': None}
         
         # Try to parse JSON - handle various formats
         result = None

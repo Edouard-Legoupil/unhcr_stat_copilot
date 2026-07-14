@@ -404,6 +404,52 @@ def _quote_yaml(text: str) -> str:
     return text
 
 
+def _to_python_literal(obj: Any) -> str:
+    """
+    Convert a Python object to a Python literal string representation.
+    This handles None properly (as None, not null) and other types.
+    """
+    import json
+    
+    def convert(o):
+        if o is None:
+            return 'None'
+        elif isinstance(o, bool):
+            return str(o)
+        elif isinstance(o, (int, float)):
+            # Handle NaN and Inf
+            if isinstance(o, float):
+                if o != o:  # NaN check
+                    return 'float("nan")'
+                elif o == float('inf'):
+                    return 'float("inf")'
+                elif o == float('-inf'):
+                    return 'float("-inf")'
+            return str(o)
+        elif isinstance(o, str):
+            # Use repr for proper string escaping, but handle triple quotes
+            s = repr(o)
+            # Replace single quotes with double quotes for cleaner output
+            if s.startswith("'") and s.endswith("'"):
+                # Check if string contains double quotes
+                if '"' in o and "'" not in o:
+                    return f'"""{o}"""'
+                return s.replace("'", '"') if '"' not in o else s
+            return s
+        elif isinstance(o, (list, tuple)):
+            items = [convert(item) for item in o]
+            if isinstance(o, tuple):
+                return f'({", ".join(items)})'
+            return f'[{", ".join(items)}]'
+        elif isinstance(o, dict):
+            items = [f'{_to_python_literal(k)}: {convert(v)}' for k, v in o.items()]
+            return f'{{{", ".join(items)}}}'
+        else:
+            return repr(o)
+    
+    return convert(obj)
+
+
 def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2.Template]:
     """
     Load a Jinja2 template from the templates directory.
@@ -436,6 +482,9 @@ def _load_template(template_name: str = "quarto_notebook.j2") -> Optional[jinja2
         
         # Add custom filter for quoting YAML strings
         env.filters['quote_yaml'] = _quote_yaml
+        
+        # Add custom filter for Python literal conversion
+        env.filters['to_python'] = _to_python_literal
         
         return env.get_template(template_name)
     except Exception as e:

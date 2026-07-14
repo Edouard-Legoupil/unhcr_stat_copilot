@@ -11,11 +11,7 @@ from dataclasses import dataclass
 
 from backend.charts import generate_chart
 from backend.mcp_bridge import call_tool
-from backend.question_parser import (
-    extract_question_parameters, 
-    auto_complete_parameters,
-    get_required_params_for_tool
-)
+from backend.question_parser import extract_question_parameters
 
 logger = logging.getLogger(__name__)
 
