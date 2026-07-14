@@ -315,6 +315,10 @@ def validate_tool_arguments(tool_name: str, arguments: Dict[str, Any]) -> None:
     for arg_name, arg_value in arguments.items():
         if arg_name in types:
             expected_type = types[arg_name]
+            # Special handling for None - allow None for optional arguments
+            if arg_value is None:
+                continue
+            
             if isinstance(expected_type, tuple):
                 # Multiple allowed types
                 if not isinstance(arg_value, expected_type):
@@ -324,9 +328,6 @@ def validate_tool_arguments(tool_name: str, arguments: Dict[str, Any]) -> None:
             else:
                 # Single expected type
                 if not isinstance(arg_value, expected_type):
-                    # Special handling for None
-                    if arg_value is None:
-                        continue
                     raise MCPValidationError(
                         f"Argument '{arg_name}' for tool '{tool_name}' must be {expected_type}, got {type(arg_value)}"
                     )
