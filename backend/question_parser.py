@@ -529,22 +529,33 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
                 if json_start != -1:
                     content = content[json_start:json_end]
         
-        # Try to parse JSON - handle both double and single quotes
+        # Try to parse JSON - handle various formats
+        result = None
+        
+        # Try 1: Standard JSON parsing
         try:
             result = json.loads(content)
-        except json.JSONDecodeError:
-            # Try converting single quotes to double quotes for JSON compatibility
-            # This handles Python repr() format with single quotes
+        except json.JSONDecodeError as e1:
+            # Try 2: Convert single quotes to double quotes
             try:
                 content_cleaned = content.replace("'", '"')
                 result = json.loads(content_cleaned)
-            except json.JSONDecodeError:
-                raise
+            except json.JSONDecodeError as e2:
+                # Try 3: Extract JSON from string representation
+                try:
+                    # Look for { ... } pattern
+                    json_match = re.search(r'\{[^{}]*\}', content)
+                    if json_match:
+                        result = json.loads(json_match.group(0).replace("'", '"'))
+                except (json.JSONDecodeError, AttributeError) as e3:
+                    # All parsing attempts failed
+                    logger.debug(f"All JSON parsing attempts failed: {e1}, {e2}, {e3}")
+                    raise json.JSONDecodeError(f"Failed to parse JSON: {content[:100]}...")
         
         # Convert to our format
         return {
-            'origin': result.get('coo'),
-            'destination': result.get('coa')
+            'origin': result.get('coo') if result else None,
+            'destination': result.get('coa') if result else None
         }
     except (json.JSONDecodeError, AttributeError, IndexError) as e:
         logger.warning(f"Failed to parse LLM response for country extraction (falling back to regex): {e}")
