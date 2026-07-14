@@ -198,10 +198,25 @@ class UNHCRVectorRetriever:
         Build a retrieval query from the MCP tool request.
         Keep it compact but semantically rich.
         """
+        import re
+        
         parts = [user_request.strip()]
 
         if data_summary:
-            parts.append(f"Data summary: {data_summary.strip()}")
+            # Sanitize data_summary to remove markdown tables and non-text content
+            # This prevents embedding model errors
+            sanitized_summary = data_summary
+            
+            # Remove markdown table patterns
+            sanitized_summary = re.sub(r'\|.*?\|\n', '', sanitized_summary)
+            sanitized_summary = re.sub(r'\|[-:\s]+\|', '', sanitized_summary)
+            sanitized_summary = re.sub(r'^\|[^\n]*\n', '', sanitized_summary, flags=re.MULTILINE)
+            sanitized_summary = re.sub(r'\|', '', sanitized_summary)
+            sanitized_summary = re.sub(r'\s+', ' ', sanitized_summary).strip()
+            
+            # Only add if we have meaningful content after sanitization
+            if sanitized_summary and len(sanitized_summary.strip()) > 0:
+                parts.append(f"Data summary: {sanitized_summary[:200]}")  # Limit to 200 chars
 
         if topics:
             clean_topics = [t.strip() for t in topics if t and t.strip()]
@@ -237,11 +252,30 @@ class UNHCRVectorRetriever:
             embedding_dim = self._embedding_dim_from_db(conn)
             model = _load_embedding_model(model_name, self.device)
 
-            query_embedding = model.encode(
-                [query],
-                normalize_embeddings=True,
-                convert_to_numpy=True,
-            ).astype("float32")[0]
+            try:
+                query_embedding = model.encode(
+                    [query],
+                    normalize_embeddings=True,
+                    convert_to_numpy=True,
+                ).astype("float32")[0]
+            except (ValueError, TypeError, AttributeError) as e:
+                # Handle cases where the query contains non-encodable content
+                # (e.g., markdown tables, invalid characters)
+                logger.warning(f"Embedding failed for query, retrying with sanitized version: {e}")
+                # Clean the query by removing problematic characters
+                import re
+                sanitized_query = re.sub(r'[^\w\s.,;:!?\'-]', ' ', query)
+                sanitized_query = re.sub(r'\s+', ' ', sanitized_query).strip()
+                if sanitized_query and len(sanitized_query) > 0:
+                    query_embedding = model.encode(
+                        [sanitized_query],
+                        normalize_embeddings=True,
+                        convert_to_numpy=True,
+                    ).astype("float32")[0]
+                else:
+                    # If sanitization results in empty string, return empty results
+                    logger.warning(f"Query could not be sanitized for embedding: {query[:100]}")
+                    return []
 
             if len(query_embedding) != embedding_dim:
                 raise ValueError(

@@ -510,24 +510,40 @@ Return ONLY a JSON object with this exact format:
 Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
 """
     
-    response = await client.chat.completions.create(
-        model=AZURE_OPENAI_DEPLOYMENT,
-        input=[{"role": "system", "content": prompt}, {"role": "user", "content": question}],
-        text={"format": {"type": "json_object"}}
-    )
-    
     try:
+        response = await client.chat.completions.create(
+            model=AZURE_OPENAI_DEPLOYMENT,
+            input=[{"role": "system", "content": prompt}, {"role": "user", "content": question}],
+            text={"format": {"type": "json_object"}}
+        )
+        
         content = response.choices[0].message.content
+        if not content or not isinstance(content, str):
+            logger.debug("LLM response content is empty or not a string")
+            return {'origin': None, 'destination': None}
+        
         # Clean up the content - strip whitespace and try to extract JSON
-        if content:
-            content = content.strip()
-            # Try to find JSON in markdown code blocks if present
-            if content.startswith('```json') or content.startswith('```'):
-                # Extract JSON from markdown code block
-                json_start = content.find('{')
-                json_end = content.rfind('}') + 1 if content.rfind('}') != -1 else len(content)
-                if json_start != -1:
-                    content = content[json_start:json_end]
+        content = content.strip()
+        
+        # Remove markdown code blocks and tables if present
+        # This handles cases where LLM wraps response in markdown or includes tables
+        if '```' in content:
+            # Extract content from markdown code blocks
+            json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', content, re.DOTALL)
+            if json_match:
+                content = json_match.group(1)
+            else:
+                # Try to find JSON between any ``` markers
+                content = re.sub(r'^```[^\n]*\n', '', content)
+                content = re.sub(r'\n```[^\n]*$', '', content)
+        
+        # Remove markdown tables (lines starting with |)
+        content = re.sub(r'^\|[^\n]*\n?', '', content, flags=re.MULTILINE)
+        content = re.sub(r'\|', '', content)
+        content = re.sub(r'^\s*[-]+\s*$', '', content, flags=re.MULTILINE)
+        
+        # Clean up excessive whitespace
+        content = re.sub(r'\s+', ' ', content).strip()
         
         # Try to parse JSON - handle various formats
         result = None
@@ -539,6 +555,8 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
             # Try 2: Convert single quotes to double quotes
             try:
                 content_cleaned = content.replace("'", '"')
+                # Handle cases where true/false/null are in single quotes
+                content_cleaned = re.sub(r"'(\w+)'", r'"\1"', content_cleaned)
                 result = json.loads(content_cleaned)
             except json.JSONDecodeError as e2:
                 # Try 3: Extract JSON from string representation
@@ -553,11 +571,15 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
                     raise json.JSONDecodeError(f"Failed to parse JSON: {content[:100]}...")
         
         # Convert to our format
-        return {
-            'origin': result.get('coo') if result else None,
-            'destination': result.get('coa') if result else None
-        }
-    except (json.JSONDecodeError, AttributeError, IndexError) as e:
+        if result and isinstance(result, dict):
+            return {
+                'origin': result.get('coo') if result else None,
+                'destination': result.get('coa') if result else None
+            }
+        else:
+            logger.debug(f"Unexpected result type: {type(result)}")
+            return {'origin': None, 'destination': None}
+    except (json.JSONDecodeError, AttributeError, IndexError, Exception) as e:
         logger.warning(f"Failed to parse LLM response for country extraction (falling back to regex): {e}")
         return {'origin': None, 'destination': None}
 

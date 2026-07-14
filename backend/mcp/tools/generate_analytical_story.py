@@ -9,10 +9,55 @@ and graceful fallback logging.
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_for_rag(text: str, max_length: int = 500) -> str:
+    """
+    Sanitize text for RAG by removing markdown tables and non-text content.
+    
+    This prevents the embedding model from failing when it receives markdown tables
+    or other non-textual data structures.
+    
+    Args:
+        text: Text to sanitize
+        max_length: Maximum length of the sanitized text
+        
+    Returns:
+        Sanitized text suitable for embedding
+    """
+    if not text or not isinstance(text, str):
+        return ""
+    
+    # Remove markdown tables (lines starting with |)
+    # Pattern: | cell1 | cell2 | cell3 |
+    text = re.sub(r'\|.*?\|\n', '', text)
+    
+    # Remove markdown table headers (lines with |---|---|---|)
+    text = re.sub(r'\|[-:\s]+\|', '', text)
+    
+    # Remove lines that look like table headers
+    text = re.sub(r'^\|[^\n]*\n', '', text, flags=re.MULTILINE)
+    
+    # Remove standalone pipes
+    text = re.sub(r'\|', '', text)
+    
+    # Remove excessive whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    # Remove any remaining table-like patterns
+    text = re.sub(r'^-+\n', '', text)
+    text = re.sub(r'\n-+\n', '\n', text)
+    
+    # Limit length
+    if len(text) > max_length:
+        text = text[:max_length] + "..."
+    
+    return text
 
 
 async def generate_analytical_story_tool(
@@ -104,9 +149,13 @@ async def generate_analytical_story_tool(
                 from backend.mcp.common import summarize_retrieved_context_for_story
                 
                 # Retrieve RAG context
+                # Sanitize result data to remove markdown tables before passing to RAG
+                raw_data_summary = json.dumps(result, default=str) if result else None
+                sanitized_data_summary = _sanitize_for_rag(raw_data_summary) if raw_data_summary else None
+                
                 rag_query = rag_retriever.formulate_query(
                     user_request=generation_context,
-                    data_summary=json.dumps(result, default=str)[:500] if result else None
+                    data_summary=sanitized_data_summary
                 )
                 
                 retrieved_chunks = rag_retriever.retrieve(

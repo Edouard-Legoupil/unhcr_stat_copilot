@@ -74,14 +74,22 @@ engine: jupyter
 {# Helper to extract actual data items from nested structure #}
 {# data can be: {'data': {'items': [...]}} or {'items': [...]} or [...] #}
 {% set actual_data = data %}
-{% if data and data is mapping and data.get('data') and data['data'] is mapping %}
+{% if data is not none and data is mapping and data.get('data') is not none and data['data'] is mapping %}
     {%- set actual_data = data['data'] %}
 {% endif %}
 
-{# Check if we have valid data items #}
-{% set has_items = actual_data and actual_data is mapping and actual_data.get('items') is not none and actual_data['items']|length > 0 %}
-{% set has_list_data = actual_data and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
+{# Check if we have valid data items - use proper Jinja2 tests #}
+{% set has_items = actual_data is not none and actual_data is mapping and actual_data.get('items') is not none and actual_data['items'] is iterable and actual_data['items'] is not string and actual_data['items']|length > 0 %}
+{% set has_list_data = actual_data is not none and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
 {% set has_valid_data = has_items or has_list_data %}
+
+{# Extract items for use in code cells #}
+{% set items = [] %}
+{% if has_items %}
+    {% set items = actual_data['items'] %}
+{% elif has_list_data %}
+    {% set items = actual_data %}
+{% endif %}
 
 {# Title #}
 {% if story_content.strip() and not story_content.strip().startswith('#') %}
@@ -108,7 +116,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ actual_data['items']|tojson }}
+items = {{ items|tojson }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
@@ -162,7 +170,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data from list
-items = {{ actual_data|tojson }}
+items = {{ items|tojson }}
 df = pd.DataFrame(items)
 
 # Detect numeric columns
@@ -187,12 +195,12 @@ print(f"Main visualization generated from {len(items)} records")
 
 {# Additional charts from visualization_structure if available #}
 {% set viz_structure = None %}
-{% if metadata and metadata is mapping and metadata.get('visualization_structure') %}
-    {%- set viz_structure = metadata.visualization_structure %}
-{% elif data and data is mapping and data.get('visualization_structure') %}
-    {%- set viz_structure = data['visualization_structure'] %}
-{% elif actual_data and actual_data is mapping and actual_data.get('visualization_structure') %}
-    {%- set viz_structure = actual_data['visualization_structure'] %}
+{% if metadata is not none and metadata is mapping and metadata.get('visualization_structure') %}
+    {% set viz_structure = metadata.visualization_structure %}
+{% elif data is not none and data is mapping and data.get('visualization_structure') %}
+    {% set viz_structure = data['visualization_structure'] %}
+{% elif actual_data is not none and actual_data is mapping and actual_data.get('visualization_structure') %}
+    {% set viz_structure = actual_data['visualization_structure'] %}
 {% endif %}
 
 {% if viz_structure and has_valid_data %}
@@ -213,15 +221,15 @@ print("Visualization structure:", json.dumps(viz_structure, indent=2))
 
 # Extract data for additional visualizations
 {% if has_items %}
-items = {{ actual_data['items']|tojson }}
+items = {{ items|tojson }}
 {% elif has_list_data %}
-items = {{ actual_data|tojson }}
+items = {{ items|tojson }}
 {% else %}
 items = []
 {% endif %}
 
 {% if has_valid_data %}
-df = pd.DataFrame({% if has_items %}{{ actual_data['items']|tojson }}{% elif has_list_data %}{{ actual_data|tojson }}{% else %}[]{% endif %})
+df = pd.DataFrame({% if has_items %}{{ items|tojson }}{% elif has_list_data %}{{ items|tojson }}{% else %}[]{% endif %})
 
 # Create scatter plot for correlations if we have multiple numeric columns
 numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
@@ -256,7 +264,7 @@ if len(numeric_cols) > 1:
 {% endif %}
 
 {# Code cells - only output displayed, code hidden in rendered output #}
-{%- if include_code_cells and python_code %}
+{% if include_code_cells and python_code %}
 ```{python}
 #| echo: false
 #| fold: true
