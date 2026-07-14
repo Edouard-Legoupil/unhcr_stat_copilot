@@ -5,7 +5,7 @@ This directory contains YAML-based configuration files for CrewAI agents, tasks,
 ## 📁 Directory Structure
 
 ```
-config/
+yaml_config/
 ├── README.md              # This file
 ├── __init__.py            # Module exports
 ├── loader.py              # YAML configuration loader
@@ -18,12 +18,14 @@ config/
 │   ├── analysis_tasks.yaml
 │   ├── data_tasks.yaml
 │   ├── notebook_tasks.yaml
-│   └── story_tasks.yaml
+│   ├── story_tasks.yaml
+│   └── workflow_tasks.yaml
 └── crews/                # Crew configurations
     ├── analysis_crew.yaml
     ├── data_crew.yaml
     ├── notebook_crew.yaml
-    └── story_crew.yaml
+    ├── story_crew.yaml
+    └── master_crew.yaml
 ```
 
 ## 🎯 Purpose
@@ -45,7 +47,7 @@ This configuration system allows you to define CrewAI agents, tasks, and crews u
 
 ```python
 # Import the loader
-from backend.crewai.config import load_agent, load_crew, YAMLConfigLoader
+from backend.crewai.yaml_config.loader import load_agent, load_crew, YAMLConfigLoader
 
 # Load a specific agent configuration
 agent_config = load_agent('statistical_analyzer')
@@ -63,7 +65,7 @@ all_crews = load_crews()
 ### Instantiating from YAML
 
 ```python
-from backend.crewai.config import config_loader
+from backend.crewai.yaml_config.loader import config_loader
 
 # Instantiate an agent from YAML
 loader = YAMLConfigLoader()
@@ -199,7 +201,7 @@ agent = StatisticalAnalyzer(
 **After (YAML-based):**
 ```python
 # Load from YAML
-from backend.crewai.config import config_loader
+from backend.crewai.yaml_config.loader import config_loader
 
 agent = config_loader.instantiate_agent(
     agent_config={'name': 'statistical_analyzer'},
@@ -274,7 +276,7 @@ Enable debug logging to see what's happening:
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-from backend.crewai.config import config_loader
+from backend.crewai.yaml_config.loader import config_loader
 config = config_loader.load_agent('my_agent')
 ```
 
@@ -314,4 +316,4 @@ When adding new agents, tasks, or crews:
 ---
 
 *Maintained by: UNHCR Statistics Copilot Development Team*
-*Location: `/backend/crewai/config/`*
+*Location: `/backend/crewai/yaml_config/`*
