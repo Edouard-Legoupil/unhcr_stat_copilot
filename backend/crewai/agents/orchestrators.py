@@ -228,33 +228,27 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             
             # Prepare parameters for get_data_for_story
             # Handle timespan as years if provided
-            years_param = None
-            year_param = None
+            call_params = {
+                'question': question,
+                'topic': topic,
+                'timespan': timespan,
+                'coo_all': False,
+                'coa_all': False,
+                'audience': audience,
+                'document_type': document_type
+            }
+            
+            # Use origin and destination as coo and coa (only if not None or empty)
+            if origin:
+                call_params['origin'] = origin
+            if destination:
+                call_params['destination'] = destination
+            
+            # Handle timespan as years if provided
             if timespan:
-                # If timespan is a range like "2015-2024", pass it as years
-                years_param = timespan
+                call_params['years'] = timespan
             
-            # Use origin and destination as coo and coa
-            coo_param = origin or ''
-            coa_param = destination or ''
-            
-            result = await call_tool(
-                'get_data_for_story',
-                {
-                    'question': question,
-                    'origin': coo_param,
-                    'destination': coa_param,
-                    'topic': topic,
-                    'timespan': timespan,
-                    'population_types': None,
-                    'year': year_param,
-                    'years': years_param,
-                    'coo_all': False,
-                    'coa_all': False,
-                    'audience': audience,
-                    'document_type': document_type
-                }
-            )
+            result = await call_tool('get_data_for_story', call_params)
             
             if not isinstance(result, dict):
                 result = {'status': 'error', 'error': f'Unexpected result type: {type(result)}'}
