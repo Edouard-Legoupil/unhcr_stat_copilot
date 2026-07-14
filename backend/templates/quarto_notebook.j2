@@ -71,6 +71,17 @@ source: UNHCR Statistics Copilot
 engine: jupyter
 ---
 
+{# Helper to extract actual data items from nested structure #}
+{% set actual_data = data %}
+{% if data and isinstance(data, dict) and data.get('data') and isinstance(data['data'], dict) %}
+    {%- set actual_data = data['data'] %}
+{% endif %}
+
+{# Check if we have valid data items #}
+{% set has_items = actual_data and actual_data.get('items') is not none and actual_data.items|length > 0 %}
+{% set has_list_data = actual_data and isinstance(actual_data, list) and actual_data|length > 0 %}
+{% set has_valid_data = has_items or has_list_data %}
+
 {# Title and story content #}
 {# Check if story_content starts with a heading, if not add one #}
 {% if story_content.strip() and not story_content.strip().startswith('#') %}
@@ -78,6 +89,100 @@ engine: jupyter
 
 {% endif %}
 {{ story_content | safe }}
+
+{# Insert visualization if data is available #}
+{% if has_valid_data %}
+
+## Data Visualization
+
+{% if has_items %}
+```{python}
+#| label: "Main Visualization"
+#| echo: false
+#| fold: false
+#| fig-height: 8
+#| fig-width: 12
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Extract data items
+items = {{ actual_data.items|tojson }}
+df = pd.DataFrame(items)
+
+# Detect time series and value columns
+time_col = None
+numeric_cols = []
+for col in df.columns:
+    col_lower = col.lower()
+    if 'year' in col_lower:
+        time_col = col
+    elif pd.api.types.is_numeric_dtype(df[col]) and not any(skip in col_lower for skip in ['id', 'iso', 'hst', 'code']):
+        numeric_cols.append(col)
+
+# If we have a time column and numeric columns, create time series chart
+if time_col and numeric_cols:
+    plt.figure(figsize=(10, 6))
+    for pop_type in numeric_cols:
+        if pop_type != time_col:
+            plt.plot(df[time_col], df[pop_type], label=pop_type.replace('_', ' ').title(), marker='o')
+    plt.xlabel(time_col.replace('_', ' ').title())
+    plt.ylabel('Count')
+    plt.title('Population Trends Over Time')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+elif numeric_cols:
+    # Create bar chart for non-time-series data
+    plt.figure(figsize=(10, 6))
+    if len(numeric_cols) == 1:
+        df.plot(kind='bar', x=df.columns[0], y=numeric_cols[0], ax=plt.gca())
+    else:
+        df[numeric_cols].plot(kind='bar', ax=plt.gca())
+    plt.title('Population Distribution')
+    plt.ylabel('Count')
+    plt.xticks(rotation=45)
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.show()
+
+print(f"Visualization generated from {len(items)} data points")
+```
+{% elif has_list_data %}
+```{python}
+#| label: "Main Visualization"
+#| echo: false
+#| fold: false
+#| fig-height: 8
+#| fig-width: 12
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Extract data from list
+items = {{ actual_data|tojson }}
+df = pd.DataFrame(items)
+
+# Detect numeric columns
+numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+
+if numeric_cols:
+    plt.figure(figsize=(10, 6))
+    if len(numeric_cols) == 1:
+        df.plot(kind='bar', x=df.columns[0], y=numeric_cols[0], ax=plt.gca())
+    else:
+        df[numeric_cols].plot(kind='bar', ax=plt.gca())
+    plt.title('Data Overview')
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.show()
+
+print(f"Visualization generated from {len(items)} records")
+```
+{% endif %}
+
+{% endif %}
 
 {# Code cells - only output displayed, code hidden in rendered output #}
 {%- if include_code_cells and python_code %}

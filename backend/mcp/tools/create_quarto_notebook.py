@@ -66,6 +66,25 @@ def _get_field_label(field_name: str) -> str:
     return field_name.replace('_', ' ').title()
 
 
+def _has_valid_data_for_visualization(data: Any) -> bool:
+    """Check if data contains valid structures for visualization."""
+    if data is None:
+        return False
+    
+    if isinstance(data, dict):
+        # Check if it has items (list of data records)
+        if 'items' in data and isinstance(data['items'], list) and len(data['items']) > 0:
+            return True
+        # Check if it has data fields directly
+        if len(data) > 0 and not all(k.startswith('_') for k in data.keys()):
+            return True
+    
+    if isinstance(data, list) and len(data) > 0:
+        return True
+    
+    return False
+
+
 def _extract_text_from_message(content: Any) -> str:
     """
     Extract text content from various message formats.
@@ -879,8 +898,14 @@ async def create_quarto_notebook_tool(
         # Log for debugging
         logger.info(f"Quarto notebook: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}, cleaned_length={len(cleaned_story)}")
         
-        # Try to use Jinja2 template first
-        template = _load_template("quarto_notebook.j2")
+        # Choose template based on whether we have data for visualization
+        # Use interleaved template when data is available to automatically insert charts
+        if data is not None and (include_code_cells or _has_valid_data_for_visualization(data)):
+            template = _load_template("quarto_notebook_interleaved.j2")
+            logger.info("Using interleaved template for data visualization")
+        else:
+            template = _load_template("quarto_notebook.j2")
+            logger.info("Using standard template")
         
         if template and JINJA2_AVAILABLE:
             # Generate Python code if data is provided and code cells are requested
@@ -950,6 +975,11 @@ async def create_quarto_notebook_tool(
                 template_metadata['guardrails'] = sanitize_metadata_value(template_metadata['guardrails'])
             
             # Render the template
+            # Pass sanitized data to template for visualization (remove error messages)
+            template_data = None
+            if data is not None:
+                template_data = sanitize_metadata_value(data)
+            
             quarto_content = template.render(
                 title=title or 'UNHCR Data Analysis',
                 author=author or 'UNHCR Statistics Copilot',
@@ -965,7 +995,9 @@ async def create_quarto_notebook_tool(
                 analysis_config=metadata.get('analysis_config') if metadata else None,
                 original_query=original_query,
                 metadata=template_metadata,
-                # NEW: Pass visualization metadata for template use
+                # Data for visualization
+                data=template_data,
+                # Visualization metadata for template use
                 visualization_description=viz_description,
                 visualization_structure=viz_structure,
                 statistics=stats_data,
