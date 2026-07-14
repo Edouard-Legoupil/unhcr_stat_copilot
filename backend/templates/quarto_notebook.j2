@@ -72,15 +72,24 @@ engine: jupyter
 ---
 
 {# Helper to extract actual data items from nested structure #}
+{# data can be: {'data': {'items': [...]}} or {'items': [...]} or [...] #}
 {% set actual_data = data %}
-{% if data and data is mapping and data.get('data') and data['data'] is mapping %}
+{% if data is not none and data is mapping and data.get('data') is not none and data['data'] is mapping %}
     {%- set actual_data = data['data'] %}
 {% endif %}
 
-{# Check if we have valid data items #}
-{% set has_items = actual_data and actual_data is mapping and actual_data.get('items') is not none and actual_data['items']|length > 0 %}
-{% set has_list_data = actual_data and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
+{# Check if we have valid data items - use proper Jinja2 tests #}
+{% set has_items = actual_data is not none and actual_data is mapping and actual_data.get('items') is not none and actual_data['items'] is iterable and actual_data['items'] is not string and actual_data['items']|length > 0 %}
+{% set has_list_data = actual_data is not none and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
 {% set has_valid_data = has_items or has_list_data %}
+
+{# Extract items for use in code cells #}
+{% set items = [] %}
+{% if has_items %}
+    {% set items = actual_data['items'] %}
+{% elif has_list_data %}
+    {% set items = actual_data %}
+{% endif %}
 
 {# Title and story content #}
 {# Check if story_content starts with a heading, if not add one #}
@@ -107,7 +116,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ actual_data['items']|tojson }}
+items = {{ items|tojson }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
@@ -161,7 +170,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data from list
-items = {{ actual_data|tojson }}
+items = {{ items|tojson }}
 df = pd.DataFrame(items)
 
 # Detect numeric columns
@@ -185,7 +194,7 @@ print(f"Visualization generated from {len(items)} records")
 {% endif %}
 
 {# Code cells - only output displayed, code hidden in rendered output #}
-{%- if include_code_cells and python_code %}
+{% if include_code_cells and python_code %}
 ```{python}
 #| echo: false
 #| fold: true

@@ -215,8 +215,9 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Visualization structure from analysis
-viz_structure = {{ viz_structure|tojson }}
+# Visualization structure from analysis - use json.loads to properly handle null values
+viz_structure_json = '{{ viz_structure|tojson }}'
+viz_structure = json.loads(viz_structure_json)
 print("Visualization structure:", json.dumps(viz_structure, indent=2))
 
 # Extract data for additional visualizations
