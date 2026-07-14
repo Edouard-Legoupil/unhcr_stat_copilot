@@ -529,7 +529,18 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
                 if json_start != -1:
                     content = content[json_start:json_end]
         
-        result = json.loads(content)
+        # Try to parse JSON - handle both double and single quotes
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            # Try converting single quotes to double quotes for JSON compatibility
+            # This handles Python repr() format with single quotes
+            try:
+                content_cleaned = content.replace("'", '"')
+                result = json.loads(content_cleaned)
+            except json.JSONDecodeError:
+                raise
+        
         # Convert to our format
         return {
             'origin': result.get('coo'),
