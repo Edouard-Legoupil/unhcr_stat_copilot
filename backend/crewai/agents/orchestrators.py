@@ -225,28 +225,30 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             destination = parameters.get('destination', parameters.get('coa', ''))
             topic = parameters.get('topic', '')
             timespan = parameters.get('timespan', '')
+            population_type = parameters.get('population_type', '')
             
             # Prepare parameters for get_data_for_story
             # Handle timespan as years if provided
             call_params = {
                 'question': question,
-                'topic': topic,
-                'timespan': timespan,
                 'coo_all': False,
                 'coa_all': False,
                 'audience': audience,
                 'document_type': document_type
             }
             
-            # Use origin and destination as coo and coa (only if not None or empty)
+            # Only add parameters if they are not None and not empty
+            if topic:
+                call_params['topic'] = topic
+            if timespan:
+                call_params['timespan'] = timespan
+                call_params['years'] = timespan
             if origin:
                 call_params['origin'] = origin
             if destination:
                 call_params['destination'] = destination
-            
-            # Handle timespan as years if provided
-            if timespan:
-                call_params['years'] = timespan
+            if population_type:
+                call_params['population_type'] = population_type
             
             result = await call_tool('get_data_for_story', call_params)
             
@@ -316,7 +318,7 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                 'status': 'success',
                 'story': story_content,
                 'notebook': {
-                    'content': notebook_result.get('quarto_content', ''),
+                    'content': notebook_result.get('content', ''),
                     'metadata': notebook_result.get('metadata', {})
                 }
             }
@@ -371,7 +373,7 @@ class NotebookGenerator(UNHCRBaseAgent):
             
             return {
                 'status': 'success',
-                'quarto_content': result.get('quarto_content', ''),
+                'quarto_content': result.get('content', ''),
                 'metadata': result.get('metadata', {})
             }
         except Exception as e:

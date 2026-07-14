@@ -244,7 +244,7 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
     "get_data_for_story": {
         "required": ["question"],
-        "optional": ["coo", "coa", "year", "years", "population_types", "coo_all", "coa_all", "pop_type", "audience", "document_type"],
+        "optional": ["coo", "coa", "year", "years", "population_types", "coo_all", "coa_all", "pop_type", "audience", "document_type", "origin", "destination", "population_type", "timespan"],
         "types": {
             "question": str,
             "coo": str,
@@ -256,7 +256,11 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "coa_all": bool,
             "pop_type": bool,
             "audience": str,
-            "document_type": str
+            "document_type": str,
+            "origin": str,
+            "destination": str,
+            "population_type": str,
+            "timespan": str
         }
     },
     "generate_analytical_story": {
