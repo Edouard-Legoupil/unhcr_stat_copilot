@@ -89,6 +89,9 @@ export METRICS_FILE_PATH=/home/metrics/prometheus.metrics
 # Create log and metrics directories if they don't exist
 mkdir -p /home/logs /home/metrics
 
+# Set vector DB path for RAG (optional - will gracefully degrade if not present)
+export UNHCR_VECTOR_DB=/home/data/vector_store/unhcr_reports.duckdb
+
 echo "Azure Logging configuration:"
 echo "  - Backend logs: ${LOG_FILE}"
 echo "  - MCP logs: ${MCP_LOG_FILE}"

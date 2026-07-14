@@ -36,6 +36,9 @@ export MCP_LOG_FILE=logs/unhcr_mcp_server.log
 export METRICS_FILE_ENABLED=true
 export METRICS_FILE_PATH=metrics/prometheus.metrics
 
+# Set vector DB path for RAG (optional - will gracefully degrade if not present)
+export UNHCR_VECTOR_DB=data/vector_store/unhcr_reports.duckdb
+
 # Create log and metrics directories if they don't exist
 mkdir -p logs metrics
 
