@@ -23,6 +23,7 @@ def _extract_text_from_message_impl(content: Any) -> str:
     Extract text content from various message formats (same logic as MCP tool).
     This is a local implementation to avoid circular imports.
     """
+    logger.debug(f"Extracting text from content type={type(content)}, first 200 chars={str(content)[:200]}")
     if content is None:
         return ""
     
@@ -380,29 +381,24 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             
             # Ensure story_content is always a string (LLM responses may return lists or message objects)
             if not isinstance(story_content, str):
-                if isinstance(story_content, list):
-                    story_content = '\n'.join(str(item) for item in story_content)
-                elif isinstance(story_content, dict):
-                    # Handle Azure OpenAI message object format
-                    # Message object: {'id': '...', 'type': 'message', 'content': [{'type': 'output_text', 'text': '...'}], ...}
-                    if 'content' in story_content and isinstance(story_content['content'], list):
-                        # Extract text from content array
-                        text_parts = []
-                        for item in story_content['content']:
-                            if isinstance(item, dict) and 'text' in item:
-                                text_parts.append(item['text'])
-                            elif isinstance(item, str):
-                                text_parts.append(item)
-                        story_content = '\n'.join(text_parts) if text_parts else _extract_text_from_message_impl(story_content)
-                    elif 'text' in story_content:
-                        story_content = story_content['text']
-                    elif 'content' in story_content:
-                        story_content = _extract_text_from_message_impl(story_content['content'])
-                    else:
-                        # Last resort: convert to JSON string for proper parsing downstream
-                        story_content = _extract_text_from_message_impl(story_content)
-                else:
-                    story_content = str(story_content)
+                story_content = _extract_text_from_message_impl(story_content)
+            else:
+                # Clean up any JSON artifacts at the edges
+                cleaned = story_content.strip()
+                if cleaned.startswith('[') and cleaned.endswith(']'):
+                    try:
+                        import json
+                        parsed = json.loads(cleaned)
+                        story_content = _extract_text_from_message_impl(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                elif cleaned.startswith('{') and cleaned.endswith('}'):
+                    try:
+                        import json
+                        parsed = json.loads(cleaned)
+                        story_content = _extract_text_from_message_impl(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
             
             # Log for debugging
             logger.info(f"Orchestrator: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}")
