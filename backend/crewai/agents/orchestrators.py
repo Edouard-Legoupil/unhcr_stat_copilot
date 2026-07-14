@@ -3,17 +3,20 @@ Simplified Orchestration Agents for UNHCR Statistics Copilot
 
 This is a streamlined version that minimizes token consumption and complexity
 while maintaining the expected workflow: data fetching → story generation → notebook creation.
+
+All agents use MCP tools directly rather than Jinja2 templates.
+Jinja2 templates are maintained in backend/templates/ for use by the MCP server.
 """
 
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import jinja2
 import os
 import json
 
 from backend.crewai.agents.base import UNHCRBaseAgent
 from backend.crewai.config import CrewAIConfig, AudienceConfigManager
+from backend.chat import ANALYSIS_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -132,9 +135,6 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
         
         super().__init__(**kwargs)
         
-        # Initialize Jinja2 environment for notebook generation
-        self._init_jinja2()
-        
         # Track metrics
         self.metrics = {
             'total_workflows': 0,
@@ -142,18 +142,6 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             'failed_workflows': 0,
             'total_tokens': 0
         }
-    
-    def _init_jinja2(self):
-        """Initialize Jinja2 environment for template rendering."""
-        template_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'templates')
-        if os.path.exists(template_dir):
-            self.jinja_env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(template_dir),
-                autoescape=jinja2.select_autoescape(['html', 'xml'])
-            )
-        else:
-            self.jinja_env = jinja2.Environment(autoescape=False)
-            logger.warning(f"Template directory not found: {template_dir}")
     
     async def execute_full_workflow(
         self,
@@ -182,6 +170,10 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
         # Validate inputs
         audience = AudienceConfigManager.validate_audience(audience)
         document_type = AudienceConfigManager.validate_document_type(audience, document_type)
+        
+        # Get analysis config
+        from backend.chat import get_analysis_config
+        analysis_config = get_analysis_config(audience, document_type)
         
         result = {
             'status': 'in_progress',
@@ -255,7 +247,8 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                 parameters=parameters,
                 audience=audience,
                 document_type=document_type,
-                use_rag=use_rag
+                use_rag=use_rag,
+                analysis_config=analysis_config
             )
             
             workflow_steps.append({
@@ -356,10 +349,15 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             logger.exception(f"Data fetching failed: {e}")
             return {'status': 'error', 'error': str(e), 'data': {}}
     
-    async def _generate_notebook(self, question: str, data: Dict[str, Any], parameters: Dict[str, Any], audience: str, document_type: str, use_rag: bool = True) -> Dict[str, Any]:
+    async def _generate_notebook(self, question: str, data: Dict[str, Any], parameters: Dict[str, Any], audience: str, document_type: str, use_rag: bool = True, analysis_config: Optional[Dict] = None) -> Dict[str, Any]:
         """Generate story and Quarto notebook using MCP tools directly."""
         try:
             from backend.mcp_bridge import call_tool
+            
+            # Get analysis config if not provided
+            if analysis_config is None:
+                from backend.chat import get_analysis_config
+                analysis_config = get_analysis_config(audience, document_type)
             
             # Generate analytical story
             story_result = await call_tool(
@@ -370,7 +368,8 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                     'audience': audience,
                     'document_type': document_type,
                     'use_rag': use_rag,
-                    'apply_guardrails': True
+                    'apply_guardrails': True,
+                    'analysis_config': analysis_config
                 }
             )
             
@@ -457,16 +456,6 @@ class NotebookGenerator(UNHCRBaseAgent):
         kwargs.setdefault('role', 'Notebook Generator')
         kwargs.setdefault('goal', 'Generate well-documented Quarto notebooks from analysis results')
         super().__init__(**kwargs)
-        
-        template_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'templates')
-        if os.path.exists(template_dir):
-            self.jinja_env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(template_dir),
-                autoescape=jinja2.select_autoescape(['html', 'xml'])
-            )
-        else:
-            self.jinja_env = jinja2.Environment(autoescape=False)
-            logger.warning(f"Template directory not found: {template_dir}")
     
     async def create_notebook(self, story_content: str, data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Create a Quarto notebook from story content."""

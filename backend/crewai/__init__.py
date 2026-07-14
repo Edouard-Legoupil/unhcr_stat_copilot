@@ -1,18 +1,21 @@
 """
 CrewAI Integration for UNHCR Statistics Copilot
 
-This package provides CrewAI-based agent orchestration that mirrors the MCP capabilities
-while retaining the ability to generate well-documented Quarto notebooks with analysis logs.
+This package provides CrewAI-based agent orchestration that uses MCP tools directly.
+The structure has been simplified to use a single UNHCRCrew class instead of multiple
+separate crews (DataCrew, AnalysisCrew, StoryCrew, NotebookCrew, MasterCrew).
 
 Structure:
 - agents/: Specialist and orchestration agents
-- crews/: Crew definitions for different workflows
+- crews/: Simplified single crew definition (UNHCRCrew)
 - tasks/: Task definitions for crews
 - tools/: Tool adapters and implementations
+- yaml_config/: YAML configuration files for agents and crews
 """
 
 from backend.crewai.manager import CrewAIManager
 from backend.crewai.config import AudienceConfigManager
+from backend.crewai.crew import UNHCRCrew, get_crew
 
 # Version
 __version__ = "1.0.0"
@@ -35,3 +38,14 @@ def reset_crewai_manager():
     if _manager is not None:
         _manager.shutdown()
     _manager = CrewAIManager()
+
+
+# Export the simplified crew for convenience
+__all__ = [
+    'CrewAIManager',
+    'AudienceConfigManager',
+    'get_crewai_manager',
+    'reset_crewai_manager',
+    'UNHCRCrew',
+    'get_crew'
+]

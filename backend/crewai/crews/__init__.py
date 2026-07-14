@@ -1,26 +1,33 @@
 """
-Crew Definitions for UNHCR Statistics Copilot
+Crews module for UNHCR Statistics Copilot
 
-This package contains all CrewAI crew definitions for different analysis workflows.
+This module has been simplified to use a single UNHCRCrew class
+instead of multiple separate crews (DataCrew, AnalysisCrew, StoryCrew, NotebookCrew, MasterCrew).
 
-Crews:
-- DataCrew: Fetches and validates UNHCR data
-- AnalysisCrew: Performs statistical analysis and validation
-- StoryCrew: Generates analytical stories with RAG enrichment
-- NotebookCrew: Creates Quarto notebooks from analysis results
-- MasterCrew: Orchestrates all crews for complete workflows
+The single crew uses MCP tools directly via the AnalysisOrchestrator agent,
+minimizing complexity and token consumption while maintaining full functionality.
+
+For backward compatibility, the old crew classes are available in the backup:
+- DataCrew (removed)
+- AnalysisCrew (removed)
+- StoryCrew (removed)
+- NotebookCrew (removed)
+- MasterCrew (removed)
+
+All functionality is now consolidated in UNHCRCrew in backend.crewai.crew module.
 """
 
-from backend.crewai.crews.data_crew import DataCrew
-from backend.crewai.crews.analysis_crew import AnalysisCrew
-from backend.crewai.crews.story_crew import StoryCrew
-from backend.crewai.crews.notebook_crew import NotebookCrew
-from backend.crewai.crews.master_crew import MasterCrew
+# Re-export the simplified crew
+from backend.crewai.crew import UNHCRCrew, get_crew
 
-__all__ = [
-    'DataCrew',
-    'AnalysisCrew',
-    'StoryCrew',
-    'NotebookCrew',
-    'MasterCrew'
-]
+__all__ = ['UNHCRCrew', 'get_crew']
+
+# For backward compatibility, provide references to the new crew
+# Users should update their code to use UNHCRCrew directly
+DataCrew = UNHCRCrew
+AnalysisCrew = UNHCRCrew
+StoryCrew = UNHCRCrew
+NotebookCrew = UNHCRCrew
+MasterCrew = UNHCRCrew
+
+__all__.extend(['DataCrew', 'AnalysisCrew', 'StoryCrew', 'NotebookCrew', 'MasterCrew'])
