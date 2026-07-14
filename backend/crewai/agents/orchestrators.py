@@ -285,10 +285,22 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             
             story_content = story_result.get('story', '') or story_result.get('response', '')
             
-            # Ensure story_content is always a string (LLM responses may return lists)
+            # Ensure story_content is always a string (LLM responses may return lists or message objects)
             if not isinstance(story_content, str):
                 if isinstance(story_content, list):
                     story_content = '\n'.join(str(item) for item in story_content)
+                elif isinstance(story_content, dict):
+                    # Handle Azure OpenAI message object format
+                    # Message object: {'id': '...', 'type': 'message', 'content': [{'type': 'output_text', 'text': '...'}], ...}
+                    if 'content' in story_content and isinstance(story_content['content'], list):
+                        # Extract text from content array
+                        text_parts = []
+                        for item in story_content['content']:
+                            if isinstance(item, dict) and 'text' in item:
+                                text_parts.append(item['text'])
+                        story_content = '\n'.join(text_parts)
+                    else:
+                        story_content = str(story_content)
                 else:
                     story_content = str(story_content)
             
@@ -364,6 +376,16 @@ class NotebookGenerator(UNHCRBaseAgent):
             if not isinstance(story_content, str):
                 if isinstance(story_content, list):
                     story_content = '\n'.join(str(item) for item in story_content)
+                elif isinstance(story_content, dict):
+                    # Handle Azure OpenAI message object format
+                    if 'content' in story_content and isinstance(story_content['content'], list):
+                        text_parts = []
+                        for item in story_content['content']:
+                            if isinstance(item, dict) and 'text' in item:
+                                text_parts.append(item['text'])
+                        story_content = '\n'.join(text_parts)
+                    else:
+                        story_content = str(story_content)
                 else:
                     story_content = str(story_content)
             result = await call_tool('create_quarto_notebook', {'story_content': story_content, 'data': data, **kwargs})
