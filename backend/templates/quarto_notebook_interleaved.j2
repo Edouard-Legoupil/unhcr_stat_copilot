@@ -74,13 +74,13 @@ engine: jupyter
 {# Helper to extract actual data items from nested structure #}
 {# data can be: {'data': {'items': [...]}} or {'items': [...]} or [...] #}
 {% set actual_data = data %}
-{% if data and isinstance(data, dict) and data.get('data') and isinstance(data['data'], dict) %}
+{% if data and data is mapping and data.get('data') and data['data'] is mapping %}
     {%- set actual_data = data['data'] %}
 {% endif %}
 
 {# Check if we have valid data items #}
-{% set has_items = actual_data and actual_data.get('items') is not none and actual_data.items|length > 0 %}
-{% set has_list_data = actual_data and isinstance(actual_data, list) and actual_data|length > 0 %}
+{% set has_items = actual_data and actual_data is mapping and actual_data.get('items') is not none and actual_data.items|length > 0 %}
+{% set has_list_data = actual_data and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
 {% set has_valid_data = has_items or has_list_data %}
 
 {# Title #}
@@ -187,11 +187,11 @@ print(f"Main visualization generated from {len(items)} records")
 
 {# Additional charts from visualization_structure if available #}
 {% set viz_structure = None %}
-{% if metadata and metadata.get('visualization_structure') %}
+{% if metadata and metadata is mapping and metadata.get('visualization_structure') %}
     {%- set viz_structure = metadata.visualization_structure %}
-{% elif data and isinstance(data, dict) and data.get('visualization_structure') %}
+{% elif data and data is mapping and data.get('visualization_structure') %}
     {%- set viz_structure = data['visualization_structure'] %}
-{% elif actual_data and actual_data.get('visualization_structure') %}
+{% elif actual_data and actual_data is mapping and actual_data.get('visualization_structure') %}
     {%- set viz_structure = actual_data['visualization_structure'] %}
 {% endif %}
 
