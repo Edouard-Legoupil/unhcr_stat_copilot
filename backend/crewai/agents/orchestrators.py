@@ -109,7 +109,7 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             step_start = datetime.now()
             
             from backend.question_parser import extract_question_parameters
-            parameters = extract_question_parameters(question)
+            parameters = await extract_question_parameters(question)
             
             workflow_steps.append({
                 'step': 1,
@@ -226,17 +226,29 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
             topic = parameters.get('topic', '')
             timespan = parameters.get('timespan', '')
             
+            # Prepare parameters for get_data_for_story
+            # Handle timespan as years if provided
+            years_param = None
+            year_param = None
+            if timespan:
+                # If timespan is a range like "2015-2024", pass it as years
+                years_param = timespan
+            
+            # Use origin and destination as coo and coa
+            coo_param = origin or ''
+            coa_param = destination or ''
+            
             result = await call_tool(
                 'get_data_for_story',
                 {
                     'question': question,
-                    'origin': origin,
-                    'destination': destination,
+                    'origin': coo_param,
+                    'destination': coa_param,
                     'topic': topic,
                     'timespan': timespan,
                     'population_types': None,
-                    'year': None,
-                    'years': None,
+                    'year': year_param,
+                    'years': years_param,
                     'coo_all': False,
                     'coa_all': False,
                     'audience': audience,
@@ -276,6 +288,13 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                 story_result = {'status': 'error', 'error': f'Unexpected story result type: {type(story_result)}'}
             
             story_content = story_result.get('story', '') or story_result.get('response', '')
+            
+            # Ensure story_content is always a string (LLM responses may return lists)
+            if not isinstance(story_content, str):
+                if isinstance(story_content, list):
+                    story_content = '\n'.join(str(item) for item in story_content)
+                else:
+                    story_content = str(story_content)
             
             # Create Quarto notebook
             notebook_result = await call_tool(
@@ -342,6 +361,12 @@ class NotebookGenerator(UNHCRBaseAgent):
         """Create a Quarto notebook from story content."""
         try:
             from backend.mcp_bridge import call_tool
+            # Ensure story_content is a string
+            if not isinstance(story_content, str):
+                if isinstance(story_content, list):
+                    story_content = '\n'.join(str(item) for item in story_content)
+                else:
+                    story_content = str(story_content)
             result = await call_tool('create_quarto_notebook', {'story_content': story_content, 'data': data, **kwargs})
             
             if not isinstance(result, dict):

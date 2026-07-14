@@ -46,3 +46,5 @@ backend/mcp/__pycache__/*
 backend/mcp/tools/__pycache__/*
 backend/mcp/mcp/__pycache__/*
 backend/mcp/observability/__pycache__/*
+__pycache__/
+*.pyc

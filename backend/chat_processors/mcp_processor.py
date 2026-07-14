@@ -215,10 +215,18 @@ class MCPChatProcessor:
                 return story_result
             
             # Create Quarto notebook
+            # Ensure story_content is a string
+            story_content = story_result.get("story", "")
+            if not isinstance(story_content, str):
+                if isinstance(story_content, list):
+                    story_content = '\n'.join(str(item) for item in story_content)
+                else:
+                    story_content = str(story_content)
+            
             notebook_result = await call_tool(
                 "create_quarto_notebook",
                 {
-                    "story_content": story_result.get("story", ""),
+                    "story_content": story_content,
                     "data": data_result,
                     "question": question,
                     "audience": audience,
@@ -234,7 +242,7 @@ class MCPChatProcessor:
                 "quarto_content": notebook_result.get("quarto_content", ""),
                 "quarto_metadata": notebook_result.get("metadata", {}),
                 "data": data_result,
-                "story": story_result.get("story", ""),
+                "story": story_content,
                 "analysis_type": "quarto_notebook"
             }
             

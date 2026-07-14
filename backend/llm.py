@@ -202,6 +202,14 @@ class AzureOpenAIResponsesClient:
                                     content = value
                                     break
                     
+                    # Ensure content is always a string
+                    if not isinstance(content, str):
+                        if isinstance(content, list):
+                            # Join list items into a single string
+                            content = '\n'.join(str(item) for item in content)
+                        else:
+                            content = str(content)
+                    
                     return MockResponse(content)
                     
             except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as e:

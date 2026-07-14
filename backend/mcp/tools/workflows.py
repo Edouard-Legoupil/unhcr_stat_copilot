@@ -294,8 +294,16 @@ async def full_analysis_workflow_tool(
                         enriched_metadata["visualization_description"] = data_field["visualization_description"]
             
             # Create notebook with all metadata
+            # Ensure story_content is a string
+            story_content = story_result.get("story", "")
+            if not isinstance(story_content, str):
+                if isinstance(story_content, list):
+                    story_content = '\n'.join(str(item) for item in story_content)
+                else:
+                    story_content = str(story_content)
+            
             notebook_result = await create_quarto_notebook_tool(
-                story_content=story_result.get("story", ""),
+                story_content=story_content,
                 title=story_result.get("title", f"UNHCR Analysis: {question[:50]}"),
                 output_path=output_path,
                 author="UNHCR Statistics Copilot",

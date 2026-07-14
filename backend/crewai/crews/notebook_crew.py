@@ -203,6 +203,13 @@ class NotebookCrew:
         """
         story_content = story_result.get('story', '')
         
+        # Ensure story_content is a string
+        if not isinstance(story_content, str):
+            if isinstance(story_content, list):
+                story_content = '\n'.join(str(item) for item in story_content)
+            else:
+                story_content = str(story_content)
+        
         # Extract metadata from story result
         metadata = {
             'enriched': story_result.get('enriched', False),
