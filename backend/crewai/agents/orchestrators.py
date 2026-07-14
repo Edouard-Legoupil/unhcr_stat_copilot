@@ -18,6 +18,99 @@ from backend.crewai.config import CrewAIConfig, AudienceConfigManager
 logger = logging.getLogger(__name__)
 
 
+def _extract_text_from_message_impl(content: Any) -> str:
+    """
+    Extract text content from various message formats (same logic as MCP tool).
+    This is a local implementation to avoid circular imports.
+    """
+    if content is None:
+        return ""
+    
+    if isinstance(content, str):
+        cleaned = content.strip()
+        # Try to parse as JSON if it looks like a serialized object
+        if cleaned.startswith('[') and cleaned.endswith(']'):
+            try:
+                import json
+                parsed = json.loads(cleaned)
+                return _extract_text_from_message_impl(parsed)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if cleaned.startswith('{') and cleaned.endswith('}'):
+            try:
+                import json
+                parsed = json.loads(cleaned)
+                return _extract_text_from_message_impl(parsed)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return cleaned
+    
+    if isinstance(content, list):
+        texts = []
+        for item in content:
+            if isinstance(item, dict):
+                text_fields = ['text', 'content', 'raw_text', 'message', 'story', 'narrative']
+                for key in text_fields:
+                    if key in item:
+                        text = _extract_text_from_message_impl(item[key])
+                        if text:
+                            texts.append(text)
+                            break
+                else:
+                    for key, value in item.items():
+                        if key not in ['type', 'role', 'name', 'usage', 'model']:
+                            text = _extract_text_from_message_impl(value)
+                            if text:
+                                texts.append(text)
+                                break
+            elif isinstance(item, str):
+                item_cleaned = item.strip()
+                if item_cleaned:
+                    texts.append(item_cleaned)
+            else:
+                text = _extract_text_from_message_impl(item)
+                if text:
+                    texts.append(text)
+        return "\n\n".join(texts) if texts else ""
+    
+    if isinstance(content, dict):
+        # Azure OpenAI message format
+        if 'content' in content and isinstance(content['content'], list):
+            texts = []
+            for citem in content['content']:
+                if isinstance(citem, dict) and 'text' in citem:
+                    texts.append(citem['text'])
+                elif isinstance(citem, str):
+                    texts.append(citem)
+                else:
+                    text = _extract_text_from_message_impl(citem)
+                    if text:
+                        texts.append(text)
+            return '\n\n'.join(texts) if texts else ""
+        
+        text_fields = ['story', 'content', 'text', 'raw_text', 'message', 'narrative', 'description']
+        for key in text_fields:
+            if key in content:
+                text = _extract_text_from_message_impl(content[key])
+                if text:
+                    return text
+        
+        if 'content' in content:
+            return _extract_text_from_message_impl(content['content'])
+        
+        for key, value in content.items():
+            if key not in ['type', 'role', 'name', 'usage', 'model', 'finish_reason']:
+                text = _extract_text_from_message_impl(value)
+                if text:
+                    return text
+        
+        # Last resort for dicts
+        import json
+        return json.dumps(content)
+    
+    return str(content)
+
+
 class AnalysisOrchestrator(UNHCRBaseAgent):
     """
     Simplified master agent that coordinates the analysis workflow.
@@ -300,15 +393,14 @@ class AnalysisOrchestrator(UNHCRBaseAgent):
                                 text_parts.append(item['text'])
                             elif isinstance(item, str):
                                 text_parts.append(item)
-                        story_content = '\n'.join(text_parts) if text_parts else json.dumps(story_content)
+                        story_content = '\n'.join(text_parts) if text_parts else _extract_text_from_message_impl(story_content)
                     elif 'text' in story_content:
                         story_content = story_content['text']
                     elif 'content' in story_content:
-                        story_content = str(story_content['content'])
+                        story_content = _extract_text_from_message_impl(story_content['content'])
                     else:
                         # Last resort: convert to JSON string for proper parsing downstream
-                        import json
-                        story_content = json.dumps(story_content)
+                        story_content = _extract_text_from_message_impl(story_content)
                 else:
                     story_content = str(story_content)
             
@@ -382,27 +474,24 @@ class NotebookGenerator(UNHCRBaseAgent):
             from backend.mcp_bridge import call_tool
             # Ensure story_content is a string
             if not isinstance(story_content, str):
-                if isinstance(story_content, list):
-                    story_content = '\n'.join(str(item) for item in story_content)
-                elif isinstance(story_content, dict):
-                    # Handle Azure OpenAI message object format
-                    if 'content' in story_content and isinstance(story_content['content'], list):
-                        text_parts = []
-                        for item in story_content['content']:
-                            if isinstance(item, dict) and 'text' in item:
-                                text_parts.append(item['text'])
-                            elif isinstance(item, str):
-                                text_parts.append(item)
-                        story_content = '\n'.join(text_parts) if text_parts else json.dumps(story_content)
-                    elif 'text' in story_content:
-                        story_content = story_content['text']
-                    elif 'content' in story_content:
-                        story_content = str(story_content['content'])
-                    else:
-                        # Last resort: convert to JSON string for proper parsing downstream
-                        story_content = json.dumps(story_content)
-                else:
-                    story_content = str(story_content)
+                story_content = _extract_text_from_message_impl(story_content)
+            else:
+                # Clean up any JSON artifacts at the edges
+                cleaned = story_content.strip()
+                if cleaned.startswith('[') and cleaned.endswith(']'):
+                    try:
+                        import json
+                        parsed = json.loads(cleaned)
+                        story_content = _extract_text_from_message_impl(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+                elif cleaned.startswith('{') and cleaned.endswith('}'):
+                    try:
+                        import json
+                        parsed = json.loads(cleaned)
+                        story_content = _extract_text_from_message_impl(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
             result = await call_tool('create_quarto_notebook', {'story_content': story_content, 'data': data, **kwargs})
             
             if not isinstance(result, dict):

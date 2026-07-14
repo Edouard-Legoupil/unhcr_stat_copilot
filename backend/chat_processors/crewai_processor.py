@@ -209,11 +209,24 @@ class CrewAIChatProcessor:
                     "timespan": timespan or ""
                 }
             
-            # Ensure quarto_metadata has audience and document_type for proper indexing
+            # Ensure quarto_metadata has all necessary fields for proper indexing
             if "audience" in result:
                 adapted_result["quarto_metadata"]["audience"] = result["audience"]
             if "document_type" in result:
                 adapted_result["quarto_metadata"]["document_type"] = result["document_type"]
+            if "steps" in result:
+                adapted_result["quarto_metadata"]["steps"] = result["steps"]
+            if "errors" in result:
+                adapted_result["quarto_metadata"]["errors"] = result["errors"]
+            if "duration_seconds" in result:
+                adapted_result["quarto_metadata"]["duration_seconds"] = result["duration_seconds"]
+            if "workflow" in result:
+                adapted_result["quarto_metadata"]["workflow"] = result["workflow"]
+            
+            # Add question and execution_source to metadata for history tracking
+            adapted_result["quarto_metadata"]["question"] = message
+            adapted_result["quarto_metadata"]["execution_source"] = self.execution_source
+            adapted_result["quarto_metadata"]["tool"] = "crewai_workflow"
             
             return adapted_result
             
