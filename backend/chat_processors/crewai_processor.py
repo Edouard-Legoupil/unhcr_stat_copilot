@@ -196,7 +196,7 @@ class CrewAIChatProcessor:
             }
             
             # Copy additional fields if present
-            for key in ["data", "visualization", "response", "story", "error"]:
+            for key in ["data", "visualization", "response", "story", "error", "audience", "document_type"]:
                 if key in result:
                     adapted_result[key] = result[key]
             
@@ -208,6 +208,12 @@ class CrewAIChatProcessor:
                     "topic": topic or "",
                     "timespan": timespan or ""
                 }
+            
+            # Ensure quarto_metadata has audience and document_type for proper indexing
+            if "audience" in result:
+                adapted_result["quarto_metadata"]["audience"] = result["audience"]
+            if "document_type" in result:
+                adapted_result["quarto_metadata"]["document_type"] = result["document_type"]
             
             return adapted_result
             
