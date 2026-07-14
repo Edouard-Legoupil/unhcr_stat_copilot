@@ -108,7 +108,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ actual_data.items|tojson }}
+items = {{ actual_data['items']|tojson }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
@@ -213,7 +213,7 @@ print("Visualization structure:", json.dumps(viz_structure, indent=2))
 
 # Extract data for additional visualizations
 {% if has_items %}
-items = {{ actual_data.items|tojson }}
+items = {{ actual_data['items']|tojson }}
 {% elif has_list_data %}
 items = {{ actual_data|tojson }}
 {% else %}

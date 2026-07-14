@@ -107,7 +107,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Extract data items
-items = {{ actual_data.items|tojson }}
+items = {{ actual_data['items']|tojson }}
 df = pd.DataFrame(items)
 
 # Detect time series and value columns
