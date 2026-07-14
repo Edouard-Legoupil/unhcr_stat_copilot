@@ -1,5 +1,3 @@
-{# UNHCR Quarto Notebook Template with Interleaved Charts #}
-{# Uses Jinja2 templating with charts automatically inserted at key points #}
 ---
 title: {{ title|quote_yaml }}
 author: {{ author|quote_yaml }}
@@ -9,14 +7,14 @@ format:
     embed-resources: true
     standalone: true
     format-links: false
-    {%- if use_unhcr_theme %}
+    {% if use_unhcr_theme %}
     theme:
       - unhcr
       - cosmo
     css: unhcr.css
-    {%- else %}
+    {% else %}
     theme: cosmo
-    {%- endif %}
+    {% endif %}
   pdf:
     documentclass: article
     papersize: a4
@@ -67,38 +65,59 @@ original_query: {{ original_query|quote_yaml }}
 
 generated: {{ timestamp|quote_yaml }}
 source: UNHCR Statistics Copilot
-
 engine: jupyter
 ---
 
-{# Helper to extract actual data items from nested structure #}
-{# data can be: {'data': {'items': [...]}} or {'items': [...]} or [...] #}
-{% set actual_data = data %}
-{% if data is not none and data is mapping and data.get('data') is not none and data['data'] is mapping %}
-    {%- set actual_data = data['data'] %}
-{% endif %}
+{%- set has_valid_data = data is not none and data is not string and data|length > 0 %}
+{%- set has_items = has_valid_data and data is mapping and data.get('items') is not none and data['items'] is iterable and data['items'] is not string and data['items']|length > 0 %}
+{%- set has_list_data = has_valid_data and data is iterable and data is not mapping and data is not string and data|length > 0 %}
 
-{# Check if we have valid data items - use proper Jinja2 tests #}
-{% set has_items = actual_data is not none and actual_data is mapping and actual_data.get('items') is not none and actual_data['items'] is iterable and actual_data['items'] is not string and actual_data['items']|length > 0 %}
-{% set has_list_data = actual_data is not none and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
-{% set has_valid_data = has_items or has_list_data %}
+{%- if has_items %}
+    {%- set items = data['items'] %}
+{%- elif has_list_data %}
+    {%- set items = data %}
+{%- else %}
+    {%- set items = [] %}
+{%- endif %}
+
+{# Extract actual data for visualization #}
+{%- set actual_data = data %}
+{%- if data is not none and data is mapping and data.get('data') is not none and data['data'] is mapping %}
+    {%- set actual_data = data['data'] %}
+{%- endif %}
+
+{# Check if we have valid data items #}
+{%- set has_items = actual_data is not none and actual_data is mapping and actual_data.get('items') is not none and actual_data['items'] is iterable and actual_data['items'] is not string and actual_data['items']|length > 0 %}
+{%- set has_list_data = actual_data is not none and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
+{%- set has_valid_data = has_items or has_list_data %}
 
 {# Extract items for use in code cells #}
-{% set items = [] %}
-{% if has_items %}
-    {% set items = actual_data['items'] %}
-{% elif has_list_data %}
-    {% set items = actual_data %}
-{% endif %}
+{%- set items = [] %}
+{%- if has_items %}
+    {%- set items = actual_data['items'] %}
+{%- elif has_list_data %}
+    {%- set items = actual_data %}
+{%- endif %}
 
-{# Title #}
+{# Get visualization structure from metadata #}
+{%- set viz_structure = None %}
+{%- if metadata is not none and metadata is mapping and metadata.get('visualization_structure') %}
+    {%- set viz_structure = metadata.visualization_structure %}
+{%- elif data is not none and data is mapping and data.get('visualization_structure') %}
+    {%- set viz_structure = data['visualization_structure'] %}
+{%- elif actual_data is not none and actual_data is mapping and actual_data.get('visualization_structure') %}
+    {%- set viz_structure = actual_data['visualization_structure'] %}
+{%- endif %}
+
+{# Insert title if story doesn't start with one #}
 {% if story_content.strip() and not story_content.strip().startswith('#') %}
 # {{ title }}
 
 {% endif %}
+
 {{ story_content | safe }}
 
-{# Insert main visualization after the story content #}
+{# Inject charts at appropriate points based on analysis structure #}
 {% if has_valid_data %}
 
 ## Data Visualization
@@ -191,18 +210,6 @@ print(f"Main visualization generated from {len(items)} records")
 ```
 {% endif %}
 
-{% endif %}
-
-{# Additional charts from visualization_structure if available #}
-{% set viz_structure = None %}
-{% if metadata is not none and metadata is mapping and metadata.get('visualization_structure') %}
-    {% set viz_structure = metadata.visualization_structure %}
-{% elif data is not none and data is mapping and data.get('visualization_structure') %}
-    {% set viz_structure = data['visualization_structure'] %}
-{% elif actual_data is not none and actual_data is mapping and actual_data.get('visualization_structure') %}
-    {% set viz_structure = actual_data['visualization_structure'] %}
-{% endif %}
-
 {% if viz_structure and has_valid_data %}
 
 ## Detailed Analysis Charts
@@ -262,8 +269,8 @@ if len(numeric_cols) > 1:
 ```
 
 {% endif %}
+{% endif %}
 
-{# Code cells - only output displayed, code hidden in rendered output #}
 {% if include_code_cells and python_code %}
 ```{python}
 #| echo: false

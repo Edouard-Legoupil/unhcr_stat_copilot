@@ -947,14 +947,9 @@ async def create_quarto_notebook_tool(
         # Log for debugging
         logger.info(f"Quarto notebook: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}, cleaned_length={len(cleaned_story)}")
         
-        # Choose template based on whether we have data for visualization
-        # Use interleaved template when data is available to automatically insert charts
-        if data is not None and (include_code_cells or _has_valid_data_for_visualization(data)):
-            template = _load_template("quarto_notebook_interleaved.j2")
-            logger.info("Using interleaved template for data visualization")
-        else:
-            template = _load_template("quarto_notebook.j2")
-            logger.info("Using standard template")
+        # Always use interleaved template which handles both data and non-data cases
+        template = _load_template("quarto_notebook_interleaved.j2")
+        logger.info("Using interleaved template")
         
         if template and JINJA2_AVAILABLE:
             # Generate Python code if data is provided and code cells are requested
