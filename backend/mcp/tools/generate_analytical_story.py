@@ -235,21 +235,30 @@ async def generate_analytical_story_tool(
                           'by', 'for', 'in', 'of', 'on', 'per', 'to', 'from', 'with'}
             title_words = []
             for i, word in enumerate(words):
+                if not word:  # Skip empty strings
+                    continue
                 if i == 0 or i == len(words) - 1:
                     # Always capitalize first and last word
-                    title_words.append(word[0].upper() + word[1:].lower())
+                    if len(word) == 1:
+                        title_words.append(word.upper())
+                    else:
+                        title_words.append(word[0].upper() + word[1:].lower())
                 elif word.lower() in small_words:
                     # Keep small words lowercase
                     title_words.append(word.lower())
                 else:
                     # Capitalize other words
-                    title_words.append(word[0].upper() + word[1:].lower())
+                    if len(word) == 1:
+                        title_words.append(word.upper())
+                    else:
+                        title_words.append(word[0].upper() + word[1:].lower())
             title = ' '.join(title_words)
         else:
             title = clean_question
         
         # Ensure title has context - add prefix if it doesn't start with a proper noun
-        first_word_lower = title.split()[0].lower() if title.split() else ""
+        title_words_list = title.split()
+        first_word_lower = title_words_list[0].lower() if title_words_list else ""
         if first_word_lower not in ['refugees', 'refugee', 'displaced', 'asylum', 'migration', 'population', 'trends', 'data', 'analysis', 'unhcr']:
             title = f"UNHCR Analysis: {title}"
         
