@@ -517,14 +517,26 @@ Do NOT include any explanation, commentary, or additional text. ONLY the JSON.
     )
     
     try:
-        result = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        # Clean up the content - strip whitespace and try to extract JSON
+        if content:
+            content = content.strip()
+            # Try to find JSON in markdown code blocks if present
+            if content.startswith('```json') or content.startswith('```'):
+                # Extract JSON from markdown code block
+                json_start = content.find('{')
+                json_end = content.rfind('}') + 1 if content.rfind('}') != -1 else len(content)
+                if json_start != -1:
+                    content = content[json_start:json_end]
+        
+        result = json.loads(content)
         # Convert to our format
         return {
             'origin': result.get('coo'),
             'destination': result.get('coa')
         }
     except (json.JSONDecodeError, AttributeError, IndexError) as e:
-        logger.error(f"Failed to parse LLM response for country extraction: {e}")
+        logger.warning(f"Failed to parse LLM response for country extraction (falling back to regex): {e}")
         return {'origin': None, 'destination': None}
 
 def lookup_country_iso3(country_name: str) -> Optional[str]:
