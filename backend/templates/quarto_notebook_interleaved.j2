@@ -220,8 +220,8 @@ items = {{ actual_data|tojson }}
 items = []
 {% endif %}
 
-{% if items %}
-df = pd.DataFrame(items)
+{% if has_valid_data %}
+df = pd.DataFrame({% if has_items %}{{ actual_data['items']|tojson }}{% elif has_list_data %}{{ actual_data|tojson }}{% else %}[]{% endif %})
 
 # Create scatter plot for correlations if we have multiple numeric columns
 numeric_cols = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
