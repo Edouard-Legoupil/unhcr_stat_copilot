@@ -78,7 +78,7 @@ engine: jupyter
 {% endif %}
 
 {# Check if we have valid data items #}
-{% set has_items = actual_data and actual_data is mapping and actual_data.get('items') is not none and actual_data.items|length > 0 %}
+{% set has_items = actual_data and actual_data is mapping and actual_data.get('items') is not none and actual_data['items']|length > 0 %}
 {% set has_list_data = actual_data and actual_data is iterable and actual_data is not mapping and actual_data is not string and actual_data|length > 0 %}
 {% set has_valid_data = has_items or has_list_data %}
 
