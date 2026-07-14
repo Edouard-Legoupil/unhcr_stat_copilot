@@ -1,0 +1,231 @@
+# Master Crew Configuration
+# This is the main orchestrator crew that coordinates all other crews
+
+name: master_crew
+
+# Crew-level settings
+process_type: sequential
+verbose: 2
+memory: true
+cache: true
+max_rpm: null
+share_crew: true
+crew_name: "MasterCrew_{audience}_{document_type}"
+manager_llm: null
+
+description: |
+  Master crew that orchestrates the complete UNHCR Statistics Copilot workflow.
+  This crew coordinates sub-crews to perform end-to-end analysis:
+  1. Data fetching and validation (DataCrew)
+  2. Statistical analysis and validation (AnalysisCrew)
+  3. Story generation and enrichment (StoryCrew)
+  4. Notebook creation (NotebookCrew)
+  
+  The master crew can execute the full pipeline or individual stages.
+
+# Sub-crew references (these are other crews, not agents)
+sub_crews:
+  - data_crew
+  - analysis_crew
+  - story_crew
+  - notebook_crew
+
+# Agent references (for direct operations)
+agents:
+  - analysis_orchestrator
+
+# Main workflow
+workflow:
+  # Step 1: Fetch data
+  - name: fetch_data
+    description: Fetch all required data for the analysis
+    crew: data_crew
+    task: fetch_all_data
+    expected_output: Complete dataset with all types
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    async_execution: false
+    
+  # Step 2: Analyze data
+  - name: analyze_data
+    description: Perform statistical analysis on the data
+    crew: analysis_crew
+    task: analyze_data
+    expected_output: Statistical analysis results
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    depends_on: fetch_data
+    async_execution: true
+    
+  # Step 3: Generate story
+  - name: generate_story
+    description: Generate analytical story from results
+    crew: story_crew
+    task: generate_story
+    expected_output: Story content with insights
+    context:
+      - data
+      - analysis
+      - question
+      - audience
+      - document_type
+    depends_on: analyze_data
+    async_execution: true
+    
+  # Step 4: Create notebook
+  - name: create_notebook
+    description: Create Quarto notebook from story
+    crew: notebook_crew
+    task: create_quarto_notebook
+    expected_output: Complete Quarto notebook
+    context:
+      - story_content
+      - data
+      - analysis
+      - question
+      - audience
+      - document_type
+      - output_path
+    depends_on: generate_story
+    async_execution: false
+
+# Alternative workflows
+alternative_workflows:
+  # Quick workflow - skip data fetching, use provided data
+  quick_analysis:
+    - name: analyze_data
+      crew: analysis_crew
+      task: analyze_data
+      context:
+        - data
+        - question
+        - audience
+        - document_type
+    
+    - name: generate_story
+      crew: story_crew
+      task: generate_data_story
+      context:
+        - data
+        - question
+        - audience
+        - document_type
+      depends_on: analyze_data
+    
+  # Story only - generate story without analysis
+  story_only:
+    - name: generate_story
+      crew: story_crew
+      task: generate_data_story
+      context:
+        - data
+        - question
+        - audience
+        - document_type
+    
+  # Notebook only - create notebook from existing story
+  notebook_only:
+    - name: create_notebook
+      crew: notebook_crew
+      task: create_quarto_notebook
+      context:
+        - story_content
+        - audience
+        - document_type
+        - output_path
+    
+  # Full workflow with all options
+  comprehensive:
+    - name: fetch_data
+      crew: data_crew
+      task: fetch_all_data
+      context:
+        - question
+        - parameters
+        - audience
+        - document_type
+    
+    - name: validate_data
+      crew: data_crew
+      task: validate_data
+      context:
+        - data
+        - question
+        - audience
+        - document_type
+      depends_on: fetch_data
+    
+    - name: analyze_data
+      crew: analysis_crew
+      task: analyze_data
+      context:
+        - data
+        - question
+        - audience
+        - document_type
+      depends_on: validate_data
+    
+    - name: validate_guardrails
+      crew: analysis_crew
+      task: validate_guardrails
+      context:
+        - data
+        - analysis
+        - question
+        - audience
+        - document_type
+      depends_on: analyze_data
+    
+    - name: generate_story
+      crew: story_crew
+      task: generate_story
+      context:
+        - data
+        - analysis
+        - question
+        - audience
+        - document_type
+        - use_rag
+      depends_on: validate_guardrails
+      
+    - name: adapt_story
+      crew: story_crew
+      task: adapt_story_for_audience
+      context:
+        - story_content
+        - audience
+        - document_type
+        - original_question
+      depends_on: generate_story
+    
+    - name: create_notebook
+      crew: notebook_crew
+      task: create_quarto_notebook
+      context:
+        - story_content
+        - data
+        - analysis
+        - question
+        - audience
+        - document_type
+        - output_path
+      depends_on: adapt_story
+
+# Master crew configuration
+orchestration:
+  default_workflow: full_analysis
+  timeout: 300  # 5 minutes
+  retry_attempts: 3
+  error_handling: continue  # continue on error or stop
+  
+# Performance settings
+performance:
+  max_concurrent_tasks: 4
+  memory_cache: true
+  disk_cache: true
