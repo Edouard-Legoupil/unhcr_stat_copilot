@@ -296,9 +296,11 @@ async def full_analysis_workflow_tool(
             # Create notebook with all metadata
             # Ensure story_content is a string - extract text properly
             story_content = story_result.get("story", "")
+            
+            # Import the text extraction utility
+            from backend.mcp.tools.create_quarto_notebook import _extract_text_from_message
+            
             if not isinstance(story_content, str):
-                # Import the text extraction utility
-                from backend.mcp.tools.create_quarto_notebook import _extract_text_from_message
                 story_content = _extract_text_from_message(story_content)
                 if not story_content:
                     # Fallback to string representation
@@ -306,17 +308,38 @@ async def full_analysis_workflow_tool(
                         story_content = '\n'.join(str(item) for item in story_content)
                     else:
                         story_content = str(story_content)
-            else:
-                # story_content is already a string - might be a stringified dict
-                # Try to parse it as a Python literal (handles single-quoted dicts)
-                import ast
+            
+            # If story_content is a string but looks like a stringified dict/message object,
+            # try to extract the actual text content
+            if isinstance(story_content, str) and story_content.strip().startswith("{"):
+                # This looks like a stringified dict - try to parse and extract
                 try:
+                    import ast
                     parsed = ast.literal_eval(story_content)
-                    from backend.mcp.tools.create_quarto_notebook import _extract_text_from_message
-                    story_content = _extract_text_from_message(parsed)
+                    extracted = _extract_text_from_message(parsed)
+                    if extracted:
+                        story_content = extracted
                 except (ValueError, SyntaxError):
-                    # Not a valid Python literal, use as-is
-                    pass
+                    # ast.literal_eval failed, try to manually extract content
+                    # Look for 'content': [ pattern
+                    import re
+                    content_match = re.search(r"'content':\s*\[([^\]]+)\]", story_content)
+                    if content_match:
+                        # Found content array, but this is complex to parse
+                        # Try to find text field
+                        text_match = re.search(r"'text':\s*'([^']*)'", story_content)
+                        if text_match:
+                            story_content = text_match.group(1).replace('\\n', '\n')
+                        else:
+                            # Try with double quotes
+                            text_match = re.search(r'"text":\s*"([^"]*)"', story_content)
+                            if text_match:
+                                story_content = text_match.group(1).replace('\\n', '\n')
+                    # If we still have a stringified dict, try to clean it up
+                    if story_content.strip().startswith("{"):
+                        # Remove the outer dict and try to get content
+                        # This is a fallback - the dict will appear in the notebook
+                        logger.warning(f"Could not extract text from story_content, using raw: {story_content[:200]}")
             
             notebook_result = await create_quarto_notebook_tool(
                 story_content=story_content,
