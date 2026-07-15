@@ -37,6 +37,7 @@ from backend.chat import process_chat_message
 from backend.charts import generate_chart   
 from backend.mcp_bridge import call_tool, MCPConnectionError, MCPValidationError, MCP_TOOL_SCHEMAS
 from backend.history import save_analysis, get_all_analyses, get_analysis, save_quarto_analysis, get_quarto_analyses, save_rating
+from backend.chat import analysis_config_model, AudienceEnum
 
 # CrewAI integration (lazy import to avoid circular dependencies)
 # Will be imported when first CrewAI endpoint is called
@@ -960,25 +961,26 @@ async def chat(
             style=chat_request.style
         )
 
-        # Save both the analysis metadata and the Quarto file
+        # Persist notebook with full workflow metadata merged into QMD metadata
         quarto_types = ["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"]
         if result.get("analysis_type") in quarto_types:
-            # Save the Quarto file directly
-            quarto_metadata = result.get("quarto_metadata", result.get("metadata", {}))
-            save_result = save_quarto_analysis(
-                result["quarto_content"],
-                quarto_metadata
+            # Merge workflow metadata, steps, and notebook metadata for saving
+            metadata_for_save = result.get("metadata", {}).copy()
+            # include entire steps log and workflow sequence
+            metadata_for_save["steps"] = result.get("steps", [])
+            metadata_for_save["workflow_sequence"] = result.get(
+                "workflow_sequence", metadata_for_save.get("workflow_sequence", [])
             )
-            # Update result with the ID and filepath from the saved file
-            result["id"] = save_result.get("id")
-            result["filepath"] = save_result.get("filepath")
-            result["quarto_filename"] = save_result.get("filename")
-            # Also update metadata with the saved metadata which includes ID and filepath
-            if "metadata" in save_result:
-                result["quarto_metadata"] = save_result["metadata"]
-                result["metadata"] = save_result["metadata"]
+            metadata_for_save.update(result.get("quarto_metadata", {}))
+            save_result = save_quarto_analysis(result["quarto_content"], metadata_for_save)
+            result.update({
+                "id": save_result.get("id"),
+                "filepath": save_result.get("filepath"),
+                "quarto_filename": save_result.get("filename"),
+                "quarto_metadata": save_result.get("metadata"),
+                "metadata": save_result.get("metadata"),
+            })
         else:
-            # Fallback to the original JSON saving for compatibility
             save_analysis(result)
         
         complete_chat("/chat", 'success')
@@ -2232,8 +2234,9 @@ async def get_analysis_config():
             }
         }
     """
-    from backend.chat import ANALYSIS_CONFIG
-    return {"status": "success", "config": ANALYSIS_CONFIG}
+    from backend.models.analysis_config import analysis_config_model, AudienceEnum
+
+    return {"status": "success", "config": analysis_config_model.config}
 
 
 @app.get("/analysis-config/{audience}",
@@ -2257,7 +2260,7 @@ async def get_analysis_config():
               400: {"description": "Invalid audience specified"},
               404: {"description": "Audience not found"}
           })
-async def get_audience_config(audience: str):
+async def get_audience_config(audience: AudienceEnum):
     """
     Get the analysis configuration for a specific audience.
     
@@ -2304,24 +2307,14 @@ async def get_audience_config(audience: str):
             ]
         }
     """
-    from backend.chat import get_analysis_config, get_available_document_types, get_default_document_type
-    
-    try:
-        available_types = get_available_document_types(audience)
-        default_type = get_default_document_type(audience)
-        
-        return {
-            "status": "success",
-            "audience": audience,
-            "default_document_type": default_type,
-            "available_document_types": available_types
-        }
-    except Exception as e:
-        logger.exception(e)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid audience: {audience}"
-        )
+    # Return audience-specific configuration using the central model
+    config = analysis_config_model.get_config(audience, None)
+    return {
+        "status": "success",
+        "audience": config["audience"],
+        "default_document_type": config["default_type"],
+        "available_document_types": list(config["config"].keys()),
+    }
 
 
 # ---------------------------------------------------------------------

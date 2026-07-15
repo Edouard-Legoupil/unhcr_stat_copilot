@@ -70,7 +70,7 @@ def test_template_metadata_handling():
     print("\n🧪 Test 2: Template metadata handling...")
     
     from pathlib import Path
-    template_path = Path(__file__).parent.parent / 'backend' / 'templates' / 'quarto_notebook.j2'
+    template_path = Path(__file__).parent.parent / 'backend' / 'templates' / 'quarto_notebook_interleaved.j2'
     
     # Check template exists
     assert template_path.exists(), f"Template not found at {template_path}"

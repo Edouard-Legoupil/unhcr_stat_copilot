@@ -56,15 +56,14 @@ sequenceDiagram
 
 The system supports 5 different audience types with specific document type mappings:
 
-#### Audience Types and Document Types
+#### Audience and Document Type Configuration
 
-| Audience | Default Type | Available Document Types |
-|----------|--------------|--------------------------|
-| `internal` | `technical_report` | `technical_report`, `long_read`, `executive_summary` |
-| `public_donors` | `executive_summary` | `executive_summary`, `long_read`, `social_media` |
-| `private_donors` | `executive_summary` | `executive_summary`, `long_read`, `linkedin_post` |
-| `government` | `technical_report` | `technical_report`, `executive_summary`, `long_read` |
-| `media` | `executive_summary` | `executive_summary`, `long_read`, `social_media` |
+For up-to-date audience-specific document type mappings and defaults, use the `/analysis-config` API endpoint:
+
+```bash
+# GET /analysis-config
+# GET /analysis-config/{audience}
+```
 
 #### Configuration Details
 

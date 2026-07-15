@@ -444,7 +444,7 @@ def _to_python_literal(obj: Any) -> str:
         elif isinstance(o, dict):
             items = [f'{_to_python_literal(k)}: {convert(v)}' for k, v in o.items()]
             return f'{{{", ".join(items)}}}'
-        else:
+        elif False:  # manual fallback removed; Jinja template should always be available
             return repr(o)
     
     return convert(obj)

@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from contextlib import asynccontextmanager
 
 # Configuration from environment variables
 MCP_TIMEOUT = int(os.getenv("MCP_TIMEOUT_SECONDS", "30"))
@@ -49,6 +50,18 @@ class MCPToolError(Exception):
 class MCPValidationError(Exception):
     """Raised when MCP tool arguments fail validation."""
     pass
+
+
+@asynccontextmanager
+async def mcp_session_adapter(url: str, timeout: int):
+    """
+    Async context manager for MCP session: handles streamable HTTP setup,
+    ClientSession initialization, and cleanup.
+    """
+    async with streamablehttp_client(url, timeout=timeout) as (read_stream, write_stream, _):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            yield session
 
 
 # Known MCP tools and their expected parameters
@@ -409,53 +422,31 @@ async def call_tool(
     
     for attempt in range(actual_retries):
         try:
-            async with streamablehttp_client(
-                MCP_URL,
-                timeout=actual_timeout
-            ) as (
-                read_stream,
-                write_stream,
-                _
-            ):
+            async with mcp_session_adapter(MCP_URL, actual_timeout) as session:
+                result = await session.call_tool(tool_name, arguments)
 
-                async with ClientSession(
-                    read_stream,
-                    write_stream
-                ) as session:
+                # MCP SDK returns result.content as a list of TextContent objects
+                # Parse the JSON inside .text to return a plain dict.
+                content = result.content
 
-                    await session.initialize()
+                if not content:
+                    return {}
 
-                    result = await session.call_tool(
-                        tool_name,
-                        arguments
-                    )
+                # Take the first text content block
+                first = content[0]
+                text = getattr(first, "text", None)
+                if text is None and isinstance(first, dict):
+                    text = first.get("text")
 
-                    # MCP SDK returns result.content as a list of
-                    # TextContent objects: [{type:"text", text:"..."}]
-                    # Parse the JSON inside .text to return a plain dict.
-                    content = result.content
+                if text:
+                    try:
+                        return json.loads(text)
+                    except (json.JSONDecodeError, TypeError):
+                        # Return raw text if not JSON - some tools return plain text
+                        logger.debug("MCP tool %s returned non-JSON text", tool_name)
+                        return text
 
-                    if not content:
-                        return {}
-
-                    # Take the first text content block
-                    first = content[0]
-                    text = getattr(first, "text", None)
-                    if text is None and isinstance(first, dict):
-                        text = first.get("text")
-
-                    if text:
-                        try:
-                            return json.loads(text)
-                        except (json.JSONDecodeError, TypeError):
-                            # Return raw text if not JSON - some tools return plain text
-                            logger.debug(
-                                "MCP tool %s returned non-JSON text",
-                                tool_name,
-                            )
-                            return text
-
-                    return {"raw_content": str(content)}
+                return {"raw_content": str(content)}
                     
         except Exception as e:
             last_exception = e

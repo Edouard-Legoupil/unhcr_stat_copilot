@@ -18,6 +18,8 @@ import logging
 from typing import Optional, Any, Dict
 
 from backend.mcp_bridge import call_tool
+from backend.models.analysis_config import AnalysisConfigModel
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -315,50 +317,26 @@ ANALYSIS_CONFIG = {
     }
 }
 
+analysis_config_model = AnalysisConfigModel(config=ANALYSIS_CONFIG)
+AudienceEnum = Enum(
+    "AudienceEnum",
+    {aud: aud for aud in ANALYSIS_CONFIG.keys()},
+    type=str,
+)
 
 def get_available_document_types(audience: str = "internal") -> list:
     """Get available document types for a given audience."""
-    if audience not in ANALYSIS_CONFIG:
-        audience = "internal"
-    
-    return list(ANALYSIS_CONFIG[audience]["documentTypes"].keys())
+    return analysis_config_model.available_document_types(audience)
 
 
 def get_default_document_type(audience: str = "internal") -> str:
     """Get the default document type for a given audience."""
-    if audience not in ANALYSIS_CONFIG:
-        audience = "internal"
-    
-    config = ANALYSIS_CONFIG[audience]
-    return config["defaultType"]
+    return analysis_config_model.default_document_type(audience)
 
 
 def get_analysis_config(audience: str, document_type: str) -> dict:
-    """
-    Get the full analysis configuration for a given audience and document type.
-    
-    Args:
-        audience: The target audience
-        document_type: The document type
-        
-    Returns:
-        Configuration dictionary
-    """
-    if audience not in ANALYSIS_CONFIG:
-        audience = "internal"
-    
-    config = ANALYSIS_CONFIG[audience]
-    
-    # If document_type is not specified, use the default
-    if document_type not in config["documentTypes"]:
-        document_type = config["defaultType"]
-    
-    return {
-        "audience": audience,
-        "document_type": document_type,
-        "config": config["documentTypes"][document_type],
-        "default_type": config["defaultType"]
-    }
+    """Get the full analysis configuration for a given audience and document type."""
+    return analysis_config_model.get_config(audience, document_type)
 
 
 async def process_chat_message(
@@ -473,6 +451,8 @@ async def process_chat_message(
         result['steps'].append({
             'step': 1,
             'name': 'data_fetching',
+            'tool': 'get_data_for_story',
+            'params': data_params,
             'status': data_result.get('status', 'error'),
             'result': data_result
         })
@@ -511,21 +491,47 @@ async def process_chat_message(
         if not isinstance(story_result, dict):
             story_result = {'status': 'error', 'error': f'Unexpected result type: {type(story_result)}'}
         
+        # Override story_result to include cleaned text only
+        story_content = story_result.get('story', '')
+        if not isinstance(story_content, str):
+            from backend.crewai.agents.orchestrators import _extract_text_from_message_impl
+            story_content = _extract_text_from_message_impl(story_content)
+        if isinstance(story_content, str) and story_content.strip().startswith(('{', '[')):
+            try:
+                import json
+                parsed = json.loads(story_content)
+                story_content = _extract_text_from_message_impl(parsed)
+            except Exception:
+                pass
+        story_content = story_content.lstrip('\n').strip()
+        story_result['story'] = story_content
         result['steps'].append({
             'step': 2,
             'name': 'story_generation',
+            'tool': 'generate_analytical_story',
+            'params': story_params,
             'status': story_result.get('status', 'error'),
             'result': story_result
         })
-        
-        story_content = story_result.get('story', '')
         if not isinstance(story_content, str):
             # Try to extract text from various message formats
             from backend.crewai.agents.orchestrators import _extract_text_from_message_impl
             story_content = _extract_text_from_message_impl(story_content)
         
-        result['story'] = story_content
+        # If the story appears as JSON or dict-string, parse then extract text
+        if isinstance(story_content, str) and story_content.strip().startswith(('{', '[')):
+            try:
+                import json
+                parsed = json.loads(story_content)
+                extracted = _extract_text_from_message_impl(parsed)
+                if extracted:
+                    story_content = extracted
+            except Exception:
+                pass
+        # Strip leading newlines/spaces to avoid stray formatting
+        result['story'] = story_content.lstrip('\n').strip()
         result['data'] = all_data
+        result['extracted_params'] = data_result.get('extracted_params', {})
         result['analysis'] = story_result.get('analysis', {})
         
         if story_result.get('status') != 'success':
@@ -537,7 +543,6 @@ async def process_chat_message(
         # Step 3: Create Quarto notebook (if requested)
         if include_notebook:
             logger.info("Step 3/3: Creating Quarto notebook")
-            
             notebook_params = {
                 'story_content': story_content,
                 'data': all_data,
@@ -548,7 +553,6 @@ async def process_chat_message(
                 'use_unhcr_style': True,
                 'include_code_cells': False
             }
-            
             if origin:
                 notebook_params['origin'] = origin
             if destination:
@@ -561,19 +565,19 @@ async def process_chat_message(
                 notebook_params['output_path'] = output_path
             if style:
                 notebook_params['style'] = style
-            
+
             notebook_result = await call_tool('create_quarto_notebook', notebook_params)
-            
             if not isinstance(notebook_result, dict):
                 notebook_result = {'status': 'error', 'error': f'Unexpected result type: {type(notebook_result)}'}
-            
+
             result['steps'].append({
                 'step': 3,
                 'name': 'notebook_generation',
+                'tool': 'create_quarto_notebook',
+                'params': notebook_params,
                 'status': notebook_result.get('status', 'error'),
                 'result': notebook_result
             })
-            
             if notebook_result.get('status') == 'success':
                 result['notebook'] = notebook_result
                 result['quarto_content'] = notebook_result.get('content', '')
@@ -585,11 +589,13 @@ async def process_chat_message(
                     result['warnings'] = []
                 result['warnings'].append("Notebook generation encountered errors")
         
-        # Mark as completed
+        # Mark as completed and set analysis_type for saving Quarto notebooks
         if result['status'] == 'in_progress':
             result['status'] = 'success'
-        
-        result['analysis_type'] = 'full'
+        # Use 'comprehensive_quarto' when notebook is included, else generic 'full'
+        result['analysis_type'] = (
+            'comprehensive_quarto' if include_notebook else 'full'
+        )
         
     except Exception as e:
         logger.error(f"Error in chat processing: {e}")

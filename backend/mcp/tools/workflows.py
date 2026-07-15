@@ -289,9 +289,24 @@ async def full_analysis_workflow_tool(
                     if "guardrails" in data_field:
                         enriched_metadata["guardrails"] = data_field["guardrails"]
                     if "visualization_structure" in data_field:
-                        enriched_metadata["visualization_structure"] = data_field["visualization_structure"]
+                        # Ensure structure is a Python mapping, not a JSON string
+                        vs = data_field["visualization_structure"]
+                        if isinstance(vs, str):
+                            try:
+                                import json
+                                vs = json.loads(vs)
+                            except Exception:
+                                pass
+                        enriched_metadata["visualization_structure"] = vs
                     if "visualization_description" in data_field:
-                        enriched_metadata["visualization_description"] = data_field["visualization_description"]
+                        vd = data_field["visualization_description"]
+                        if isinstance(vd, str):
+                            try:
+                                import json
+                                vd = json.loads(vd)
+                            except Exception:
+                                pass
+                        enriched_metadata["visualization_description"] = vd
             
             # Create notebook with all metadata
             # Ensure story_content is a string - extract text properly
@@ -314,14 +329,14 @@ async def full_analysis_workflow_tool(
             if isinstance(story_content, str) and story_content.strip().startswith("{"):
                 # This looks like a stringified dict - try to parse and extract
                 try:
-                    import ast
-                    parsed = ast.literal_eval(story_content)
+                    # Use JSON loads for safe parsing instead of ast.literal_eval
+                    import json
+                    parsed = json.loads(story_content)
                     extracted = _extract_text_from_message(parsed)
                     if extracted:
                         story_content = extracted
-                except (ValueError, SyntaxError):
-                    # ast.literal_eval failed (likely due to newlines in the string representation)
-                    # Try to parse as JSON by converting single quotes to double quotes
+                except json.JSONDecodeError:
+                    # JSON parsing failed; try legacy single-quote JSON fallback
                     import json
                     import re
                     try:
@@ -353,8 +368,8 @@ async def full_analysis_workflow_tool(
                                 try:
                                     content_dict = json.loads(content_str.replace("'", '"'))
                                     story_content = content_dict.get('text', story_content)
-                                except:
-                                    pass
+                                except Exception as exc:
+                                    logger.debug(f"Failed to parse content dict: {exc}", exc_info=True)
                             # If we still have a stringified dict, log warning
                             if story_content.strip().startswith("{"):
                                 logger.warning(f"Could not extract text from story_content: {story_content[:200]}")

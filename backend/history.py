@@ -64,9 +64,13 @@ def save_analysis(analysis_data: Dict) -> str:
         # Generate a unique ID for this analysis
         analysis_id = str(uuid.uuid4())
         
-        # Add metadata
+        # Add metadata and surface workflow_sequence at top level if present
         analysis_data["id"] = analysis_id
         analysis_data["timestamp"] = datetime.now().isoformat()
+        if "metadata" in analysis_data and isinstance(analysis_data["metadata"], dict):
+            ws = analysis_data["metadata"].get("workflow_sequence")
+            if ws is not None:
+                analysis_data["workflow_sequence"] = ws
         
         # Create filename
         filename = f"{analysis_id}.json"
