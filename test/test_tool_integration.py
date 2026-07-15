@@ -10,6 +10,9 @@ from backend.mcp.tools.generate_analytical_story import generate_analytical_stor
 from backend.mcp.common import UNHCRAPIClient
 
 
+import pytest
+
+@pytest.mark.asyncio
 async def test_integration():
     """Test that the enhanced pipeline works correctly."""
     

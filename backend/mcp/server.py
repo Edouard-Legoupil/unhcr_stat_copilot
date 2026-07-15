@@ -101,15 +101,6 @@ def create_server() -> FastMCP:
         get_data_for_story_tool,
         generate_analytical_story_tool,
     )
-    from backend.mcp.tools.analysis_pipeline import (
-        run_enhanced_analysis_pipeline,
-        run_conditional_analysis_pipeline,
-    )
-    from backend.mcp.tools.workflows import (
-        full_analysis_workflow_tool,
-        quick_analysis_tool,
-        compare_analysis_tool,
-    )
 
     rag_retriever = UNHCRVectorRetriever()
     api_client = UNHCRAPIClient()
