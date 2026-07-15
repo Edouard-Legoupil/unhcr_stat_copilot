@@ -867,112 +867,41 @@ async def execute_tool(
 # ---------------------------------------------------------------------
 
 @app.post("/chat",
-          summary="Process Chat Message",
-          description="Send a chat message to the UNHCR Stat Copilot for analysis and response generation.",
-          response_description="Chat response with analysis results",
-          responses={
-              200: {
-                  "description": "Chat message processed successfully",
-                  "content": {
-                      "application/json": {
-                          "example": {
-                              "response": "Analysis complete...",
-                              "analysis_type": "comprehensive_quarto",
-                              "data": {},
-                              "visualization": {},
-                              "user": {"name": "user@example.com"}
-                          }
-                      }
-                  }
-              },
-              400: {"description": "Invalid request parameters"},
-              401: {"description": "Authentication required"},
-              500: {"description": "Internal server error during processing"}
-          })
+          summary="Process Chat via CrewAI",
+          description="Delegate chat processing to the CrewAI orchestrator.",
+          response_description="Analysis result from CrewAI workflow")
 @limiter.limit("5/minute")
 async def chat(
-    request: Request,
     chat_request: ChatRequest,
     user: UserInfo = Depends(verify_azure_auth)
 ):
     """
-    Process a chat message and generate an analysis response.
-    
-    This is the main endpoint for interacting with the UNHCR Stat Copilot. It accepts
-    natural language queries and returns comprehensive analyses using UNHCR data
-    through MCP tools. The response may include data, visualizations, and Quarto notebooks.
-    
-    Requires Azure AD authentication. Rate limited to 5 requests per minute per IP.
-    
-    Args:
-        chat_request (ChatRequest): The chat message request containing:
-            - message (str, required): The user's query or analysis request
-            - origin (str, optional): Origin context for the analysis
-            - destination (str, optional): Destination context
-            - topic (str, optional): Specific topic to focus on
-            - timespan (str, optional): Time period for the analysis
-            - audience (str, optional): Target audience for the output
-            - document_type (str, optional): Type of document to generate
-            - style (str, optional): Writing style for the response
-        user (UserInfo): Authenticated user information (injected by dependency)
-    
-    Returns:
-        dict: A dictionary containing:
-            - All fields from the analysis result (varies by analysis type)
-            - user (dict): Information about the authenticated user
-            
-        Common response fields:
-            - response (str): Natural language response
-            - analysis_type (str): Type of analysis performed
-            - data (dict): Retrieved data
-            - visualization (dict): Generated visualizations
-            - quarto_content (str): Quarto notebook content (if applicable)
-            - metadata (dict): Analysis metadata
-    
-    Raises:
-        HTTPException 401: If user is not authenticated
-        HTTPException 500: For any processing errors
-    
-    Example:
-        Request body:
-        {
-            "message": "Show me refugee population trends in France over the past 10 years",
-            "audience": "policy_makers",
-            "document_type": "executive_summary",
-            "style": "concise"
-        }
+    Delegate chat message processing to the CrewAI orchestrator,
+    streamlining the full-analysis workflow through UNHCRCrew.
     """
-    start_time = time.time()
-    
-    # Lazy import to avoid circular imports
-    from backend.mcp.observability import monitor_chat, complete_chat
-    monitor_chat("/chat")
-    
+    crew = UNHCRCrew(
+        audience=chat_request.audience or "internal",
+        document_type=chat_request.document_type,
+        process_type="sequential"
+    )
     try:
-
-        result = await process_chat_message(
-            chat_request.message,
+        result = await crew.execute_full_workflow(
+            question=chat_request.message,
             origin=chat_request.origin,
             destination=chat_request.destination,
             topic=chat_request.topic,
             timespan=chat_request.timespan,
-            audience=chat_request.audience,
-            document_type=chat_request.document_type,
+            use_rag=chat_request.use_rag,
+            include_notebook=chat_request.include_notebook,
+            output_path=chat_request.output_path,
             style=chat_request.style
         )
-
-        # Persist notebook with full workflow metadata merged into QMD metadata
         quarto_types = ["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"]
         if result.get("analysis_type") in quarto_types:
-            # Merge workflow metadata, steps, and notebook metadata for saving
             metadata_for_save = result.get("metadata", {}).copy()
-            # include entire steps log and workflow sequence
             metadata_for_save["steps"] = result.get("steps", [])
-            metadata_for_save["workflow_sequence"] = result.get(
-                "workflow_sequence", metadata_for_save.get("workflow_sequence", [])
-            )
-            metadata_for_save.update(result.get("quarto_metadata", {}))
-            save_result = save_quarto_analysis(result["quarto_content"], metadata_for_save)
+            metadata_for_save["workflow_sequence"] = result.get("workflow_sequence", [])
+            save_result = save_quarto_analysis(result.get("quarto_content", ""), metadata_for_save)
             result.update({
                 "id": save_result.get("id"),
                 "filepath": save_result.get("filepath"),
@@ -982,23 +911,10 @@ async def chat(
             })
         else:
             save_analysis(result)
-        
-        complete_chat("/chat", 'success')
-
-        return {
-            **result,
-            "user": user.to_dict()
-        }
-
+        return {**result, "user": user.to_dict()}
     except Exception as e:
-
-        logger.exception(e)
-        complete_chat("/chat", 'error')
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+        logger.exception(f"CrewAI chat failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------

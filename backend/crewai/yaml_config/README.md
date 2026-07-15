@@ -41,53 +41,13 @@ This configuration system allows you to define CrewAI agents, tasks, and crews u
 5. **Reusability** - Same agent can be referenced by multiple crews
 6. **Documentation** - YAML files serve as living documentation
 
-## 🚀 Usage
 
-### Basic Usage
-
-```python
-# Import the loader
-from backend.crewai.yaml_config.loader import load_agent, load_crew, YAMLConfigLoader
-
-# Load a specific agent configuration
-agent_config = load_agent('statistical_analyzer')
-
-# Load all agents
-all_agents = load_agents()
-
-# Load a crew configuration
-crew_config = load_crew('analysis_crew')
-
-# Load all crews
-all_crews = load_crews()
-```
-
-### Instantiating from YAML
-
-```python
-from backend.crewai.yaml_config.loader import config_loader
-
-# Instantiate an agent from YAML
-loader = YAMLConfigLoader()
-agent = loader.instantiate_agent(
-    agent_config={'name': 'statistical_analyzer'},
-    audience='internal',
-    document_type='technical_report'
-)
-
-# Load and instantiate an entire crew
-crew = loader.load_and_instantiate_crew(
-    crew_name='analysis_crew',
-    audience='policy_makers',
-    document_type='executive_summary'
-)
-```
 
 ## 📝 File Format
 
 ### Agent Configuration
 
-Each agent YAML file contains a list of agent definitions:
+Each agent YAML  contains a list of agent definitions:
 
 ```yaml
 analysts:
@@ -119,7 +79,7 @@ analysts:
 
 ### Task Configuration
 
-Each task YAML file contains a list of task definitions:
+Each task YAML contains a list of task definitions:
 
 ```yaml
 tasks:
@@ -143,81 +103,6 @@ tasks:
         description: The user's question
 ```
 
-### Crew Configuration
-
-Each crew YAML file defines a crew with its agents and workflow:
-
-```yaml
-name: analysis_crew
-
-# Crew-level settings
-process_type: sequential
-verbose: 2
-memory: true
-cache: true
-
-description: Crew description
-
-# Agent references (loaded from agents/ directory)
-agents:
-  - statistical_analyzer
-  - guardrails_validator
-  - tool_selector
-  - visualization_expert
-
-# Workflow definition
-workflow:
-  - name: analyze_data
-    description: Perform data analysis
-    agent: statistical_analyzer
-    expected_output: Analysis results
-    context:
-      - question
-      - data
-    
-  - name: validate_guardrails
-    description: Validate analysis
-    agent: guardrails_validator
-    depends_on: analyze_data
-```
-
-## 🔄 Migration Guide
-
-### For Existing Code
-
-If you have existing code that creates agents and crews directly, you can migrate to YAML:
-
-**Before (Hardcoded):**
-```python
-# In your Python file
-agent = StatisticalAnalyzer(
-    role='Statistical Analyst',
-    goal='Perform analysis',
-    audience=audience,
-    document_type=document_type
-)
-```
-
-**After (YAML-based):**
-```python
-# Load from YAML
-from backend.crewai.yaml_config.loader import config_loader
-
-agent = config_loader.instantiate_agent(
-    agent_config={'name': 'statistical_analyzer'},
-    audience=audience,
-    document_type=document_type
-)
-```
-
-### Gradual Migration
-
-You don't need to migrate everything at once. The YAML loader coexists with existing code:
-
-1. Start by creating YAML files for new agents/tasks/crews
-2. Gradually migrate existing definitions to YAML
-3. Update your code to use the loader where appropriate
-4. Keep backward compatibility by maintaining both systems
 
 ## ✅ Best Practices
 
@@ -227,19 +112,13 @@ You don't need to migrate everything at once. The YAML loader coexists with exis
 - Use **lowercase** for YAML files
 - Keep names descriptive but concise
 
-### 2. Organization
-
-- Group related agents in the same YAML file
-- Keep each file focused on a specific domain (analysis, data, stories, etc.)
-- Use comments liberally to explain configurations
-
-### 3. Documentation
+### 2. Documentation
 
 - Always include a `description` field for agents, tasks, and crews
 - Use multi-line strings (`|`) for longer descriptions
 - Document all parameters and their purposes
 
-### 4. Version Control
+### 3. Version Control
 
 - Commit YAML files alongside code changes
 - Use meaningful commit messages (e.g., "feat: add RSD expert agent")
@@ -268,25 +147,7 @@ You don't need to migrate everything at once. The YAML loader coexists with exis
    - Check that all required fields are present in the YAML
    - Use `default` values for optional fields
 
-### Debugging
 
-Enable debug logging to see what's happening:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-from backend.crewai.yaml_config.loader import config_loader
-config = config_loader.load_agent('my_agent')
-```
-
-## 📚 Examples
-
-See the existing YAML files in this directory for complete, working examples of:
-
-- [Agent configurations](agents/)
-- [Task configurations](tasks/)
-- [Crew configurations](crews/)
 
 ## 🎓 Learning Resources
 
@@ -313,7 +174,3 @@ When adding new agents, tasks, or crews:
 4. Test that the configuration loads correctly
 5. Commit with a descriptive message
 
----
-
-*Maintained by: UNHCR Statistics Copilot Development Team*
-*Location: `/backend/crewai/yaml_config/`*
