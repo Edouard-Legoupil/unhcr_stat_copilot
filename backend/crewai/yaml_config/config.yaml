@@ -422,8 +422,8 @@ agents:
           Use this tool when asked to create charts, graphs, or visual representations
           of data for reporting purposes.
       
-      - name: generate_visualization_description
-        source: backend.mcp.tools.generate_visualization_description
+      - name: generate_visualization
+        source: backend.mcp.tools.generate_visualization
         adapter: MCPToolAdapter.adapt_mcp_tool
         is_async: true
         description: |
@@ -439,7 +439,7 @@ agents:
     methods:
       - extract_visualization
       - extract_visualization_structure
-      - generate_visualization_description
+      - generate_visualization
 
 
 # ---------------------------------------------------------------------------
@@ -1061,7 +1061,7 @@ tasks:
         default: technical_report
 
   # Generate Visualization Description
-  - name: generate_visualization_description
+  - name: generate_visualization
     description: |
       Generate AI-powered descriptions for visualizations.
       This task uses the VisualizationExpert agent to create
