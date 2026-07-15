@@ -294,13 +294,18 @@ async def full_analysis_workflow_tool(
                         enriched_metadata["visualization_description"] = data_field["visualization_description"]
             
             # Create notebook with all metadata
-            # Ensure story_content is a string
+            # Ensure story_content is a string - extract text properly
             story_content = story_result.get("story", "")
             if not isinstance(story_content, str):
-                if isinstance(story_content, list):
-                    story_content = '\n'.join(str(item) for item in story_content)
-                else:
-                    story_content = str(story_content)
+                # Import the text extraction utility
+                from backend.mcp.tools.create_quarto_notebook import _extract_text_from_message
+                story_content = _extract_text_from_message(story_content)
+                if not story_content:
+                    # Fallback to string representation
+                    if isinstance(story_content, list):
+                        story_content = '\n'.join(str(item) for item in story_content)
+                    else:
+                        story_content = str(story_content)
             
             notebook_result = await create_quarto_notebook_tool(
                 story_content=story_content,
