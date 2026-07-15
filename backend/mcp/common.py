@@ -19,6 +19,8 @@ from typing import Any, Optional, Union
 import duckdb
 import numpy as np
 import requests
+import time
+from pydantic import BaseModel, Field, Extra, ValidationError
 from sentence_transformers import SentenceTransformer
 
 try:
@@ -447,6 +449,16 @@ class UNHCRVectorRetriever:
         ]
 
 
+# Pydantic model for API response validation
+class UNHCRAPIResponse(BaseModel):
+    status: str = Field(default="success")
+    error: str | None = None
+    items: list[dict[str, Any]] | None = None
+    data: Any | None = None
+
+    class Config:
+        extra = Extra.allow
+
 # Class for API retrieval
 class UNHCRAPIClient:
     """Client for UNHCR API."""
@@ -493,9 +505,19 @@ class UNHCRAPIClient:
         
         try:
             logger.info(f"Fetching UNHCR {endpoint} data with params: {params}")
+            # Enforce simple client-side rate limit (env UNHCR_API_RPS)
+            if os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true":
+                rps = float(os.getenv("UNHCR_API_RPS", "5"))
+                time.sleep(1.0 / max(rps, 1.0))
             response = requests.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            raw = response.json()
+            try:
+                validated = UNHCRAPIResponse(**raw)
+                return validated.dict()
+            except ValidationError as ve:
+                logger.error(f"UNHCR API response validation failed: {ve}")
+                return {"error": "Invalid API response format", "details": ve.errors(), "status": "error"}
         except requests.RequestException as e:
             logger.error(f"Error fetching UNHCR {endpoint} data: {e}")
             return {"error": str(e), "status": "error"}

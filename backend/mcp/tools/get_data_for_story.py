@@ -4,10 +4,15 @@ Get appropriate data for story generation.
 """
 
 import logging
+import os
 from datetime import datetime
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Simple in-memory cache for data with freshness metadata
+_data_cache: dict[tuple[Any, ...], tuple[dict[str, Any], float]] = {}
+CACHE_TTL = int(os.getenv("MCP_DATA_CACHE_TTL", "300"))  # seconds
 
 
 async def get_data_for_story_tool(
@@ -52,6 +57,19 @@ async def get_data_for_story_tool(
     """
     from backend.question_parser import extract_question_parameters
     
+    # Check cache for identical requests
+    cache_key = (
+        question, coo, coa, year, years,
+        tuple(population_types) if population_types else None,
+        coo_all, coa_all, audience, document_type, origin, destination, timespan
+    )
+    if cache_key in _data_cache:
+        cached_result, ts = _data_cache[cache_key]
+        age = datetime.now().timestamp() - ts
+        if age < CACHE_TTL:
+            cached_result['cache_timestamp'] = datetime.fromtimestamp(ts).isoformat()
+            cached_result['cache_age_seconds'] = int(age)
+            return cached_result
     try:
         # Extract parameters from the question
         extracted_params = await extract_question_parameters(question)
@@ -227,7 +245,7 @@ async def get_data_for_story_tool(
             logger.debug(f"Could not generate visualization description: {e}")
             # Continue without description - non-blocking
         
-        return {
+        result = {
             'question': question,
             'extracted_params': extracted_params,
             'data': data,
@@ -245,6 +263,12 @@ async def get_data_for_story_tool(
             },
             'status': 'success'
         }
+        # Cache result with timestamp
+        ts = datetime.now().timestamp()
+        result['cache_timestamp'] = datetime.fromtimestamp(ts).isoformat()
+        result['cache_age_seconds'] = 0
+        _data_cache[cache_key] = (result, ts)
+        return result
     except Exception as e:
         return {
             'error': f'Failed to get data for story: {str(e)}',

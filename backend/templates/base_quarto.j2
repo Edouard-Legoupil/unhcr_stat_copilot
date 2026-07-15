@@ -16,14 +16,16 @@ This analysis was automatically generated using the UNHCR Statistics Copilot.
 
 {% if analysis_config %}
 - **Tone**: {{ analysis_config.tone | default("formal, precise, objective") }}
-{% if analysis_config.length %}
+{%- if analysis_config.length is defined %}
 - **Length**: {{ analysis_config.length.wordRange | default("1200-3000") }} words
 - **Reading Time**: {{ analysis_config.length.readingTime | default("6-15 min") }}
-{% endif %}
+{%- endif %}
+{%- if analysis_config.structure is defined %}
 - **Structure**: {{ analysis_config.structure | join(' → ') | default("N/A") }}
+{%- endif %}
 {% endif %}
 
-{% if metadata and metadata.tools_used %}
+{%- if metadata and metadata.tools_used is defined and metadata.tools_used %}
 ## Tools Used
 
 This analysis used {{ metadata.tools_used | length }} AI tools:

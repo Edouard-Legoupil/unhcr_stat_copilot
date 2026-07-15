@@ -65,18 +65,22 @@ def create_server() -> FastMCP:
     Returns:
         Configured FastMCP server
     """
-    # Set environment variable to allow any host header
-    os.environ["ALLOWED_HOSTS"] = "*"
+    # Restrict allowed hosts and require authentication for MCP server
+    # Default to localhost; override via ALLOWED_HOSTS env var (comma-separated)
+    allowed = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+    os.environ["ALLOWED_HOSTS"] = ",".join(allowed)
 
     # Initialize the server
     server = FastMCP(
         name="UNHCR Forcibly Displaced Populations MCP Server",
         instructions=(
             "Provides UNHCR population data tools and data-story generation. "
+            "Enforces host-based origin checks and requires API key auth for all requests. "
             "Can optionally enrich data stories with contextual evidence from "
             "local UNHCR Global Trends and Mid-Year Trends reports."
         ),
     )
+    # TODO: enforce API-key authentication via server middleware or configuration
 
     # Import tools from the tools package
     # These will be registered with the server

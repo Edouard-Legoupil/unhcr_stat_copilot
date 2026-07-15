@@ -57,6 +57,12 @@ unhcr_metadata:
   visualization_description: |
     {{ metadata.visualization_description|tojson|indent(4, first=false) }}
   {%- endif %}
+  {%- if metadata.get('template_version') %}
+  template_version: {{ metadata.template_version|quote_yaml }}
+  {%- endif %}
+  {%- if metadata.get('model_version') %}
+  model_version: {{ metadata.model_version|quote_yaml }}
+  {%- endif %}
 {% endif %}
 
 {%- if original_query %}

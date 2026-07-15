@@ -244,7 +244,7 @@ def _render_quarto_file(qmd_path: str | Path, output_dir: str | Path, render_htm
     
     # Check if Quarto CLI is available
     try:
-        result = subprocess.run(['quarto', '--version'], capture_output=True, text=True)
+        result = subprocess.run(['quarto', '--version'], capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             logger.warning("Quarto CLI not available - rendering will be skipped")
             results['errors'].append("Quarto CLI not available")
@@ -272,7 +272,8 @@ def _render_quarto_file(qmd_path: str | Path, output_dir: str | Path, render_htm
                 ['quarto', 'render', 'temp_analysis.qmd', '--to', 'html'],
                 capture_output=True,
                 text=True,
-                cwd=output_dir
+                cwd=output_dir,
+                timeout=300
             )
             
             os.chdir(original_cwd)
@@ -320,7 +321,8 @@ def _render_quarto_file(qmd_path: str | Path, output_dir: str | Path, render_htm
                 ['quarto', 'render', 'temp_analysis.qmd', '--to', 'pdf'],
                 capture_output=True,
                 text=True,
-                cwd=output_dir
+                cwd=output_dir,
+                timeout=300
             )
             
             os.chdir(original_cwd)
@@ -367,7 +369,10 @@ def _escape_jinja(text: str | list | Any) -> str:
     if text is None:
         return ""
     text_str = _extract_text_from_message(text) if not isinstance(text, str) else text
-    return text_str.replace('{{', r'\{{').replace('}}', r'\}}').replace('{%', r'\{%').replace('%}', r'\%}')
+    # Also neutralize markdown fences to prevent freeform narrative escaping into code chunks
+    escaped = text_str.replace('{{', r'\{{').replace('}}', r'\}}').replace('{%', r'\{%').replace('%}', r'\%}')
+    # Escape triple backticks
+    return escaped.replace('```', '`\`\`')
 
 
 def _quote_yaml(text: str) -> str:
@@ -940,6 +945,22 @@ async def create_quarto_notebook_tool(
     Returns:
         Generated notebook content and metadata
     """
+    # Validate QMD content structure: YAML front matter & balanced fences
+    def _validate_qmd_content(qmd: str) -> None:
+        # Check YAML front matter delimiters
+        fm = re.match(r"^---\n(.*?)\n---", qmd, flags=re.S)
+        if not fm:
+            raise ValueError("Rendered QMD missing or malformed YAML front matter.")
+        try:
+            # Only validate the YAML body between the delimiters
+            yaml.safe_load(fm.group(1))
+        except Exception as ye:
+            raise ValueError(f"Invalid YAML front matter: {ye}")
+        # Ensure code-fence balance
+        fences = qmd.count("```")
+        if fences % 2 != 0:
+            raise ValueError("Uneven code fence count in rendered QMD.")
+
     try:
         # Clean and extract story content from various formats (message objects, dicts, etc.)
         cleaned_story = _extract_text_from_message(story_content) if story_content else ""
@@ -947,9 +968,9 @@ async def create_quarto_notebook_tool(
         # Log for debugging
         logger.info(f"Quarto notebook: story_content type={type(story_content)}, length={len(story_content) if isinstance(story_content, str) else 'N/A'}, cleaned_length={len(cleaned_story)}")
         
-        # Always use interleaved template which handles both data and non-data cases
+        # Always use interleaved template for notebook creation
         template = _load_template("quarto_notebook_interleaved.j2")
-        logger.info("Using interleaved template")
+        logger.info("Using interleaved Quarto notebook template")
         
         if template and JINJA2_AVAILABLE:
             # Generate Python code if data is provided and code cells are requested
@@ -975,13 +996,21 @@ async def create_quarto_notebook_tool(
                 )
             
             # Prepare template variables
-            timestamp = date or datetime.now().isoformat()
+            # Prepare deterministic or current timestamp
+            if os.getenv('QUARTO_DETERMINISTIC', 'false').lower() == 'true':
+                timestamp = date or '1970-01-01T00:00:00Z'
+            else:
+                timestamp = date or datetime.now().isoformat()
             
             # Escape story_content for Jinja2 to prevent template rendering issues
             escaped_story = _escape_jinja(cleaned_story) if cleaned_story else ""
             
-            # Build metadata for template - sanitize error messages
+            # Build metadata for template: include version info and sanitize error messages
             template_metadata = metadata or {}
+            template_metadata['template_version'] = os.getenv('TEMPLATE_VERSION', 'unknown')
+            template_metadata['model_version'] = os.getenv(
+                'LLM_MODEL', metadata.get('analysis_config', {}).get('model', 'unknown') if metadata else 'unknown'
+            )
             if 'tool_sequence' not in template_metadata:
                 template_metadata['tool_sequence'] = []
             
@@ -1034,6 +1063,7 @@ async def create_quarto_notebook_tool(
                 python_code=python_code,
                 story_content=escaped_story,
                 timestamp=timestamp,
+                generated_at=timestamp,
                 audience=metadata.get('audience') if metadata else None,
                 document_type=metadata.get('document_type') if metadata else None,
                 analysis_config=metadata.get('analysis_config') if metadata else None,
@@ -1147,6 +1177,8 @@ print("UNHCR Data Analysis")
 ```
 """
         
+        # Validate rendered QMD before saving/rendering
+        _validate_qmd_content(quarto_content)
         # Save to file if output_path is provided
         if output_path:
             output_dir = Path(output_path).parent
@@ -1185,6 +1217,9 @@ print("UNHCR Data Analysis")
             },
             'status': 'success'
         }
+    except ValueError:
+        # Propagate unsupported document_type errors for fast-fail
+        raise
     except Exception as e:
         logger.exception(f"Failed to create Quarto notebook: {e}")
         return {
