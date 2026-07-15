@@ -320,26 +320,44 @@ async def full_analysis_workflow_tool(
                     if extracted:
                         story_content = extracted
                 except (ValueError, SyntaxError):
-                    # ast.literal_eval failed, try to manually extract content
-                    # Look for 'content': [ pattern
+                    # ast.literal_eval failed (likely due to newlines in the string representation)
+                    # Try to parse as JSON by converting single quotes to double quotes
+                    import json
                     import re
-                    content_match = re.search(r"'content':\s*\[([^\]]+)\]", story_content)
-                    if content_match:
-                        # Found content array, but this is complex to parse
-                        # Try to find text field
-                        text_match = re.search(r"'text':\s*'([^']*)'", story_content)
-                        if text_match:
-                            story_content = text_match.group(1).replace('\\n', '\n')
+                    try:
+                        # Convert single quotes to double quotes for JSON compatibility
+                        # But be careful with escaped single quotes and newlines
+                        json_str = story_content
+                        # Replace single quotes with double quotes (simple approach)
+                        json_str = json_str.replace("'", '"')
+                        # Fix escaped quotes that might have been created
+                        json_str = json_str.replace('\\"', '"')
+                        parsed = json.loads(json_str)
+                        extracted = _extract_text_from_message(parsed)
+                        if extracted:
+                            story_content = extracted
+                    except (json.JSONDecodeError, ValueError):
+                        # JSON parsing failed, try regex to find 'text' field
+                        # Look for pattern like 'text': '...' or "text": "..."
+                        # Handle escaped newlines in the text
+                        text_matches = re.findall(r"(?:['\"])\s*text\s*(?:['\"]):\s*(?:['\"])([^'\"]*(?:\\.[^'\"]*)*)(?:'\")", story_content)
+                        if text_matches:
+                            # Get the first text match and unescape it
+                            story_content = text_matches[0].encode().decode('unicode_escape')
                         else:
-                            # Try with double quotes
-                            text_match = re.search(r'"text":\s*"([^"]*)"', story_content)
-                            if text_match:
-                                story_content = text_match.group(1).replace('\\n', '\n')
-                    # If we still have a stringified dict, try to clean it up
-                    if story_content.strip().startswith("{"):
-                        # Remove the outer dict and try to get content
-                        # This is a fallback - the dict will appear in the notebook
-                        logger.warning(f"Could not extract text from story_content, using raw: {story_content[:200]}")
+                            # Last resort: try to find content array and extract text
+                            content_match = re.search(r"(?:['\"])\s*content\s*(?:['\"]):\s*\[\s*({[^}]*})\s*\]", story_content)
+                            if content_match:
+                                content_str = content_match.group(1)
+                                # Try to parse this content dict
+                                try:
+                                    content_dict = json.loads(content_str.replace("'", '"'))
+                                    story_content = content_dict.get('text', story_content)
+                                except:
+                                    pass
+                            # If we still have a stringified dict, log warning
+                            if story_content.strip().startswith("{"):
+                                logger.warning(f"Could not extract text from story_content: {story_content[:200]}")
             
             notebook_result = await create_quarto_notebook_tool(
                 story_content=story_content,
