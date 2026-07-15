@@ -2,7 +2,7 @@
 YAML Configuration Loader for CrewAI
 
 This module provides functionality to load agent, task, and crew definitions
-from YAML files instead of having them hardcoded in Python.
+from a consolidated YAML configuration file (config.yaml).
 
 Usage:
     from backend.crewai.yaml_config.loader import YAMLConfigLoader
@@ -19,7 +19,7 @@ Usage:
     tasks = loader.load_tasks()
     
     # Load specific crew
-    crew_config = loader.load_crew('analysis_crew')
+    crew_config = loader.load_crew('main_analysis_crew')
 """
 
 import importlib
@@ -32,14 +32,16 @@ from backend.crewai.agents.base import UNHCRBaseAgent
 
 logger = logging.getLogger(__name__)
 
+# Global consolidated configuration
+_CONSOLIDATED_CONFIG = None
+
 
 class YAMLConfigLoader:
     """
-    Loader for CrewAI configurations from YAML files.
+    Loader for CrewAI configurations from a consolidated YAML file.
     
-    This class provides methods to load agent, task, and crew definitions
-    from YAML configuration files, enabling cleaner separation of configuration
-    from code.
+    This simplified version loads everything from config.yaml in the yaml_config directory,
+    eliminating the need for separate agent, task, and crew subdirectories.
     """
     
     def __init__(
@@ -53,11 +55,13 @@ class YAMLConfigLoader:
         Initialize the YAML config loader.
         
         Args:
-            config_dir: Base configuration directory
-            agents_dir: Directory for agent configurations
-            tasks_dir: Directory for task configurations
-            crews_dir: Directory for crew configurations
+            config_dir: Base configuration directory (default: directory containing this file)
+            agents_dir: Unused - kept for backward compatibility
+            tasks_dir: Unused - kept for backward compatibility
+            crews_dir: Unused - kept for backward compatibility
         """
+        global _CONSOLIDATED_CONFIG
+        
         # Default paths relative to this module
         base_path = Path(__file__).parent
         
@@ -66,92 +70,53 @@ class YAMLConfigLoader:
         self.tasks_dir = Path(tasks_dir) if tasks_dir else self.config_dir / "tasks"
         self.crews_dir = Path(crews_dir) if crews_dir else self.config_dir / "crews"
         
-        # Ensure directories exist
-        self._ensure_directories()
+        # Load consolidated config
+        self._load_consolidated_config()
     
-    def _ensure_directories(self):
-        """Ensure required directories exist."""
-        for directory in [self.config_dir, self.agents_dir, self.tasks_dir, self.crews_dir]:
-            if not directory.exists():
-                logger.warning(f"Configuration directory not found: {directory}")
-    
-    def _load_yaml_file(self, file_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
-        """
-        Load a YAML file from disk.
+    def _load_consolidated_config(self) -> None:
+        """Load the consolidated config.yaml file."""
+        global _CONSOLIDATED_CONFIG
         
-        Args:
-            file_path: Path to the YAML file
-            
-        Returns:
-            Parsed YAML content as dictionary, or None if file not found
-        """
-        path = Path(file_path)
-        if not path.exists():
-            logger.warning(f"YAML file not found: {path}")
-            return None
+        config_file = self.config_dir / "config.yaml"
+        if not config_file.exists():
+            logger.error(f"Consolidated config file not found: {config_file}")
+            _CONSOLIDATED_CONFIG = {}
+            return
         
         try:
-            with open(path, 'r') as f:
-                content = yaml.safe_load(f)
-            return content if content else {}
+            with open(config_file, 'r') as f:
+                _CONSOLIDATED_CONFIG = yaml.safe_load(f) or {}
+            logger.info(f"Loaded consolidated configuration from {config_file}")
         except yaml.YAMLError as e:
-            logger.error(f"Error parsing YAML file {path}: {e}")
-            return None
+            logger.error(f"Error parsing YAML file {config_file}: {e}")
+            _CONSOLIDATED_CONFIG = {}
         except Exception as e:
-            logger.error(f"Error loading YAML file {path}: {e}")
-            return None
+            logger.error(f"Error loading YAML file {config_file}: {e}")
+            _CONSOLIDATED_CONFIG = {}
     
-    def _load_all_yaml_files(self, directory: Path) -> List[Dict[str, Any]]:
-        """
-        Load all YAML files from a directory.
-        
-        Args:
-            directory: Directory to search for YAML files
-            
-        Returns:
-            List of parsed YAML contents
-        """
-        if not directory.exists():
-            logger.warning(f"Directory not found: {directory}")
-            return []
-        
-        yaml_files = list(directory.glob("*.yaml")) + list(directory.glob("*.yml"))
-        
-        results = []
-        for yaml_file in yaml_files:
-            content = self._load_yaml_file(yaml_file)
-            if content:
-                # Add source file info for debugging
-                content['_source_file'] = str(yaml_file)
-                results.append(content)
-        
-        return results
+    def _get_consolidated_config(self) -> Dict[str, Any]:
+        """Get the consolidated configuration, loading it if necessary."""
+        if _CONSOLIDATED_CONFIG is None:
+            self._load_consolidated_config()
+        return _CONSOLIDATED_CONFIG or {}
     
     def load_agent(self, agent_name: str) -> Optional[Dict[str, Any]]:
         """
         Load a specific agent configuration by name.
         
         Args:
-            agent_name: Name of the agent (without .yaml extension)
+            agent_name: Name of the agent
             
         Returns:
             Agent configuration dictionary, or None if not found
         """
-        # Try to find in agents directory
-        yaml_file = self.agents_dir / f"{agent_name}.yaml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
+        config = self._get_consolidated_config()
+        agents = config.get('agents', [])
         
-        yaml_file = self.agents_dir / f"{agent_name}.yml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
-        
-        # Try to find in subdirectories
-        for yaml_path in self.agents_dir.rglob(f"{agent_name}.yaml"):
-            return self._load_yaml_file(yaml_path)
-        
-        for yaml_path in self.agents_dir.rglob(f"{agent_name}.yml"):
-            return self._load_yaml_file(yaml_path)
+        if isinstance(agents, list):
+            for agent_def in agents:
+                if isinstance(agent_def, dict) and agent_def.get('name') == agent_name:
+                    return agent_def
         
         logger.warning(f"Agent configuration not found: {agent_name}")
         return None
@@ -163,41 +128,17 @@ class YAMLConfigLoader:
         Returns:
             Dictionary mapping agent names to their configurations
         """
+        config = self._get_consolidated_config()
+        agents_list = config.get('agents', [])
+        
         results = {}
-        
-        # Load all YAML files from agents directory
-        yaml_contents = self._load_all_yaml_files(self.agents_dir)
-        
-        for content in yaml_contents:
-            # Handle different YAML structures
-            if isinstance(content, dict):
-                # Could be a single agent definition or a collection
-                if 'analysts' in content:
-                    for agent_def in content['analysts']:
-                        name = agent_def.get('name')
-                        if name:
-                            results[name] = agent_def
-                elif 'data_fetchers' in content:
-                    for agent_def in content['data_fetchers']:
-                        name = agent_def.get('name')
-                        if name:
-                            results[name] = agent_def
-                elif 'story_generators' in content:
-                    for agent_def in content['story_generators']:
-                        name = agent_def.get('name')
-                        if name:
-                            results[name] = agent_def
-                elif 'orchestrators' in content:
-                    for agent_def in content['orchestrators']:
-                        name = agent_def.get('name')
-                        if name:
-                            results[name] = agent_def
-                else:
-                    # Assume it's a single agent definition
-                    name = content.get('name')
+        if isinstance(agents_list, list):
+            for agent_def in agents_list:
+                if isinstance(agent_def, dict):
+                    name = agent_def.get('name')
                     if name:
-                        results[name] = content
-            
+                        results[name] = agent_def
+        
         return results
     
     def load_task(self, task_name: str) -> Optional[Dict[str, Any]]:
@@ -210,21 +151,13 @@ class YAMLConfigLoader:
         Returns:
             Task configuration dictionary, or None if not found
         """
-        # Try to find in tasks directory
-        yaml_file = self.tasks_dir / f"{task_name}.yaml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
+        config = self._get_consolidated_config()
+        tasks = config.get('tasks', [])
         
-        yaml_file = self.tasks_dir / f"{task_name}.yml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
-        
-        # Try to find in subdirectories
-        for yaml_path in self.tasks_dir.rglob(f"{task_name}.yaml"):
-            return self._load_yaml_file(yaml_path)
-        
-        for yaml_path in self.tasks_dir.rglob(f"{task_name}.yml"):
-            return self._load_yaml_file(yaml_path)
+        if isinstance(tasks, list):
+            for task_def in tasks:
+                if isinstance(task_def, dict) and task_def.get('name') == task_name:
+                    return task_def
         
         logger.warning(f"Task configuration not found: {task_name}")
         return None
@@ -236,24 +169,16 @@ class YAMLConfigLoader:
         Returns:
             Dictionary mapping task names to their configurations
         """
+        config = self._get_consolidated_config()
+        tasks_list = config.get('tasks', [])
+        
         results = {}
-        
-        # Load all YAML files from tasks directory
-        yaml_contents = self._load_all_yaml_files(self.tasks_dir)
-        
-        for content in yaml_contents:
-            if isinstance(content, dict):
-                # Handle collection of tasks
-                if 'tasks' in content:
-                    for task_def in content['tasks']:
-                        name = task_def.get('name')
-                        if name:
-                            results[name] = task_def
-                else:
-                    # Assume it's a single task definition
-                    name = content.get('name')
+        if isinstance(tasks_list, list):
+            for task_def in tasks_list:
+                if isinstance(task_def, dict):
+                    name = task_def.get('name')
                     if name:
-                        results[name] = content
+                        results[name] = task_def
         
         return results
     
@@ -267,21 +192,13 @@ class YAMLConfigLoader:
         Returns:
             Crew configuration dictionary, or None if not found
         """
-        # Try to find in crews directory
-        yaml_file = self.crews_dir / f"{crew_name}.yaml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
+        config = self._get_consolidated_config()
+        crews = config.get('crews', [])
         
-        yaml_file = self.crews_dir / f"{crew_name}.yml"
-        if yaml_file.exists():
-            return self._load_yaml_file(yaml_file)
-        
-        # Try to find in subdirectories
-        for yaml_path in self.crews_dir.rglob(f"{crew_name}.yaml"):
-            return self._load_yaml_file(yaml_path)
-        
-        for yaml_path in self.crews_dir.rglob(f"{crew_name}.yml"):
-            return self._load_yaml_file(yaml_path)
+        if isinstance(crews, list):
+            for crew_def in crews:
+                if isinstance(crew_def, dict) and crew_def.get('name') == crew_name:
+                    return crew_def
         
         logger.warning(f"Crew configuration not found: {crew_name}")
         return None
@@ -293,24 +210,16 @@ class YAMLConfigLoader:
         Returns:
             Dictionary mapping crew names to their configurations
         """
+        config = self._get_consolidated_config()
+        crews_list = config.get('crews', [])
+        
         results = {}
-        
-        # Load all YAML files from crews directory
-        yaml_contents = self._load_all_yaml_files(self.crews_dir)
-        
-        for content in yaml_contents:
-            if isinstance(content, dict):
-                # Could be a collection or single definition
-                if 'crews' in content:
-                    for crew_def in content['crews']:
-                        name = crew_def.get('name')
-                        if name:
-                            results[name] = crew_def
-                else:
-                    # Assume it's a single crew definition
-                    name = content.get('name')
+        if isinstance(crews_list, list):
+            for crew_def in crews_list:
+                if isinstance(crew_def, dict):
+                    name = crew_def.get('name')
                     if name:
-                        results[name] = content
+                        results[name] = crew_def
         
         return results
     

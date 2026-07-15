@@ -1,0 +1,2079 @@
+# =============================================================================
+# UNHCR Statistics Copilot - Consolidated YAML Configuration
+# =============================================================================
+#
+# This file contains all agent and task definitions in the correct execution sequence.
+# The structure follows the workflow: Data Agents -> Analysis Agents -> Story Agents -> Notebook Agents
+#
+# =============================================================================
+# AGENT DEFINITIONS
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+# 1. DATA FETCHER AGENTS
+# These agents handle data retrieval from UNHCR sources
+# ---------------------------------------------------------------------------
+
+agents:
+  
+  # UNHCR Data Fetcher - Primary population data retrieval
+  - name: unhcr_data_fetcher
+    class_name: UNHCRDataFetcher
+    module: backend.crewai.agents.data_fetchers
+    role: UNHCR Data Fetcher
+    goal: Retrieve accurate population statistics from UNHCR API
+    description: |
+      Specialist agent for fetching UNHCR population data.
+      This agent handles all data retrieval operations from the UNHCR API,
+      including population statistics, demographics, and key figures.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_population_data
+        source: backend.mcp.tools.get_population_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve forcibly displaced population statistics from UNHCR.
+          Use when asked about refugee numbers, asylum seekers, stateless persons,
+          or other populations of concern by country and year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+      
+      - name: get_demographics_data
+        source: backend.mcp.tools.get_demographics_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve age and sex breakdown data for forcibly displaced populations.
+          Use when asked about demographic composition, gender distribution,
+          or age groups of refugees and other populations of concern.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+          - pop_type
+      
+      - name: get_country_key_figures
+        source: backend.mcp.tools.get_country_key_figures
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve formatted key statistics and summaries for specific countries.
+          Use when asked for country profiles, overview statistics,
+          or formatted summaries of displacement situations.
+        parameters:
+          - coa
+          - coo
+          - year
+          - population_types
+      
+      - name: get_population_trends
+        source: backend.mcp.tools.get_population_trends
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve time series data showing population changes over multiple years.
+          Use when asked about trends, historical changes, or comparisons
+          across different time periods.
+        parameters:
+          - coa
+          - coo
+          - years
+          - population_types
+      
+      - name: get_demographic_breakdown
+        source: backend.mcp.tools.get_demographic_breakdown
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve detailed age and sex distribution for specific population types.
+          Use when asked for granular demographic analysis, age pyramids,
+          or gender breakdowns of refugee populations.
+        parameters:
+          - coa
+          - coo
+          - year
+          - population_type
+    
+    capabilities:
+      - population_data_retrieval
+      - demographic_data_retrieval
+      - country_statistics
+      - trend_analysis
+      - breakdown_analysis
+    
+    methods:
+      - fetch_population_data
+      - fetch_all_data
+      - fetch_demographics
+      - fetch_trends
+
+  # RSD Expert - Refugee Status Determination data
+  - name: rsd_expert
+    class_name: RSDExpert
+    module: backend.crewai.agents.data_fetchers
+    role: RSD Expert
+    goal: Retrieve and analyze Refugee Status Determination data
+    description: |
+      Specialist agent for RSD (Refugee Status Determination) data.
+      This agent handles retrieval of asylum applications, decisions,
+      and related RSD statistics.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_rsd_applications
+        source: backend.mcp.tools.get_rsd_applications
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve Refugee Status Determination (RSD) application statistics.
+          Use when asked about asylum applications, claims, or requests
+          for refugee status by country, origin, or year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+      
+      - name: get_rsd_decisions
+        source: backend.mcp.tools.get_rsd_decisions
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve Refugee Status Determination (RSD) decision outcomes.
+          Use when asked about approved/rejected asylum cases, recognition rates,
+          or refugee status determination results by country and year.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+    
+    capabilities:
+      - rsd_data_retrieval
+      - asylum_statistics
+      - decision_analysis
+    
+    methods:
+      - fetch_rsd_data
+
+  # Solutions Expert - Durable solutions data
+  - name: solutions_expert
+    class_name: SolutionsExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Solutions Expert
+    goal: Retrieve data on durable solutions for displaced populations
+    description: |
+      Specialist agent for durable solutions data.
+      This agent handles retrieval of information about refugee returnees,
+      resettlement, naturalization, and IDP returns.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_solutions
+        source: backend.mcp.tools.get_solutions
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve durable solutions data including refugee returnees,
+          resettlement, naturalization, and IDP returns.
+          Use when asked about solutions to displacement, voluntary repatriation,
+          or integration outcomes.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+    
+    capabilities:
+      - solutions_data_retrieval
+      - returnee_statistics
+      - resettlement_data
+      - integration_outcomes
+    
+    methods:
+      - fetch_solutions_data
+
+  # Demographics Expert - Detailed demographic breakdowns
+  - name: demographics_expert
+    class_name: DemographicsExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Demographics Expert
+    goal: Provide detailed demographic breakdowns and analysis
+    description: |
+      Specialist agent for demographic data analysis.
+      This agent focuses on providing detailed age, gender, and other
+      demographic breakdowns of displaced populations.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_demographics_data
+        source: backend.mcp.tools.get_demographics_data
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve age and sex breakdown data for forcibly displaced populations.
+        parameters:
+          - coo
+          - coa
+          - year
+          - coo_all
+          - coa_all
+          - pop_type
+    
+    capabilities:
+      - demographic_analysis
+      - age_distribution
+      - gender_breakdown
+      - population_composition
+    
+    methods:
+      - fetch_demographics
+
+  # Temporal Analyzer - Time series and trend analysis
+  - name: temporal_analyzer
+    class_name: TemporalAnalyzer
+    module: backend.crewai.agents.data_fetchers
+    role: Temporal Analyzer
+    goal: Analyze time series data and trends over time
+    description: |
+      Specialist agent for temporal analysis of UNHCR data.
+      This agent focuses on time series analysis, trend identification,
+      and historical comparisons.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_population_trends
+        source: backend.mcp.tools.get_population_trends
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve time series data showing population changes over multiple years.
+        parameters:
+          - coa
+          - coo
+          - years
+          - population_types
+    
+    capabilities:
+      - time_series_analysis
+      - trend_identification
+      - historical_comparison
+      - temporal_patterns
+    
+    methods:
+      - fetch_trends
+
+  # Geography Expert - Geographic analysis
+  - name: geography_expert
+    class_name: GeographyExpert
+    module: backend.crewai.agents.data_fetchers
+    role: Geography Expert
+    goal: Provide geographic analysis and regional data
+    description: |
+      Specialist agent for geographic analysis of UNHCR data.
+      This agent handles spatial analysis, regional breakdowns,
+      and geographic patterns of displacement.
+    
+    requires_api_client: true
+    
+    tools:
+      - name: get_country_key_figures
+        source: backend.mcp.tools.get_country_key_figures
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        requires_api_client: true
+        description: |
+          Retrieve population data for geographic analysis.
+    
+    capabilities:
+      - geographic_analysis
+      - regional_breakdowns
+      - spatial_patterns
+      - country_comparisons
+    
+    methods:
+      - fetch_geographic_data
+
+
+# ---------------------------------------------------------------------------
+# 2. ANALYST AGENTS
+# These agents handle statistical analysis and validation
+# ---------------------------------------------------------------------------
+
+  # Statistical Analyzer - Statistical calculations and insights
+  - name: statistical_analyzer
+    class_name: StatisticalAnalyzer
+    module: backend.crewai.agents.analysts
+    role: Statistical Analyst
+    goal: Perform comprehensive statistical analysis on displacement data
+    description: |
+      Specialist agent for statistical analysis of UNHCR data.
+      This agent performs comprehensive statistical analysis including
+      descriptive statistics, correlations, and distributions.
+    
+    tools:
+      - name: analyze_data_statistics
+        source: backend.mcp.tools.analyze_data_statistics
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Perform statistical analysis on datasets including descriptive statistics,
+          correlations, and distributions. Use this tool when asked for data analysis,
+          statistical summaries, or insights from numerical data.
+    
+    capabilities:
+      - statistical_analysis
+      - data_insights
+      - correlation_analysis
+      - distribution_analysis
+    
+    methods:
+      - analyze_data
+      - analyze_statistics
+      - validate_guardrails
+
+  # Guardrails Validator - UNHCR methodology compliance
+  - name: guardrails_validator
+    class_name: GuardrailsValidator
+    module: backend.crewai.agents.analysts
+    role: Guardrails Validator
+    goal: Ensure analyses follow UNHCR methodology standards
+    description: |
+      Specialist agent for UNHCR methodology guardrails validation.
+      This agent ensures all analyses follow UNHCR methodology standards
+      and international guidelines.
+    
+    tools:
+      - name: apply_analysis_guardrails
+        source: backend.mcp.tools.apply_analysis_guardrails
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Apply UNHCR methodology guardrails to ensure analyses follow international
+          standards. Use this tool to validate analysis requests, check compliance
+          with statistical standards, and ensure proper interpretation of UNHCR data.
+    
+    capabilities:
+      - methodology_validation
+      - compliance_checking
+      - standard_interpretation
+    
+    methods:
+      - validate_analysis
+      - validate_guardrails
+
+  # Tool Selector - Select appropriate tools for queries
+  - name: tool_selector
+    class_name: ToolSelector
+    module: backend.crewai.agents.analysts
+    role: Tool Selector
+    goal: Determine the appropriate UNHCR data tools for specific queries
+    description: |
+      Specialist agent for selecting appropriate tools for analysis.
+      This agent determines which UNHCR data tools should be used for specific queries.
+    
+    tools:
+      - name: safe_tool_selection
+        source: backend.mcp.tools.safe_tool_selection
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Safely select the appropriate tool for a given question by analyzing its content.
+          Use this tool to determine which UNHCR data tool should be used for a specific query.
+    
+    capabilities:
+      - tool_selection
+      - query_analysis
+      - tool_recommendation
+    
+    methods:
+      - select_tools
+
+  # Visualization Expert - Extract and describe visualizations
+  - name: visualization_expert
+    class_name: VisualizationExpert
+    module: backend.crewai.agents.analysts
+    role: Visualization Expert
+    goal: Extract visualization metadata and generate descriptions
+    description: |
+      Specialist agent for visualization structure and description.
+      This agent extracts visualization metadata and generates descriptions
+      for charts and graphs.
+    
+    tools:
+      - name: extract_visualization_structure
+        source: backend.mcp.tools.extract_visualization_structure
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Extract and structure visualization metadata for AI-generated reports.
+          Use this tool when asked to create charts, graphs, or visual representations
+          of data for reporting purposes.
+      
+      - name: generate_visualization_description
+        source: backend.mcp.tools.generate_visualization_description
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        is_async: true
+        description: |
+          Generate AI-powered descriptions and interpretations for visualizations.
+          Use this tool when asked to explain charts, provide insights from graphs,
+          or create narrative descriptions of data visualizations.
+    
+    capabilities:
+      - visualization_structure
+      - description_generation
+      - chart_metadata
+    
+    methods:
+      - extract_visualization
+      - extract_visualization_structure
+      - generate_visualization_description
+
+
+# ---------------------------------------------------------------------------
+# 3. STORY GENERATOR AGENTS
+# These agents handle narrative and story generation
+# ---------------------------------------------------------------------------
+
+  # Story Generator - Create analytical narratives
+  - name: story_generator
+    class_name: StoryGenerator
+    module: backend.crewai.agents.story_generators
+    role: Story Generator
+    goal: Generate analytical stories from UNHCR data
+    description: |
+      Specialist agent for creating analytical narratives and stories.
+      This agent generates comprehensive, audience-appropriate stories
+      from UNHCR data and analysis results.
+    
+    tools:
+      - name: generate_analytical_story
+        source: backend.mcp.tools.generate_analytical_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Generate analytical stories and narratives from UNHCR data, optionally
+          enriched with relevant context retrieved from local UNHCR statistical reports.
+          Use this tool when asked to create reports, stories, or narratives
+          based on data analysis.
+        parameters:
+          - result
+          - data
+          - question
+          - audience
+          - document_type
+          - analysis_config
+          - use_rag
+          - rag_top_k
+          - rag_fetch_k
+          - rag_rerank
+          - rag_year
+          - rag_report_type
+          - rag_section_contains
+          - rag_exclude_figures_tables
+          - context
+      
+      - name: get_data_for_story
+        source: backend.mcp.tools.get_data_for_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Get appropriate data for story generation based on question analysis.
+          Use this tool to retrieve the right data for creating data-driven
+          stories and reports.
+        parameters:
+          - question
+          - coo
+          - coa
+          - year
+          - years
+          - population_types
+          - coo_all
+          - coa_all
+          - audience
+          - document_type
+          - origin
+          - destination
+          - population_type
+          - timespan
+    
+    capabilities:
+      - story_generation
+      - narrative_creation
+      - data_driven_storytelling
+      - audience_adaptation
+    
+    methods:
+      - generate_story
+      - create_data_story
+
+  # RAG Researcher - Retrieve context from UNHCR reports
+  - name: rag_researcher
+    class_name: RAGResearcher
+    module: backend.crewai.agents.story_generators
+    role: RAG Researcher
+    goal: Retrieve relevant context from UNHCR reports for enrichment
+    description: |
+      Specialist agent for Retrieval-Augmented Generation (RAG).
+      This agent retrieves relevant context and information from local
+      UNHCR statistical reports to enrich data stories with authoritative
+      source material.
+    
+    tools:
+      - name: get_data_for_story
+        source: backend.mcp.tools.get_data_for_story
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Get appropriate data for story generation based on question analysis.
+    
+    capabilities:
+      - context_retrieval
+      - document_search
+      - information_enrichment
+      - source_integration
+    
+    methods:
+      - retrieve_context
+      - enrich_story
+
+  # Audience Adapter - Adapt stories for specific audiences
+  - name: audience_adapter
+    class_name: AudienceAdapter
+    module: backend.crewai.agents.story_generators
+    role: Audience Adapter
+    goal: Adapt stories for specific audiences and document types
+    description: |
+      Specialist agent for audience-specific content adaptation.
+      This agent ensures that stories, analyses, and visualizations are
+      appropriately tailored for different target audiences (policy makers,
+      operational staff, analysts, advocates) and document types.
+    
+    capabilities:
+      - audience_adaptation
+      - tone_adjustment
+      - complexity_adjustment
+      - format_customization
+    
+    methods:
+      - adapt_for_audience
+      - customize_for_document_type
+
+
+# ---------------------------------------------------------------------------
+# 4. ORCHESTRATOR AGENTS
+# These agents coordinate workflows and notebook generation
+# ---------------------------------------------------------------------------
+
+  # Analysis Orchestrator - Master workflow coordinator
+  - name: analysis_orchestrator
+    class_name: AnalysisOrchestrator
+    module: backend.crewai.agents.orchestrators
+    role: Analysis Orchestrator
+    goal: Deliver end-to-end analysis from question to Quarto notebook
+    description: |
+      Simplified master agent that coordinates the analysis workflow.
+      This streamlined version minimizes steps and token consumption by:
+      1. Fetching data directly via MCP tools (no intermediate agents)
+      2. Generating story via MCP tools
+      3. Creating notebook via MCP tools
+      This avoids the complexity of coordinating multiple agents and
+      the associated token overhead.
+    
+    uses_mcp_tools: true
+    
+    capabilities:
+      - workflow_orchestration
+      - end_to_end_analysis
+      - data_fetching
+      - story_generation
+      - notebook_creation
+    
+    methods:
+      - execute_full_workflow
+      - fetch_data
+      - generate_story
+      - create_notebook
+
+  # Notebook Generator - Quarto notebook creation
+  - name: notebook_generator
+    class_name: NotebookGenerator
+    module: backend.crewai.agents.orchestrators
+    role: Notebook Generator
+    goal: Generate Quarto notebooks from data stories
+    description: |
+      Specialist agent for Quarto notebook generation.
+      This agent creates reproducible, well-formatted Quarto notebooks
+      (.qmd files) from data stories and analysis results.
+    
+    tools:
+      - name: create_quarto_notebook
+        source: backend.mcp.tools.create_quarto_notebook
+        adapter: MCPToolAdapter.adapt_mcp_tool
+        description: |
+          Create Quarto notebooks from data stories for reproducible reporting.
+          Use this tool when asked to generate reports, create notebooks,
+          or export analysis in a reproducible format.
+        parameters:
+          - story_content
+          - output_path
+          - title
+          - author
+          - date
+          - include_code_cells
+          - use_unhcr_theme
+          - use_unhcr_style
+          - original_query
+          - metadata
+          - data
+    
+    capabilities:
+      - notebook_generation
+      - quarto_formatting
+      - reproducible_output
+      - template_management
+    
+    methods:
+      - generate_notebook
+      - create_quarto_notebook
+
+
+# =============================================================================
+# TASK DEFINITIONS
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+# 1. DATA TASKS
+# Tasks for data fetching and validation
+# ---------------------------------------------------------------------------
+
+tasks:
+  
+  # Fetch Population Data
+  - name: fetch_population_data
+    description: |
+      Fetch UNHCR population data for a given question and parameters.
+      This task uses the UNHCRDataFetcher agent to retrieve population
+      statistics.
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing population data with structure:
+      {'status': str, 'data': dict, 'metadata': dict}
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    output_file: null
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+        description: The user's question
+      - name: parameters
+        type: dict
+        required: true
+        description: Data retrieval parameters (coo, coa, year, etc.)
+      - name: audience
+        type: str
+        required: false
+        default: internal
+        description: Target audience for the analysis
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+        description: Document type for the analysis
+
+  # Fetch All Data
+  - name: fetch_all_data
+    description: |
+      Fetch all types of UNHCR data for a comprehensive analysis.
+      This task retrieves:
+      - Population data
+      - RSD applications and decisions
+      - Solutions data
+      - Demographics
+      - Trends
+      - Geographic data
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing all data types:
+      {
+        'status': str,
+        'data': {
+          'population': dict,
+          'rsd_applications': dict,
+          'rsd_decisions': dict,
+          'solutions': dict,
+          'demographics': dict,
+          'trends': dict,
+          'geography': dict
+        }
+      }
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Validate Data
+  - name: validate_data
+    description: |
+      Validate fetched UNHCR data to ensure it meets quality standards.
+      This task checks for required fields, data types, and consistency.
+    
+    agent: unhcr_data_fetcher
+    expected_output: |
+      A dictionary containing validation results:
+      {
+        'status': str,
+        'valid': bool,
+        'issues': list,
+        'warnings': list,
+        'data_quality': str
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: data
+        type: dict
+        required: true
+        description: Data to validate
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Fetch RSD Data
+  - name: fetch_rsd_data
+    description: |
+      Fetch Refugee Status Determination data including applications
+      and decisions.
+    
+    agent: rsd_expert
+    expected_output: |
+      A dictionary containing RSD data:
+      {
+        'status': str,
+        'rsd_applications': dict,
+        'rsd_decisions': dict
+      }
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Fetch Solutions Data
+  - name: fetch_solutions_data
+    description: |
+      Fetch durable solutions data including refugee returnees,
+      resettlement, naturalization, and IDP returns.
+    
+    agent: solutions_expert
+    expected_output: |
+      A dictionary containing solutions data:
+      {'status': str, 'solutions': dict}
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+
+# ---------------------------------------------------------------------------
+# 2. ANALYSIS TASKS
+# Tasks for statistical analysis and validation
+# ---------------------------------------------------------------------------
+
+  # Analyze Statistics
+  - name: analyze_statistics
+    description: |
+      Perform statistical analysis on UNHCR data.
+      This task uses the StatisticalAnalyzer agent to calculate
+      descriptive statistics, correlations, and distributions.
+    
+    agent: statistical_analyzer
+    expected_output: |
+      A dictionary with statistical analysis:
+      {
+        'status': str,
+        'statistics': dict,
+        'insights': list,
+        'warnings': list,
+        'data_summary': dict
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+        description: Data to analyze
+      - name: question
+        type: str
+        required: false
+        default: ""
+        description: Analysis question
+      - name: audience
+        type: str
+        required: false
+        default: internal
+        description: Target audience
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+        description: Document type
+
+  # Validate Guardrails
+  - name: validate_guardrails
+    description: |
+      Validate analysis against UNHCR methodology guardrails.
+      This task uses the GuardrailsValidator agent to ensure
+      analyses follow UNHCR standards and international guidelines.
+    
+    agent: guardrails_validator
+    expected_output: |
+      A dictionary with guardrails validation:
+      {
+        'status': str,
+        'valid': bool,
+        'violations': list,
+        'warnings': list,
+        'compliance_score': float
+      }
+    
+    context:
+      - data
+      - analysis
+      - question
+      - audience
+      - document_type
+    
+    async_execution: false
+    depends_on: analyze_statistics
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Select Tools
+  - name: select_tools
+    description: |
+      Select appropriate UNHCR data tools for a specific query.
+      This task uses the ToolSelector agent to determine which
+      tools should be used based on the question content.
+    
+    agent: tool_selector
+    expected_output: |
+      A dictionary with tool selection results:
+      {
+        'status': str,
+        'selection': dict,
+        'tool': str,
+        'parameters': dict,
+        'question': str
+      }
+    
+    context:
+      - question
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+        description: The user's question
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Extract Visualization
+  - name: extract_visualization
+    description: |
+      Extract visualization structure and metadata from data.
+      This task uses the VisualizationExpert agent to create
+      visualization structures and descriptions.
+    
+    agent: visualization_expert
+    expected_output: |
+      A dictionary with visualization structure:
+      {
+        'status': str,
+        'structure': dict,
+        'description': str,
+        'visualization_type': str,
+        'labels': dict
+      }
+    
+    context:
+      - data
+      - visualization_type
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: data
+        type: dict
+        required: true
+        description: Data to visualize
+      - name: visualization_type
+        type: str
+        required: false
+        default: line_chart
+        description: Type of visualization
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Generate Visualization Description
+  - name: generate_visualization_description
+    description: |
+      Generate AI-powered descriptions for visualizations.
+      This task uses the VisualizationExpert agent to create
+      narrative descriptions of charts and graphs.
+    
+    agent: visualization_expert
+    expected_output: |
+      A dictionary with visualization descriptions:
+      {
+        'status': str,
+        'description': str,
+        'audience': str,
+        'document_type': str
+      }
+    
+    context:
+      - data
+      - analysis
+      - visualization_structure
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    depends_on: extract_visualization
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: visualization_structure
+        type: dict
+        required: false
+        default: {}
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Full Analysis Pipeline
+  - name: full_analysis_pipeline
+    description: |
+      Execute the complete analysis pipeline from question to results.
+      This task coordinates multiple agents to perform end-to-end analysis:
+      1. Data fetching (optional)
+      2. Statistical analysis
+      3. Guardrails validation
+      4. Visualization extraction
+      5. Description generation
+    
+    agent: analysis_orchestrator
+    expected_output: |
+      A comprehensive analysis result with:
+      {
+        'status': str,
+        'analysis': dict,
+        'guardrails': dict,
+        'visualizations': list,
+        'visualization_descriptions': dict,
+        'warnings': list,
+        'question': str,
+        'audience': str,
+        'document_type': str
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+      - use_rag
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+        description: Input data for analysis
+      - name: question
+        type: str
+        required: true
+        description: The analysis question
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+      - name: use_rag
+        type: bool
+        required: false
+        default: true
+        description: Whether to use RAG enrichment
+
+
+# ---------------------------------------------------------------------------
+# 3. STORY TASKS
+# Tasks for story generation and enrichment
+# ---------------------------------------------------------------------------
+
+  # Generate Story
+  - name: generate_story
+    description: |
+      Generate an analytical story from UNHCR data.
+      This task uses the StoryGenerator agent to create
+      comprehensive narratives based on data and analysis results.
+    
+    agent: story_generator
+    expected_output: |
+      A dictionary containing the generated story:
+      {
+        'status': str,
+        'story_content': str,
+        'title': str,
+        'metadata': dict,
+        'audience': str,
+        'document_type': str
+      }
+    
+    context:
+      - data
+      - result
+      - question
+      - audience
+      - document_type
+      - analysis_config
+      - use_rag
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+        description: Data to use for story generation
+      - name: result
+        type: dict
+        required: false
+        default: {}
+        description: Analysis results
+      - name: question
+        type: str
+        required: true
+        description: The analysis question
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+      - name: analysis_config
+        type: dict
+        required: false
+        default: {}
+        description: Configuration for analysis
+      - name: use_rag
+        type: bool
+        required: false
+        default: true
+        description: Whether to use RAG enrichment
+
+  # Generate Data Story
+  - name: generate_data_story
+    description: |
+      Generate a data-driven story from UNHCR data.
+      This task creates a complete narrative that includes
+      data insights, trends, and key findings.
+    
+    agent: story_generator
+    expected_output: |
+      A dictionary containing the data story:
+      {
+        'status': str,
+        'story': str,
+        'key_findings': list,
+        'data_insights': list,
+        'trends': list,
+        'metadata': dict
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: true
+        description: Data to generate story from
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Enrich Story with RAG
+  - name: enrich_story_with_rag
+    description: |
+      Enrich a story with relevant context from UNHCR reports.
+      This task uses the RAGResearcher agent to retrieve
+      authoritative source material and integrate it into the story.
+    
+    agent: rag_researcher
+    expected_output: |
+      A dictionary containing enriched story:
+      {
+        'status': str,
+        'enriched_story': str,
+        'context_used': list,
+        'sources': list,
+        'rag_metadata': dict
+      }
+    
+    context:
+      - story_content
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: story_content
+        type: str
+        required: true
+        description: Story content to enrich
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Adapt Story for Audience
+  - name: adapt_story_for_audience
+    description: |
+      Adapt a story for a specific audience and document type.
+      This task uses the AudienceAdapter agent to ensure
+      the story is appropriate for the target audience.
+    
+    agent: audience_adapter
+    expected_output: |
+      A dictionary containing adapted story:
+      {
+        'status': str,
+        'adapted_story': str,
+        'adaptations_made': list,
+        'audience': str,
+        'document_type': str
+      }
+    
+    context:
+      - story_content
+      - audience
+      - document_type
+      - original_question
+    
+    async_execution: false
+    
+    parameters:
+      - name: story_content
+        type: str
+        required: true
+        description: Story content to adapt
+      - name: audience
+        type: str
+        required: true
+        description: Target audience
+      - name: document_type
+        type: str
+        required: true
+        description: Document type
+      - name: original_question
+        type: str
+        required: false
+        default: ""
+
+  # Create Executive Summary
+  - name: create_executive_summary
+    description: |
+      Create an executive summary from analysis results.
+      This task generates a concise, high-level summary suitable
+      for decision-makers and policy audiences.
+    
+    agent: story_generator
+    expected_output: |
+      A dictionary containing executive summary:
+      {
+        'status': str,
+        'headline': str,
+        'insight': str,
+        'key_statistics': list,
+        'impacts': list,
+        'recommendations': list
+      }
+    
+    context:
+      - data
+      - analysis
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: policy_makers
+      - name: document_type
+        type: str
+        required: false
+        default: executive_summary
+
+  # Create Technical Report
+  - name: create_technical_report
+    description: |
+      Create a technical report from analysis results.
+      This task generates a detailed, technical document suitable
+      for analysts and technical audiences.
+    
+    agent: story_generator
+    expected_output: |
+      A dictionary containing technical report:
+      {
+        'status': str,
+        'report_content': str,
+        'methodology': str,
+        'data_sources': list,
+        'findings': list,
+        'limitations': list
+      }
+    
+    context:
+      - data
+      - analysis
+      - statistics
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: statistics
+        type: dict
+        required: false
+        default: {}
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: analysts
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+
+# ---------------------------------------------------------------------------
+# 4. NOTEBOOK TASKS
+# Tasks for notebook generation and export
+# ---------------------------------------------------------------------------
+
+  # Create Notebook
+  - name: create_notebook
+    description: |
+      Create a Quarto notebook from analysis results.
+      This task uses the NotebookGenerator agent to generate
+      a complete Quarto notebook (.qmd file) from story content,
+      data, and analysis results.
+    
+    agent: notebook_generator
+    expected_output: |
+      A dictionary containing the notebook:
+      {
+        'status': str,
+        'notebook_content': str,
+        'metadata': dict,
+        'path': str
+      }
+    
+    context:
+      - story_content
+      - data
+      - analysis
+      - question
+      - output_path
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: story_content
+        type: str
+        required: false
+        default: ""
+        description: The story/narrative content
+      - name: data
+        type: dict
+        required: false
+        default: {}
+        description: Data used in analysis
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+        description: Analysis results
+      - name: question
+        type: str
+        required: false
+        default: ""
+        description: Original question
+      - name: output_path
+        type: str
+        required: false
+        default: null
+        description: Output file path
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Create Quarto Notebook (MCP compatible)
+  - name: create_quarto_notebook
+    description: |
+      Create a Quarto notebook using MCP tools.
+      This task generates a Quarto notebook (.qmd file) with proper
+      YAML metadata, UNHCR styling, and optional code cells.
+    
+    agent: notebook_generator
+    expected_output: |
+      A dictionary containing the Quarto notebook:
+      {
+        'status': str,
+        'content': str,
+        'path': str,
+        'metadata': dict
+      }
+    
+    context:
+      - story_content
+      - audience
+      - document_type
+      - output_path
+    
+    async_execution: false
+    
+    parameters:
+      - name: story_content
+        type: str
+        required: false
+        default: ""
+        description: The story content for the notebook
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+      - name: output_path
+        type: str
+        required: false
+        default: null
+        description: Output file path
+      - name: title
+        type: str
+        required: false
+        default: "UNHCR Analysis"
+      - name: author
+        type: str
+        required: false
+        default: "UNHCR Statistics Copilot"
+      - name: date
+        type: str
+        required: false
+        default: null
+      - name: include_code_cells
+        type: bool
+        required: false
+        default: true
+      - name: use_unhcr_theme
+        type: bool
+        required: false
+        default: true
+      - name: use_unhcr_style
+        type: bool
+        required: false
+        default: true
+      - name: original_query
+        type: str
+        required: false
+        default: null
+      - name: metadata
+        type: dict
+        required: false
+        default: {}
+      - name: data
+        type: dict
+        required: false
+        default: {}
+
+  # Generate Code Cells
+  - name: generate_code_cells
+    description: |
+      Generate Python code cells for data analysis.
+      This task creates executable Python code that can be
+      embedded in Quarto notebooks for reproducibility.
+    
+    agent: notebook_generator
+    expected_output: |
+      A dictionary containing generated code:
+      {
+        'status': str,
+        'python_code': str,
+        'data_processing': str,
+        'visualization_code': str
+      }
+    
+    context:
+      - data
+      - analysis
+      - visualization_structure
+      - audience
+      - document_type
+    
+    async_execution: false
+    
+    parameters:
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: visualization_structure
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Export Notebook
+  - name: export_notebook
+    description: |
+      Export Quarto notebook to multiple formats (HTML, PDF).
+      This task renders the notebook to different output formats
+      for distribution and sharing.
+    
+    agent: notebook_generator
+    expected_output: |
+      A dictionary containing export results:
+      {
+        'status': str,
+        'html_path': str,
+        'pdf_path': str,
+        'export_log': list
+      }
+    
+    context:
+      - notebook_content
+      - output_path
+      - export_formats
+    
+    async_execution: true
+    
+    parameters:
+      - name: notebook_content
+        type: str
+        required: true
+        description: The Quarto notebook content
+      - name: output_path
+        type: str
+        required: false
+        default: null
+        description: Base output path
+      - name: export_formats
+        type: list
+        required: false
+        default: [html, pdf]
+        description: List of formats to export
+
+
+# ---------------------------------------------------------------------------
+# 5. WORKFLOW TASKS
+# High-level workflow tasks that coordinate multiple steps
+# ---------------------------------------------------------------------------
+
+  # Full Analysis Workflow
+  - name: full_analysis_workflow
+    description: |
+      Execute the complete analysis workflow from question to notebook.
+      This is the primary end-to-end task that coordinates:
+      1. Data fetching
+      2. Statistical analysis
+      3. Guardrails validation
+      4. Story generation
+      5. Notebook creation
+    
+    agent: analysis_orchestrator
+    expected_output: |
+      A comprehensive result containing:
+      {
+        'status': str,
+        'data': dict,
+        'analysis': dict,
+        'guardrails': dict,
+        'story': str,
+        'notebook': dict,
+        'visualizations': list,
+        'metadata': dict,
+        'warnings': list
+      }
+    
+    context:
+      - question
+      - audience
+      - document_type
+      - use_rag
+      - include_notebook
+    
+    async_execution: true
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+        description: The analysis question
+      - name: audience
+        type: str
+        required: false
+        default: internal
+        description: Target audience
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+        description: Document type
+      - name: use_rag
+        type: bool
+        required: false
+        default: true
+        description: Whether to use RAG enrichment
+      - name: include_notebook
+        type: bool
+        required: false
+        default: true
+        description: Whether to create a Quarto notebook
+
+  # Data to Story Workflow
+  - name: data_to_story_workflow
+    description: |
+      Convert data directly to a story without full analysis.
+      This workflow is optimized for cases where data is already
+      available and just needs to be narrated.
+    
+    agent: story_generator
+    expected_output: |
+      A dictionary containing:
+      {
+        'status': str,
+        'story_content': str,
+        'metadata': dict,
+        'data_summary': dict
+      }
+    
+    context:
+      - data
+      - question
+      - audience
+      - document_type
+      - use_rag
+    
+    async_execution: true
+    
+    parameters:
+      - name: data
+        type: dict
+        required: true
+        description: Input data
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+      - name: use_rag
+        type: bool
+        required: false
+        default: true
+
+  # Analysis to Notebook Workflow
+  - name: analysis_to_notebook_workflow
+    description: |
+      Convert analysis results to a Quarto notebook.
+      This workflow takes existing analysis and data to create
+      a reproducible notebook.
+    
+    agent: notebook_generator
+    expected_output: |
+      A dictionary containing:
+      {
+        'status': str,
+        'notebook_content': str,
+        'notebook_path': str,
+        'metadata': dict
+      }
+    
+    context:
+      - story_content
+      - data
+      - analysis
+      - question
+      - audience
+      - document_type
+      - output_path
+    
+    async_execution: false
+    
+    parameters:
+      - name: story_content
+        type: str
+        required: true
+        description: The story/narrative content
+      - name: data
+        type: dict
+        required: false
+        default: {}
+      - name: analysis
+        type: dict
+        required: false
+        default: {}
+      - name: question
+        type: str
+        required: false
+        default: ""
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+      - name: output_path
+        type: str
+        required: false
+        default: null
+
+  # Quick Analysis Workflow
+  - name: quick_analysis_workflow
+    description: |
+      Perform a quick analysis with minimal steps.
+      This workflow is optimized for speed and simplicity,
+      sacrificing some depth for faster results.
+    
+    agent: analysis_orchestrator
+    expected_output: |
+      A dictionary containing:
+      {
+        'status': str,
+        'analysis': dict,
+        'story': str,
+        'metadata': dict
+      }
+    
+    context:
+      - question
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+  # Comprehensive Analysis Workflow
+  - name: comprehensive_analysis_workflow
+    description: |
+      Perform a comprehensive, in-depth analysis with all features.
+      This workflow includes:
+      - Full data fetching
+      - Statistical analysis
+      - Guardrails validation
+      - RAG enrichment
+      - Multiple visualizations
+      - Detailed story
+      - Quarto notebook with code
+    
+    agent: analysis_orchestrator
+    expected_output: |
+      A comprehensive result with all analysis outputs:
+      {
+        'status': str,
+        'data': dict,
+        'statistics': dict,
+        'analysis': dict,
+        'guardrails': dict,
+        'rag_context': dict,
+        'story': str,
+        'visualizations': list,
+        'notebook': dict,
+        'metadata': dict,
+        'warnings': list
+      }
+    
+    context:
+      - question
+      - parameters
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: question
+        type: str
+        required: true
+      - name: parameters
+        type: dict
+        required: false
+        default: {}
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: comprehensive_report
+
+  # Batch Analysis Workflow
+  - name: batch_analysis_workflow
+    description: |
+      Perform analysis on multiple questions or datasets in batch.
+      This workflow processes multiple inputs sequentially
+      and returns aggregated results.
+    
+    agent: analysis_orchestrator
+    expected_output: |
+      A dictionary containing:
+      {
+        'status': str,
+        'results': list,
+        'summary': dict,
+        'batch_metadata': dict
+      }
+    
+    context:
+      - questions
+      - audience
+      - document_type
+    
+    async_execution: true
+    
+    parameters:
+      - name: questions
+        type: list
+        required: true
+        description: List of questions to analyze
+      - name: audience
+        type: str
+        required: false
+        default: internal
+      - name: document_type
+        type: str
+        required: false
+        default: technical_report
+
+
+# =============================================================================
+# CREW DEFINITIONS
+# =============================================================================
+
+crews:
+  
+  # Main Analysis Crew - Simplified single crew for end-to-end analysis
+  - name: main_analysis_crew
+    description: |
+      Main crew that performs end-to-end analysis from question to notebook.
+      This simplified crew uses the analysis_orchestrator agent which coordinates
+      all MCP tools directly, avoiding the complexity of multiple agent coordination.
+      
+      The workflow is:
+      1. Fetch data using MCP tools
+      2. Analyze data using MCP tools  
+      3. Generate story using MCP tools
+      4. Create notebook using MCP tools
+      
+      This minimizes token consumption and complexity while maintaining full functionality.
+    
+    # Crew settings
+    process_type: sequential
+    verbose: 2
+    memory: true
+    cache: true
+    max_rpm: null
+    share_crew: true
+    crew_name: "UNHCRAnalysisCrew"
+    manager_llm: null
+    
+    # Single orchestrator agent that uses MCP tools directly
+    agents:
+      - analysis_orchestrator
+    
+    # Workflow - tasks in execution order
+    tasks:
+      - fetch_and_validate_data
+      - perform_statistical_analysis
+      - validate_analysis_guardrails
+      - generate_analytical_story
+      - create_quarto_notebook
+      - full_analysis_workflow
+      - batch_analysis_workflow
+    
+    # Default workflow
+    default_workflow: full_analysis_workflow
+    
+    # Orchestration settings
+    orchestration:
+      timeout: 300
+      retry_attempts: 3
+      error_handling: continue
