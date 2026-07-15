@@ -306,6 +306,17 @@ async def full_analysis_workflow_tool(
                         story_content = '\n'.join(str(item) for item in story_content)
                     else:
                         story_content = str(story_content)
+            else:
+                # story_content is already a string - might be a stringified dict
+                # Try to parse it as a Python literal (handles single-quoted dicts)
+                import ast
+                try:
+                    parsed = ast.literal_eval(story_content)
+                    from backend.mcp.tools.create_quarto_notebook import _extract_text_from_message
+                    story_content = _extract_text_from_message(parsed)
+                except (ValueError, SyntaxError):
+                    # Not a valid Python literal, use as-is
+                    pass
             
             notebook_result = await create_quarto_notebook_tool(
                 story_content=story_content,
