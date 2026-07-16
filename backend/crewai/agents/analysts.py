@@ -433,7 +433,7 @@ class VisualizationExpert(UNHCRBaseAgent):
         """Register visualization tools."""
         try:
             from backend.mcp.tools.extract_visualization_structure import extract_visualization_structure_tool
-            from backend.mcp.tools.generate_visualization_description import generate_visualization_description_tool
+            from backend.mcp.tools.generate_visualization import generate_visualization_tool
             
             tools = []
             
@@ -450,15 +450,15 @@ class VisualizationExpert(UNHCRBaseAgent):
             tools.append(tool)
             self.register_tool("extract_visualization_structure", tool.function)
             
-            # Adapt generate_visualization_description
+            # Adapt generate_visualization
             # Note: This is async, so we need special handling
             import inspect
-            if inspect.iscoroutinefunction(generate_visualization_description_tool):
+            if inspect.iscoroutinefunction(generate_visualization_tool):
                 async def async_wrapper(*args, **kwargs):
-                    return await generate_visualization_description_tool(*args, **kwargs)
+                    return await generate_visualization_tool(*args, **kwargs)
                 tool = MCPToolAdapter.adapt_mcp_tool(
                     async_wrapper,
-                    name="generate_visualization_description",
+                    name="generate_visualization",
                     description=(
                         "Generate AI-powered descriptions and interpretations for visualizations. "
                         "Use this tool when asked to explain charts, provide insights from graphs, "
@@ -467,8 +467,8 @@ class VisualizationExpert(UNHCRBaseAgent):
                 )
             else:
                 tool = MCPToolAdapter.adapt_mcp_tool(
-                    generate_visualization_description_tool,
-                    name="generate_visualization_description",
+                    generate_visualization_tool,
+                    name="generate_visualization",
                     description=(
                         "Generate AI-powered descriptions and interpretations for visualizations. "
                         "Use this tool when asked to explain charts, provide insights from graphs, "
@@ -476,7 +476,7 @@ class VisualizationExpert(UNHCRBaseAgent):
                     )
                 )
             tools.append(tool)
-            self.register_tool("generate_visualization_description", tool.function)
+            self.register_tool("generate_visualization", tool.function)
             
             self.tools = tools
             
@@ -544,7 +544,7 @@ class VisualizationExpert(UNHCRBaseAgent):
                     
                     # Generate visualization description
                     description = self.execute_tool(
-                        "generate_visualization_description",
+                        "generate_visualization",
                         structure=structure,
                         description_type="detailed",
                         max_length=500,
@@ -604,7 +604,7 @@ class VisualizationExpert(UNHCRBaseAgent):
             document_type=document_type
         )
     
-    def generate_visualization_description(
+    def generate_visualization(
         self,
         data: Dict[str, Any],
         analysis: Dict[str, Any] = None,
@@ -615,9 +615,9 @@ class VisualizationExpert(UNHCRBaseAgent):
     ) -> Dict[str, Any]:
         """Generate visualization description using the MCP tool directly."""
         try:
-            # Execute the generate_visualization_description tool directly
+            # Execute the generate_visualization tool directly
             result = self.execute_tool(
-                "generate_visualization_description",
+                "generate_visualization",
                 data=data,
                 analysis=analysis or {},
                 question=question or "",

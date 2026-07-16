@@ -33,15 +33,15 @@ The UNHCR Statistics Copilot provides:
 
 | Category | Tools | Count |
 |----------|-------|-------|
+| Data Tools | get_data_for_story, safe_tool_selection | 2 |
 | Population Data | get_population_data, get_demographics_data, get_population_trends | 3 |
 | RSD Data | get_rsd_applications, get_rsd_decisions | 2 |
 | Solutions | get_solutions, get_country_key_figures | 2 |
-| Visualization | extract_visualization_structure, generate_visualization_description | 2 |
 | Analysis | analyze_data_statistics, apply_analysis_guardrails | 2 |
+| Visualization | extract_visualization_structure, generate_visualization | 2 |
 | Story Generation | generate_ai_data_story, generate_analytical_story, create_quarto_notebook | 3 |
 | Workflows | full_analysis_workflow, quick_analysis, compare_analysis | 3 |
 | Utilities | get_usage_guidance, get_suggested_questions, retrieve_report_context | 3 |
-| Data Tools | get_data_for_story, safe_tool_selection | 2 |
 
 ---
 
@@ -190,7 +190,13 @@ def my_tool(param1: str, param2: int | None = None) -> dict:
     return {"result": "data"}
 ```
 
-### Key Tools by Category
+### Key
+
+#### 🎯 Data & Context
+- `get_suggested_questions` - Generate suggested analysis questions
+- `safe_tool_selection` - Select the right tool for a question
+- `get_usage_guidance` - Get guidance on tool usage
+- `get_data_for_story` - Get appropriate data for story generation
 
 #### 📊 Population Data
 - `get_population_data` - Retrieve forcibly displaced population statistics
@@ -207,15 +213,15 @@ def my_tool(param1: str, param2: int | None = None) -> dict:
 
 #### 📈 Analysis & Statistics
 - `analyze_data_statistics` - Perform statistical analysis on datasets
-- `apply_analysis_guardrails` - Apply UNHCR methodology guardrails
 
 #### 📊 Visualization
 - `extract_visualization_structure` - Extract metadata from visualizations
-- `generate_visualization_description` - Generate AI-powered descriptions for charts
+- `generate_visualization` - Generate AI-powered descriptions for charts
 
 #### 📖 Story Generation
-- `generate_ai_data_story` - Create complete AI data stories
 - `generate_analytical_story` - Generate analytical narratives
+- `apply_analysis_guardrails` - Apply UNHCR methodology guardrails
+- `retrieve_report_context` - Retrieve context from UNHCR reports
 - `create_quarto_notebook` - Create reproducible Quarto notebooks (.qmd)
 
 #### 🔄 Workflows
@@ -223,12 +229,6 @@ def my_tool(param1: str, param2: int | None = None) -> dict:
 - `quick_analysis` - Fast analysis without notebook generation
 - `compare_analysis` - Comparative analysis across multiple scenarios
 
-#### 🎯 Data & Context
-- `get_data_for_story` - Get appropriate data for story generation
-- `retrieve_report_context` - Retrieve context from UNHCR reports
-- `safe_tool_selection` - Select the right tool for a question
-- `get_usage_guidance` - Get guidance on tool usage
-- `get_suggested_questions` - Generate suggested analysis questions
 
 ---
 

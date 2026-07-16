@@ -46,6 +46,10 @@ ANALYSIS_CONFIG = {
                     "results",
                     "limitations",
                     "annex (optional)"
+                ],
+                "charts": [
+                    "data analysis",
+                    "results"
                 ]
             },
             "long_read": {
@@ -62,6 +66,9 @@ ANALYSIS_CONFIG = {
                     "deep dive analysis",
                     "implications",
                     "conclusion"
+                ],
+                "charts": [
+                    "deep dive analysis"
                 ]
             },
             "executive_summary": {
@@ -76,6 +83,9 @@ ANALYSIS_CONFIG = {
                     "main findings",
                     "implications",
                     "recommended actions"
+                ],
+                "charts": [
+                    "main findings"
                 ]
             }
         }
@@ -511,7 +521,12 @@ async def process_chat_message(
             'tool': 'generate_analytical_story',
             'params': story_params,
             'status': story_result.get('status', 'error'),
-            'result': story_result
+            'result': story_result,
+            # Include pre-defined layout settings: structure, tone, and length
+            'structure': analysis_config.get('structure'),
+            'tone': analysis_config.get('tone'),
+            'length': analysis_config.get('length'),
+            'charts': analysis_config.get('charts')
         })
         if not isinstance(story_content, str):
             # Try to extract text from various message formats

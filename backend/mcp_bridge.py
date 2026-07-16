@@ -191,7 +191,7 @@ MCP_TOOL_SCHEMAS: Dict[str, Dict[str, Any]] = {
             "correlation_columns": list
         }
     },
-    "generate_visualization_description": {
+    "generate_visualization": {
         "required": ["structure", "statistics"],
         "optional": ["description_type", "max_length", "focus_areas"],
         "types": {

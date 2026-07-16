@@ -5,13 +5,14 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from backend.crewai.crew import UNHCRCrew
 
 # Load environment variables from .env file
 load_dotenv()
@@ -590,6 +591,9 @@ class ChatRequest(BaseModel):
     audience: Optional[str] = None
     document_type: Optional[str] = None
     style: Optional[str] = None
+    use_rag: bool = True
+    include_notebook: bool = True
+    output_path: Optional[str] = None
 
 
 class ToolRequest(BaseModel):
@@ -872,6 +876,7 @@ async def execute_tool(
           response_description="Analysis result from CrewAI workflow")
 @limiter.limit("5/minute")
 async def chat(
+    request: Request,
     chat_request: ChatRequest,
     user: UserInfo = Depends(verify_azure_auth)
 ):
@@ -896,21 +901,26 @@ async def chat(
             output_path=chat_request.output_path,
             style=chat_request.style
         )
-        quarto_types = ["quarto_notebook", "comprehensive_quarto", "basic_quarto_fallback"]
-        if result.get("analysis_type") in quarto_types:
+        # Expose step names as tool_sequence for frontend observability
+        if 'steps' in result and isinstance(result['steps'], list):
+            result['tool_sequence'] = [
+                { 'name': step.get('name'), 'status': step.get('status'), 'duration_ms': step.get('duration_ms') }
+                for step in result['steps']
+            ]
+        # Persist JSON entry and optionally save Quarto notebook if included
+        save_analysis(result)
+        nb = result.get("notebook") or {}
+        if chat_request.include_notebook and nb.get("content"):
             metadata_for_save = result.get("metadata", {}).copy()
             metadata_for_save["steps"] = result.get("steps", [])
             metadata_for_save["workflow_sequence"] = result.get("workflow_sequence", [])
-            save_result = save_quarto_analysis(result.get("quarto_content", ""), metadata_for_save)
+            save_result = save_quarto_analysis(nb.get("content", ""), metadata_for_save)
             result.update({
                 "id": save_result.get("id"),
                 "filepath": save_result.get("filepath"),
                 "quarto_filename": save_result.get("filename"),
                 "quarto_metadata": save_result.get("metadata"),
-                "metadata": save_result.get("metadata"),
             })
-        else:
-            save_analysis(result)
         return {**result, "user": user.to_dict()}
     except Exception as e:
         logger.exception(f"CrewAI chat failed: {e}")
@@ -1920,14 +1930,21 @@ async def create_report(
             "title": "Ukraine Refugee Crisis Analysis"
         }
     """
+    # Prepare inputs for notebook generation
     story = payload.get("story")
     data = payload.get("data")
-
-    title = payload.get(
-        "title",
-        "UNHCR Report"
-    )
-
+    title = payload.get("title", "UNHCR Report")
+    # Include metadata for template front matter
+    from backend.chat import get_analysis_config
+    audience = payload.get("audience", "internal")
+    document_type = payload.get("document_type", "technical_report")
+    analysis_config = get_analysis_config(audience, document_type)
+    metadata = {
+        "audience": audience,
+        "document_type": document_type,
+        "analysis_config": analysis_config
+    }
+    # Call the create_quarto_notebook tool with metadata
     result = await call_tool(
         "create_quarto_notebook",
         {
@@ -1936,10 +1953,10 @@ async def create_report(
             "include_code_cells": True,
             "use_unhcr_theme": True,
             "use_unhcr_style": True,
-            "data": data
+            "data": data,
+            "metadata": metadata
         }
     )
-
     return {
         **result,
         "user": user.to_dict()

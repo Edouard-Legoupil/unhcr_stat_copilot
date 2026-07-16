@@ -134,7 +134,7 @@ unhcr_stat_copilot/
 │           ├── retrieve_report_context.py
 │           ├── extract_visualization_structure.py
 │           ├── analyze_data_statistics.py
-│           ├── generate_visualization_description.py
+│           ├── generate_visualization.py
 │           ├── generate_ai_data_story.py
 │           ├── generate_analytical_story.py
 │           ├── create_quarto_notebook.py

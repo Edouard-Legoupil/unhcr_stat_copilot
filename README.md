@@ -105,7 +105,7 @@ Document-specific Jinja templates for consistent formatting:
 
 #### Export Tools
 - `create_quarto_notebook(story_content)` - Reproducible reports with Jinja templates
-- `generate_visualization_description(chart_data)` - Accessible descriptions
+- `generate_visualization(chart_data)` - Accessible descriptions
 
 ### 5. **Tool Chaining with Audience Context**
 
@@ -377,6 +377,182 @@ async def get_new_audience_config():
 4. `generate_executive_summary()` → creates narrative with internal audience tone
 5. `generate_analytical_story()` → creates detailed analysis with technical structure
 6. `run_guardrails()` → ensures methodology compliance
+
+## Architecture Diagram
+
+```mermaid
+
+
+flowchart TD
+
+%% ==========================================
+%% STYLES
+%% ==========================================
+
+classDef task fill:#DCFCE7,stroke:#16A34A,stroke-width:2px;
+classDef tool fill:#FED7AA,stroke:#EA580C,stroke-width:2px;
+classDef io fill:#E5E7EB,stroke:#6B7280,stroke-width:2px;
+classDef shared fill:#C7D2FE,stroke:#4338CA,stroke-width:2px,color:#111827;
+
+%% ==========================================
+%% SHARED ARTIFACTS (CONNECTING ELEMENTS)
+%% These are outputs of one task and inputs to another
+%% ==========================================
+
+artifact_population_data(["population_data"])
+artifact_rsd_data(["rsd_data"])
+artifact_solutions_data(["solutions_data"])
+artifact_statistics(["statistics"])
+artifact_guardrails(["guardrails_validation"])
+artifact_visualization_structure(["visualization_structure"])
+artifact_visualization_description(["visualization_description"])
+artifact_story(["story"])
+artifact_enriched_story(["enriched_story"])
+artifact_adapted_story(["adapted_story"])
+artifact_notebook(["quarto_notebook"])
+
+class artifact_population_data,artifact_rsd_data,artifact_solutions_data,artifact_statistics,artifact_guardrails,artifact_visualization_structure,artifact_visualization_description,artifact_story,artifact_enriched_story,artifact_adapted_story,artifact_notebook shared
+
+%% ==========================================
+%% data_manager AGENT
+%% ==========================================
+
+subgraph unhcr_data_fetcher["data_manager"]
+    task_fetch_population["fetch_population_data"]
+    tool_get_population{{get_population_data}}
+    task_fetch_population --> tool_get_population
+    tool_get_population --> artifact_population_data
+
+    task_fetch_rsd["fetch_rsd_data"]
+    tool_get_rsd{{get_rsd_applications<br/>get_rsd_decisions}}
+    task_fetch_rsd --> tool_get_rsd
+    tool_get_rsd --> artifact_rsd_data
+
+    task_fetch_solutions["fetch_solutions_data"]
+    tool_get_solutions{{get_solutions}}
+    task_fetch_solutions --> tool_get_solutions
+    tool_get_solutions --> artifact_solutions_data
+end
+
+input_question --> task_safe_tool
+task_safe_tool --> task_fetch_rsd
+task_safe_tool --> task_fetch_population
+task_safe_tool --> task_fetch_solutions
+artifact_population_data --> input_data
+artifact_rsd_data --> input_data
+artifact_solutions_data --> input_data
+
+%% ==========================================
+%% statistical_analyst AGENT
+%% ==========================================
+
+subgraph statistical_analyzer["statistical_analyst"]
+    task_analyze_statistics["analyze_statistics"]
+    tool_analyze_statistics{{analyze_data_statistics}}
+    task_analyze_statistics --> tool_analyze_statistics
+    tool_analyze_statistics --> artifact_statistics
+    task_validate_guardrails["validate_guardrails"]
+    tool_apply_guardrails{{apply_analysis_guardrails}}
+    task_validate_guardrails --> tool_apply_guardrails
+    tool_apply_guardrails --> artifact_guardrails
+end
+
+input_data --> task_analyze_statistics
+input_question --> task_analyze_statistics
+input_story_structure --> task_analyze_statistics
+
+
+task_analyze_statistics -. compute .-> artifact_statistics
+task_validate_guardrails -. assess .-> artifact_guardrails
+
+%% ==========================================
+%% visualization_expert AGENTS
+%% ==========================================
+
+subgraph visualization_expert["visualization_expert"]
+    task_extract_visualization["extract_visualization"]
+    tool_extract_visualization{{extract_visualization_structure}}
+    task_extract_visualization --> tool_extract_visualization
+    tool_extract_visualization --> artifact_visualization_structure
+
+    task_generate_visualization["generate_visualization"]
+    tool_generate_visualization{{generate_visualization}}
+    task_generate_visualization --> tool_generate_visualization
+    tool_generate_visualization --> artifact_visualization_description
+end
+
+
+input_data --> task_extract_visualization
+artifact_statistics --> task_extract_visualization
+artifact_guardrails --> task_extract_visualization
+input_story_structure --> task_extract_visualization
+
+artifact_visualization_structure --> task_generate_visualization
+input_data --> task_generate_visualization
+
+artifact_statistics --> task_validate_guardrails
+input_story_structure --> task_validate_guardrails
+
+%% ==========================================
+%% Story teller AGENTS
+%% ==========================================
+
+subgraph story_generator["story_teller"]
+    task_generate_story["generate_story"]
+    tool_generate_story{{generate_analytical_story}}
+    task_generate_story --> tool_generate_story
+    tool_generate_story --> artifact_story
+    task_enrich_story["enrich_story_with_rag"]
+    tool_get_data_for_story{{get_data_for_story}}
+    task_enrich_story --> tool_get_data_for_story
+    tool_get_data_for_story --> artifact_enriched_story
+    task_adapt_story["adapt_story_for_audience"]
+    task_adapt_story --> artifact_adapted_story
+end
+
+
+input_data --> task_generate_story
+input_story_structure --> task_generate_story
+artifact_statistics --> task_generate_story
+artifact_guardrails --> task_generate_story
+input_question --> task_generate_story
+
+artifact_story --> task_enrich_story
+artifact_enriched_story --> task_adapt_story
+
+
+task_generate_story -. draft .-> artifact_story
+task_enrich_story -. augment .-> artifact_enriched_story
+task_adapt_story -. adjust .-> artifact_adapted_story
+
+%% ==========================================
+%% NOTEBOOK AGENT
+%% ==========================================
+
+subgraph notebook_generator["notebook_encoder"]
+    task_create_notebook["create_notebook"]
+    tool_create_quarto{{create_quarto_notebook}}
+    task_create_notebook --> tool_create_quarto
+    tool_create_quarto --> artifact_notebook
+end
+
+input_data --> task_create_notebook
+input_story_structure --> task_create_notebook
+artifact_adapted_story --> task_create_notebook
+artifact_visualization_description --> task_create_notebook
+task_create_notebook -. weave .-> artifact_notebook
+
+%% ==========================================
+%% TASK INPUTS (ALL OUTSIDE SUBGRAPHS)
+%% ==========================================
+
+input_question(["question"])
+input_data(["data"])
+input_story_structure(["story_structure_audience_tone_lenght"])
+
+class input_question,input_story_structure,input_data io
+
+```
 7. `create_quarto_notebook()` → uses `technical_report.j2` template (default for internal)
 8. Combined response returned with audience-specific metadata
 

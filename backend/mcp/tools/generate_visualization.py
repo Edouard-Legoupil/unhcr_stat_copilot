@@ -1,5 +1,5 @@
 """
-Tool: generate_visualization_description
+Tool: generate_visualization
 Generate UNHCR-compliant, AI-powered descriptions and interpretations for visualizations.
 
 This MCP tool is intentionally strict about the UNHCR Data Visualization Guidelines
@@ -290,7 +290,7 @@ def _build_style_code_snippet(structure: dict[str, Any]) -> str:
     )
 
 
-async def generate_visualization_description_tool(
+async def generate_visualization_tool(
     structure: dict[str, Any],
     statistics: Optional[dict[str, Any]] = None,
     description_type: str = "both",

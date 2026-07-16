@@ -256,7 +256,7 @@ curl http://localhost:8000/api/mcp/info
     "retrieve_report_context",
     "extract_visualization_structure",
     "analyze_data_statistics",
-    "generate_visualization_description",
+    "generate_visualization",
     "generate_ai_data_story",
     "get_usage_guidance",
     "get_suggested_questions",

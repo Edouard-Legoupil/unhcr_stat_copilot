@@ -489,7 +489,7 @@ Each tool has the following schema:
 | Tool | Description | Required Params |
 |------|-------------|-----------------|
 | `extract_visualization_structure` | Extract visualization metadata | `visualization_type` |
-| `generate_visualization_description` | Generate description for visualization | `structure`, `statistics` |
+| `generate_visualization` | Generate description for visualization | `structure`, `statistics` |
 
 #### 📖 Story Generation Tools
 

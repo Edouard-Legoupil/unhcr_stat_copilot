@@ -1,13 +1,8 @@
 """
-Simplified CrewAI Crew for UNHCR Statistics Copilot
+CrewAI Crew for UNHCR Statistics Copilot
 
-This is the single, simplified crew that orchestrates analysis workflows.
+This is the crew that orchestrates analysis workflows.
 It uses MCP tools directly via the AnalysisOrchestrator agent.
-
-The crew structure has been simplified from multiple crews (DataCrew, AnalysisCrew,
-StoryCrew, NotebookCrew, MasterCrew) to a single crew that uses MCP tools directly.
-
-This reduces complexity and token consumption while maintaining full functionality.
 """
 
 import logging

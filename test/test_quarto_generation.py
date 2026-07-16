@@ -247,7 +247,7 @@ def test_get_data_for_story_integration():
         assert 'analyze_data_statistics_tool' in source, "Should call analyze_data_statistics_tool"
         assert 'apply_analysis_guardrails_tool' in source, "Should call apply_analysis_guardrails_tool"
         assert 'extract_visualization_structure_tool' in source, "Should call extract_visualization_structure_tool"
-        assert 'generate_visualization_description_tool' in source, "Should call generate_visualization_description_tool"
+        assert 'generate_visualization_tool' in source, "Should call generate_visualization_tool"
         print("  ✅ All analysis tools are called in get_data_for_story")
         
         return True

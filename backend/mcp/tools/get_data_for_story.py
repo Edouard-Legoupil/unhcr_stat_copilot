@@ -231,9 +231,9 @@ async def get_data_for_story_tool(
         # Generate visualization description (Phase 3 - NEW)
         visualization_description = None
         try:
-            from backend.mcp.tools.generate_visualization_description import generate_visualization_description_tool
+            from backend.mcp.tools.generate_visualization import generate_visualization_tool
             if visualization_structure and stats:
-                visualization_description = await generate_visualization_description_tool(
+                visualization_description = await generate_visualization_tool(
                     structure=visualization_structure,
                     statistics=stats,
                     description_type="detailed",

@@ -96,7 +96,7 @@ def create_server() -> FastMCP:
         get_demographic_breakdown_tool,
         extract_visualization_structure_tool,
         analyze_data_statistics_tool,
-        generate_visualization_description_tool,
+        generate_visualization_tool,
         get_usage_guidance_tool,
         get_suggested_questions_tool,
         apply_analysis_guardrails_tool,
@@ -309,21 +309,21 @@ def create_server() -> FastMCP:
         return analyze_data_statistics_tool(data, numeric_columns, categorical_columns, correlation_columns)
 
     @server.tool(
-        name="generate_visualization_description",
+        name="generate_visualization",
         description=(
             "Generate AI-powered descriptions and interpretations for visualizations. "
             "Use this tool when asked to explain charts, provide insights from graphs, "
             "or create narrative descriptions of data visualizations."
         ),
     )
-    async def generate_visualization_description_wrapper(
+    async def generate_visualization_wrapper(
         structure: dict[str, Any],
         statistics: dict[str, Any] | None = None,
         description_type: str = "both",
         max_length: int = 300,
         focus_areas: list[str] | None = None
     ) -> dict[str, Any]:
-        return await generate_visualization_description_tool(
+        return await generate_visualization_tool(
             structure, statistics, description_type, max_length, focus_areas
         )
 

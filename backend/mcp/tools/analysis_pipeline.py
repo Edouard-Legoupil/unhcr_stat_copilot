@@ -31,7 +31,7 @@ async def run_enhanced_analysis_pipeline(
     - Statistical analysis (analyze_data_statistics)
     - Compliance validation (apply_analysis_guardrails)
     - Visualization structure extraction (extract_visualization_structure)
-    - Visualization description generation (generate_visualization_description)
+    - Visualization description generation (generate_visualization)
     - AI-powered story generation (generate_analytical_story with unified RAG support)
     
     Args:
@@ -172,10 +172,10 @@ async def run_enhanced_analysis_pipeline(
     # Phase 4: Generate visualization descriptions
     visualization_description = None
     try:
-        from backend.mcp.tools.generate_visualization_description import generate_visualization_description_tool
+        from backend.mcp.tools.generate_visualization import generate_visualization_tool
         
         if visualization_structure and stats_result:
-            visualization_description = await generate_visualization_description_tool(
+            visualization_description = await generate_visualization_tool(
                 structure=visualization_structure,
                 statistics=stats_result,
                 description_type="detailed",
